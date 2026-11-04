@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { billingStateOf } from '~/domain/billing'
 import { ministryId, personId, type MinistryId } from '~/domain/ids'
+import { setupMeterOf } from '~/domain/setup-meter'
 import type { AdminPage, AdminResolution } from '~/service/ports'
 import { text } from './rows'
 import { verifiedTokenSubject } from './session'
@@ -61,6 +62,17 @@ export const readPageDocument = async (
 }
 
 /**
+ * The What's new entries this Admin has closed. Raised when missing, as a missing
+ * section is: a later replacement of `app.page_session()` that dropped the key must
+ * fail loudly, not bring every closed card back.
+ */
+const dismissedEntries = (admin: Readonly<Record<string, unknown>>): readonly string[] => {
+  const entries = admin.whats_new_dismissed
+  if (!Array.isArray(entries)) throw new Error('The page document has no whats_new_dismissed')
+  return entries.flatMap((entry) => text(entry) ?? [])
+}
+
+/**
  * The three answers a page can get about the session, off the top of its
  * document. `signed-out` is a token that verifies but names no held session
  * (`docs/adr/0016-a-password-change-ends-every-session.md`), as much as no token
@@ -96,6 +108,8 @@ export const resolutionOf = (doc: PageDocument): AdminResolution => {
       billing: billingStateOf(section(doc, 'billing')),
       personId: own ? personId(own) : null,
       fullName: text(admin.full_name),
+      whatsNewDismissed: dismissedEntries(admin),
+      setup: setupMeterOf(section(doc, 'setup')),
     },
   }
 }

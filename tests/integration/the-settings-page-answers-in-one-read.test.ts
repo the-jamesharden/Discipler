@@ -18,10 +18,11 @@ import {
  * names, which is what lets the reader's parsing move without changing.
  */
 
-// A church that has not paid, on any page's document (Exponential launch, ticket 03).
-const NOTHING_ESTABLISHED = {
-  standing: 'no_subscription',
-  has_access: false,
+// A fixture church, billed outside Stripe, on any page's document (Exponential launch,
+// tickets 03 and 05).
+const OUTSIDE_STRIPE = {
+  standing: 'outside_stripe',
+  has_access: true,
   trial_ends_at: null,
   current_period_ends_at: null,
   cancels_at: null,
@@ -53,8 +54,11 @@ describe('the settings page answers in one read', () => {
         ministry_name: 'Riverside Chapel',
         person_id: riverside.adminPersonId,
         full_name: riverside.adminName,
+        whats_new_dismissed: [],
       },
-      billing: NOTHING_ESTABLISHED,
+      billing: OUTSIDE_STRIPE,
+      // The setup meter's own document (ticket 26), proved in `the-setup-meter-over-http`.
+      setup: expect.objectContaining({ finished: false }),
       settings: separate,
       // Which of Discipler's questions each edited form asks (Pastor feedback,
       // ticket 13): none edited, so none listed.

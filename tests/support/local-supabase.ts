@@ -136,9 +136,13 @@ export interface MinistryFixture extends MinistryRef {
  * an account therefore step past a number that is already taken (`TAKEN_NUMBER_TRIES`)
  * rather than fail a whole suite in its `beforeAll` for it; a number a test named on
  * purpose is never stepped past.
+ *
+ * The seven digits start at 2_000_000 because no North American exchange begins
+ * with 0 or 1, and `isUsPhone` refuses a number that does.
  */
-let nextNumber = Math.floor(Math.random() * 10_000_000)
-export const aTestPhoneNumber = () => `+1555${String(nextNumber++ % 10_000_000).padStart(7, '0')}`
+const TEST_NUMBERS = 8_000_000
+let nextNumber = Math.floor(Math.random() * TEST_NUMBERS)
+export const aTestPhoneNumber = () => `+1555${2_000_000 + nextNumber++ % TEST_NUMBERS}`
 
 /**
  * How long a test that drives the whole scheduled tick may take. The tick route
@@ -209,6 +213,10 @@ export const createMinistryWithAdmin = async (
   // dual-role suites, which need to read his name on a page. Everywhere else the
   // Admin is furniture and a derived name says so.
   adminName: string = `Admin of ${name}`,
+  // A fixture church texts with no subscription, so a suite about anything else is
+  // not about billing as well. A suite about the texting gate or a billing state says
+  // `billedOutsideStripe: false` and gets the church self sign-up makes.
+  { billedOutsideStripe = true }: { readonly billedOutsideStripe?: boolean } = {},
 ): Promise<MinistryFixture> => {
   // Before provisioning, so the keys the adapter needs are in the environment by
   // the time it looks for them.
@@ -220,6 +228,7 @@ export const createMinistryWithAdmin = async (
       // UTC and said so: every suite was written against the clock a Ministry had
       // before provisioning asked for one, and a suite about a zone sets its own.
       timezone: 'UTC',
+      billedOutsideStripe,
       admin: {
         fullName: adminName,
         phone: aTestPhoneNumber(),

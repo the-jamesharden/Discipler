@@ -5,8 +5,8 @@ import { deploymentOf, type Environment } from './deployment'
  * until James has published the privacy policy and terms.
  *
  * `SIGN_UP_OPEN=true` and nothing else opens it, so an unset variable, a typo and a
- * forgotten dashboard all leave it shut. Every sign-up route answers 404 while it
- * is shut, and the pages (tickets 15 and 16) are to ask the same question.
+ * forgotten dashboard all leave it shut. Every sign-up route and page answers 404
+ * while it is shut.
  *
  * A Vercel Preview is never open, whatever it says: Preview shares production's
  * database, so an open one would run real sign-ups on an address nobody meant to

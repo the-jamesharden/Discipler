@@ -179,6 +179,8 @@ export interface InMemoryStore extends EffectStore {
   personToRemove: PersonToRemove | null
   /** Who `peopleOnRoster` says was removed from the Roster and has not come back. */
   removedFromTheRoster: Set<PersonId>
+  /** What `app.billing_has_access` would answer. */
+  churchHasAccess: boolean
   readonly removals: readonly PersonRemoval[]
   readonly restorations: readonly PersonRestoration[]
   readonly concerns: readonly NewConcern[]
@@ -476,6 +478,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     accountHeld: null,
     personToRemove: null,
     removedFromTheRoster: new Set<PersonId>(),
+    churchHasAccess: true,
     get removals() {
       return [...removals]
     },
@@ -741,6 +744,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async recordConcernViewing(viewing) {
           stagedViewings.push(viewing)
         },
+        async recordWhatsNewDismissal() {
+          // Nothing a domain test reads: the row is held to its rules over HTTP.
+        },
         async resolveConcern(resolution) {
           stagedConcernResolutions.push(resolution)
         },
@@ -832,6 +838,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
             [...intakes, ...stagedIntakes].map((intake) => intake.personId),
           )
         },
+        async churchHasAccess() {
+          return store.churchHasAccess
+        },
         async ministryVoice() {
           return {
             name: store.ministryName,
@@ -850,6 +859,10 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async changeShortName(change) {
           stagedShortNames.push(change)
+        },
+        async markSetupSeen() {
+          // What an Admin has watched is read back by the page session, which this
+          // store has no face for; `the-setup-meter-over-http` proves it.
         },
         async intakeForm(name) {
           const saved = store.intakeForms.filter((form) => form.name === name)

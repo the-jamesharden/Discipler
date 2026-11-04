@@ -64,6 +64,10 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     if (error instanceof RemovalRefused) return refused(error.refusal)
+    // Letting go of an invitation would have texted, and the church cannot (ticket 05).
+    if (error instanceof InvitationRefused && error.refusal === 'invitation.church_has_no_access') {
+      return to(`/roster/${encodeURIComponent(person.personId)}?noAccess=1`)
+    }
     // One of their pairings changed under the page, and its own act refused.
     if (
       error instanceof CancellationRefused ||

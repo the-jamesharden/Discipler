@@ -165,6 +165,14 @@ export const Video = () => (
   </Line>
 )
 
+/** A video camera, on the office hours card. */
+export const VideoCamera = () => (
+  <Line>
+    <rect x="2.5" y="6" width="13" height="12" rx="2" />
+    <path d="M15.5 10.5l6-3.5v10l-6-3.5z" />
+  </Line>
+)
+
 /** A pen, on the Blog. */
 export const Pen = () => (
   <Line>
@@ -193,5 +201,38 @@ export const Key = () => (
 export const LeaveDoor = () => (
   <Line>
     <path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l5-5-5-5M15 12H3" />
+  </Line>
+)
+
+/** A magnifying glass, on search. */
+export const Search = () => (
+  <Line>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M20 20l-3.5-3.5" />
+  </Line>
+)
+
+/** A page with its corner turned, on a row of search that opens a page. */
+export const PageIcon = () => (
+  <Line>
+    <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" />
+    <path d="M14 3v5h5" />
+  </Line>
+)
+
+/** Two people side by side, on a pair in search. */
+export const Pair = () => (
+  <Line>
+    <circle cx="8" cy="9" r="3" />
+    <circle cx="16" cy="9" r="3" />
+    <path d="M2.5 19c.5-3 2.8-5 5.5-5s5 2 5.5 5M10.5 19c.5-3 2.8-5 5.5-5s5 2 5.5 5" />
+  </Line>
+)
+
+/** A card, on Billing. */
+export const Card = () => (
+  <Line>
+    <rect x="2.5" y="5" width="19" height="14" rx="2" />
+    <path d="M2.5 10h19" />
   </Line>
 )

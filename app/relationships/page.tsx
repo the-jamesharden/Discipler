@@ -275,6 +275,7 @@ export default async function RelationshipsPage() {
       title={firstName ? `Welcome, ${firstName}` : 'Your relationships'}
       subtitle="Your mentorship dashboard"
       wide
+      {...(resolution.status === 'admin' ? { admin: resolution.admin } : {})}
       actions={
         <>
           {/* The way back, for the one person who has one. A plain Leader has no

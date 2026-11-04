@@ -1,3 +1,4 @@
+import { CHURCH_HAS_NO_ACCESS_TO_TEXTING } from '../texting-gate-copy'
 import type { GroupJoinRefusal, ImportRowRefusal, PairingRefusal } from '~/domain/errors'
 import type { Gender, OneToTwoAnswer } from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
@@ -170,7 +171,9 @@ const groupHeld = (pairing: RosterRelationship): string =>
  * capitalised here to start a line. A one-to-one that names nobody on the other
  * side says nothing.
  */
-const pairingWithItsDirection = (pairing: RosterRelationship): string | null => {
+export const pairingWithItsDirection = (
+  pairing: Pick<RosterRelationship, 'role' | 'name' | 'leaderNames' | 'participantNames' | 'participantCount'>,
+): string | null => {
   const other = pairing.role === 'leader' ? pairing.participantNames : pairing.leaderNames
   if (!isAGroupNow(pairing) && other.length === 0) return null
   const { direction, who } = pairingTagSaid(pairing, isAGroupNow(pairing))
@@ -912,6 +915,7 @@ export const pairsNotPlanned = (refused: number): string =>
  * the Admin somewhere; "constraint violated" does not.
  */
 export const REFUSALS: Record<PairingRefusal, string> = {
+  'relationship.church_has_no_access': CHURCH_HAS_NO_ACCESS_TO_TEXTING,
   'relationship.needs_a_leader': 'Choose the Discipler.',
   'relationship.needs_a_participant':
     'Choose at least one person to be discipled.',
@@ -1041,6 +1045,7 @@ export const GROUP_JOIN_REFUSALS: Record<GroupJoinRefusal, string> = {
   'joining.already_leads_a_group': alreadyLeadsAGroup(undefined),
   'joining.role_not_recognised':
     'That did not say whether to add them as a Disciple or as a Discipler. Open Pair again and choose.',
+  'joining.church_has_no_access': CHURCH_HAS_NO_ACCESS_TO_TEXTING,
 }
 
 /**

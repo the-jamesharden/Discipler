@@ -16,7 +16,7 @@ Sign-up is one flow, modelled on Planning Center's:
 
 1. An are-you-human check, verified on the server before anything costs money.
 2. Email and mobile phone on one page, with the text-message consent under the phone field.
-   Continuing records a consent for that phone with the source `ministry_setup`, which lets Discipler text the Admin without putting them on the path to being paired (see `docs/consent-language.md`).
+   Continuing is a consent for that phone, recorded when the church is opened with the source `ministry_setup`, which lets Discipler text the Admin without putting them on the path to being paired (see `docs/consent-language.md`).
 3. A code emailed to that address, which proves the address.
 4. One page that sets up the account and the church: the church's name, the Admin's name, a password, the timezone, the church-plant question, monthly or yearly, and agreement to the Terms of Service and Privacy Policy, recorded with the terms version and the time.
 5. A card or bank account, taken by Stripe inside Discipler's own sign-up card.

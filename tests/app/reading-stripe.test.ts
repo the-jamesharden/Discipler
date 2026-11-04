@@ -29,6 +29,7 @@ const aSubscription = (changes: Record<string, unknown> = {}) => ({
   status: 'trialing',
   created: 1_790_000_000,
   latest_invoice: 'in_1',
+  pending_setup_intent: null,
   trial_end: 1_792_000_000,
   cancel_at: null,
   cancel_at_period_end: false,
@@ -66,6 +67,7 @@ describe('reading Stripe', () => {
       {
         id: 'sub_1',
         status: 'trialing',
+        awaitingPaymentMethod: false,
         createdAt: new Date(1_790_000_000_000),
         priceId: 'price_97',
         latestInvoiceId: 'in_1',
@@ -75,6 +77,52 @@ describe('reading Stripe', () => {
         namedChurch: 'church-1',
       },
     ])
+  })
+
+  describe('whether a trial’s setup intent was confirmed', () => {
+    const read = async (changes: Record<string, unknown>) => {
+      const { asked, billing } = answering(listOf(aSubscription(changes)))
+      const [subscription] = await billing.subscriptionsOf('cus_1')
+      return { awaiting: subscription?.awaitingPaymentMethod, asked }
+    }
+    const aSetupIntent = (status: string) => ({ id: 'seti_1', object: 'setup_intent', status })
+
+    it('asks Stripe for the setup intent itself', async () => {
+      const { asked } = await read({})
+
+      expect(new URL(asked[0]!).searchParams.getAll('expand[0]')).toEqual(['data.pending_setup_intent'])
+    })
+
+    it('is yes where Stripe has cleared the field', async () => {
+      expect((await read({ pending_setup_intent: null })).awaiting).toBe(false)
+    })
+
+    it('is yes where the setup intent succeeded', async () => {
+      expect((await read({ pending_setup_intent: aSetupIntent('succeeded') })).awaiting).toBe(false)
+    })
+
+    it.each(['requires_payment_method', 'requires_confirmation', 'requires_action', 'processing', 'canceled'])(
+      'is no where it says %s',
+      async (status) => {
+        expect((await read({ pending_setup_intent: aSetupIntent(status) })).awaiting).toBe(true)
+      },
+    )
+
+    it('is no where it comes as a bare ID, because access is not guessed at', async () => {
+      expect((await read({ pending_setup_intent: 'seti_1' })).awaiting).toBe(true)
+    })
+
+    it('stays no once the Subscription has ended, since Stripe leaves it in place', async () => {
+      const changes = { status: 'canceled', pending_setup_intent: aSetupIntent('requires_payment_method') }
+
+      expect((await read(changes)).awaiting).toBe(true)
+    })
+
+    it('does not touch a Subscription that is past its trial', async () => {
+      const changes = { status: 'active', pending_setup_intent: aSetupIntent('requires_action') }
+
+      expect((await read(changes)).awaiting).toBe(false)
+    })
   })
 
   it('reads a cancellation at the period’s end as ending then', async () => {

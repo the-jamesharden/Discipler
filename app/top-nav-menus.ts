@@ -1,3 +1,5 @@
+import type { UpcomingOfficeHours } from '~/domain/office-hours'
+import { CONTACT_SUPPORT, CONTACT_SUPPORT_PAGE } from './help/contact/copy'
 import { HELP_CENTER } from './help/copy'
 import { SETUP_VIDEOS } from './help/setup-videos'
 
@@ -29,6 +31,8 @@ export interface HelpMenuItem {
   readonly tag?: string
   /** Somewhere outside Discipler, which opens in a tab of its own. */
   readonly newTab?: boolean
+  /** Its address names the page the menu was opened on. */
+  readonly carriesThePage?: boolean
 }
 
 export interface HelpMenuGroup {
@@ -36,16 +40,24 @@ export interface HelpMenuGroup {
   readonly items: readonly HelpMenuItem[]
 }
 
+const WHATS_NEW_LABEL = "What's new"
+const OFFICE_HOURS_LABEL = 'Office hours'
+
+/** The Overview's card, which says when the next call is and holds the way in. */
+const OFFICE_HOURS_CARD = '/overview#office-hours'
+
 export const HELP_MENU: readonly HelpMenuGroup[] = [
   {
     label: 'Help and feedback',
     items: [
       { label: HELP_CENTER, icon: 'book', href: '/help' },
       { label: 'Restart onboarding', icon: 'restart', href: null }, // Ticket 27.
-      // Ticket 30, which also makes the tag follow each Admin's own dismissal.
-      { label: "What's new", icon: 'megaphone', href: null, tag: 'New' },
-      { label: 'Office hours', icon: 'calendar', href: null }, // Ticket 30.
-      { label: 'Contact support', icon: 'mail', href: null }, // Ticket 25.
+      // `helpMenuFor` keeps the tag only while this Admin has an undismissed entry.
+      { label: WHATS_NEW_LABEL, icon: 'megaphone', href: '/help/whats-new', tag: 'New' },
+      // `helpMenuFor` gives it its address while there is a next call to go to.
+      { label: OFFICE_HOURS_LABEL, icon: 'calendar', href: null },
+      // A bug report attaches the page it was reported from, so the link says which.
+      { label: CONTACT_SUPPORT, icon: 'mail', href: CONTACT_SUPPORT_PAGE, carriesThePage: true },
     ],
   },
   {
@@ -59,6 +71,29 @@ export const HELP_MENU: readonly HelpMenuGroup[] = [
     ],
   },
 ]
+
+/**
+ * The menu as it stands for one Admin at one moment (Exponential launch, ticket 30):
+ * What's new wears its New tag only while they have an undismissed entry, and Office
+ * hours is there only while the card it opens is.
+ */
+export const helpMenuFor = ({
+  whatsNewIsNew,
+  officeHours,
+}: {
+  readonly whatsNewIsNew: boolean
+  readonly officeHours: UpcomingOfficeHours | null
+}): readonly HelpMenuGroup[] =>
+  HELP_MENU.map((group) => ({
+    ...group,
+    items: group.items.map((item): HelpMenuItem => {
+      if (item.label === WHATS_NEW_LABEL && !whatsNewIsNew) {
+        return { label: item.label, icon: item.icon, href: item.href }
+      }
+      if (item.label === OFFICE_HOURS_LABEL && officeHours) return { ...item, href: OFFICE_HOURS_CARD }
+      return item
+    }),
+  }))
 
 /** The header's button with a gift on it. Ticket 32 builds the page it opens. */
 export const REFER_A_CHURCH: { readonly label: string; readonly href: string | null } = {

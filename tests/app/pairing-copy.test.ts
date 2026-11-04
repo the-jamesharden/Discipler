@@ -41,6 +41,7 @@ const EVERY_REFUSAL: readonly PairingRefusal[] = [
   'relationship.needs_a_name',
   'relationship.material_is_not_on_the_list',
   'relationship.separate_needs_one_leader_and_several_participants',
+  'relationship.church_has_no_access',
 ]
 
 describe('what a refused pairing says to an Admin', () => {

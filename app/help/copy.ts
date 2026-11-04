@@ -19,7 +19,9 @@ export const PREVIOUS_PAGE = 'Previous'
 
 /** Under every page and the list: the way to a person when a page has not answered. */
 export const STILL_STUCK = {
-  before: 'Still stuck? Write to ',
+  before: 'Still stuck? ',
+  form: 'Send us a message',
+  middle: ' or write to ',
   email: SUPPORT_EMAIL,
   after: ' and the team will help.',
 } as const

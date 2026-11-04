@@ -1,5 +1,7 @@
 import pg from 'pg'
 import { beforeAll, describe, expect, it } from 'vitest'
+import { upcomingOfficeHours } from '~/domain/office-hours'
+import { NEXT_OFFICE_HOURS } from '../../app/help/office-hours'
 import {
   addPersonWithAccount,
   aTestPhoneNumber,
@@ -116,7 +118,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the top nav', () => {
     const { html, response } = await getPage('/overview', cookie)
     expect(response.status).toBe(200)
 
-    expect(wordsIn(topMenu(html, 'Help and feedback'))).toEqual(['Help and feedback', 'Help center'])
+    // Office hours is the office hours file's to say, and its own suite holds that.
+    const officeHours = upcomingOfficeHours(NEXT_OFFICE_HOURS, new Date()) ? ['Office hours'] : []
+    expect(wordsIn(topMenu(html, 'Help and feedback'))).toEqual([
+      'Help and feedback',
+      'Help center',
+      'What&#x27;s new',
+      'New',
+      ...officeHours,
+      'Contact support',
+    ])
     expect(topMenu(html, 'Help and feedback')).toContain('href="/help"')
     expect((await getPage('/help', '')).response.status).toBe(200)
 
@@ -124,9 +135,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the top nav', () => {
     for (const notYet of [
       'Ask Discipler',
       'Restart onboarding',
-      'What&#x27;s new',
-      'Office hours',
-      'Contact support',
       'Setup videos',
       'Blog',
       'Refer a church',

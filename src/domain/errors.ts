@@ -75,6 +75,9 @@ export type PairingRefusal =
   // mode; several Disciplers cannot be split into pairs without deciding who goes
   // with whom, which no screen asks. About the submission and not about a Person.
   | 'relationship.separate_needs_one_leader_and_several_participants'
+  // Forming it would text the Leaders, and this church holds no access to texting
+  // (Exponential launch, ticket 05).
+  | 'relationship.church_has_no_access'
 
 /**
  * Every code above, as a list, so a refusal read back from a row -- a refused
@@ -102,6 +105,7 @@ export const PAIRING_REFUSALS: readonly PairingRefusal[] = [
   'relationship.already_has_a_leader',
   'relationship.material_is_not_on_the_list',
   'relationship.separate_needs_one_leader_and_several_participants',
+  'relationship.church_has_no_access',
 ]
 
 export const isPairingRefusal = (value: unknown): value is PairingRefusal =>
@@ -138,6 +142,12 @@ export type InvitationRefusal =
   | 'invitation.not_a_leader'
   /** Its holder declined it. It opens nothing else, and an Admin invites them again. */
   | 'invitation.declined'
+  /**
+   * Taking it back would start the relationship and text its Starter Messages, and
+   * this church holds no access to texting (Exponential launch, ticket 05). An
+   * Admin's, from a page: nobody holding the link can meet it.
+   */
+  | 'invitation.church_has_no_access'
 
 export class InvitationRefused extends Error {
   constructor(readonly refusal: InvitationRefusal) {
@@ -162,6 +172,8 @@ export type ReinvitationRefusal =
   | 'reinvite.already_in_it'
   /** No invitation of theirs to this relationship was ever withdrawn, so this is not a re-invitation. */
   | 'reinvite.never_invited'
+  /** Sending it again is a text, and this church holds no access to texting (ticket 05). */
+  | 'reinvite.church_has_no_access'
 
 export class ReinvitationRefused extends Error {
   constructor(readonly refusal: ReinvitationRefusal) {
@@ -522,6 +534,8 @@ export type PauseRefusal =
    * read back.
    */
   | 'pause.period_not_selectable'
+  /** Resuming tells the people in it, and this church holds no access to texting (ticket 05). */
+  | 'pause.church_has_no_access'
 
 export class PauseRefused extends Error {
   constructor(readonly refusal: PauseRefusal) {
@@ -563,6 +577,8 @@ export type GroupRefusal =
   | 'group.request_not_found'
   /** The group the request named has ended since. The Admin closes the item by hand. */
   | 'group.request_group_ended'
+  /** Admitting them texts the group's Leaders, and this church holds no access to texting (ticket 05). */
+  | 'group.church_has_no_access'
 
 export class GroupRefused extends Error {
   constructor(readonly refusal: GroupRefusal) {
@@ -602,6 +618,8 @@ export type GroupJoinRefusal =
   | 'joining.already_leads_a_group'
   /** The form said neither *as a Disciple* nor *as a leader*. Decided by the route. */
   | 'joining.role_not_recognised'
+  /** Adding them is a text, and this church holds no access to texting (ticket 05). */
+  | 'joining.church_has_no_access'
 
 export class GroupJoinRefused extends Error {
   constructor(readonly refusal: GroupJoinRefusal) {

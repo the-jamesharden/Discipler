@@ -72,6 +72,7 @@ export default async function MinistrySettingsPage({
       subtitle={settings.name}
       back={{ href: '/overview', label: 'Back to the overview' }}
       actions={<AdminNav admin={admin} />}
+      admin={admin}
     >
       {refusals.length > 0 ? (
         <p className="toast error" role="alert">
@@ -88,7 +89,7 @@ export default async function MinistrySettingsPage({
       {/* One form over all three sections. The sections are headings inside it,
           not separate saves. */}
       <form method="post" action="/settings/save">
-        <div className="card">
+        <div className="card" id="ministry">
           <h2 className="card-title">Ministry</h2>
 
           <div className="field">
@@ -136,7 +137,7 @@ export default async function MinistrySettingsPage({
           <TimezoneSelect current={settings.timezone} />
         </div>
 
-        <div className="card">
+        <div className="card" id="language">
           <h2 className="card-title">Language</h2>
           <p className="card-lead">
             Your people are called what you call them. These words go into the texts
@@ -191,7 +192,7 @@ export default async function MinistrySettingsPage({
           ))}
         </div>
 
-        <div className="card">
+        <div className="card" id="pairing">
           <h2 className="card-title">Pairing</h2>
 
           {/* Deliberately not a row in a list of toggles beside the age gap. One is
@@ -253,7 +254,7 @@ export default async function MinistrySettingsPage({
             </p>
           ) : null}
 
-          <h3>Check-in</h3>
+          <h3 id="check-in">Check-in</h3>
           <p className="subtle">
             When each leader is asked how their week went, on the timezone set above. A
             change takes effect from the next check-in; anything already scheduled

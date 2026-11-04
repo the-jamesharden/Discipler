@@ -1232,7 +1232,7 @@ Every page of it is subtitled "Create an account", and the sign-in page offers i
 
 1. **Are you human.** A human check runs on its own page, and is verified on the server before anything costs money.
 2. **Email and mobile phone.** One page asks for both, with the text-message consent under the phone field, word for word in `docs/consent-language.md`.
-   Continuing records the Admin's `ministry_setup` consent.
+   Continuing is the Admin's `ministry_setup` consent, recorded when the church is opened.
 3. **Verify your email.** A 6-digit code is emailed; the same answer is given whether or not the address already has an account, and an existing account's owner is told somebody tried.
 4. **Set up your account.** One page asks for the church's name, the Admin's full name, where they heard about Discipler, a password, the timezone, whether the church is a church plant (with its application on the same page), and monthly or yearly, and has the Admin agree to the Terms of Service and the Privacy Policy, recorded with the terms version and the time.
    The login email is shown and locked.
@@ -1253,6 +1253,7 @@ See `docs/adr/0029-a-church-signs-itself-up.md`.
 
 One flat price per church, billed monthly or yearly, yearly being 20% off: $97 a month for a church with up to 200 people in active relationships, Disciplers and Disciples counted together, and $147 above 200.
 Every church starts on $97; a church that stays above 200 for a whole month causes an email to support@ asking someone to follow up, and nothing is upgraded automatically.
+A whole month is a calendar month in the church's own time zone, above 200 at every moment of it and on the $97 price throughout, so a church that signs up mid-month is first counted for its first whole month.
 Every church gets a free trial with a card or bank account required up front, and nothing is charged until the free days end.
 
 During sign-up a price appears only beside its billing choice, one price and the offer as a percentage, never two prices.
@@ -1262,6 +1263,7 @@ There are three offers:
 - **The Exponential special offer**, from the code `EXPO26` or the booth's QR code: more free days, then 20% off the first year, until the code expires.
   It is never called a founding church rate or a coupon.
 - **A church invited by another church** gets its first paid month free.
+  A yearly church gets one month at the rate it pays off its first bill, rather than a free year.
 - **A church plant** gets a free year after its trial, once James or Lerone approves its application by operator command.
   A plant that came through `EXPO26` gets its free days, then the free year, then the Exponential year.
 
@@ -1283,6 +1285,7 @@ A church's billing state is derived from the history the Stripe webhook records,
 - **Billed outside Stripe.** An operator flag for a church billed by agreement, such as SAU BCM and Anthem Community Church, which runs as a paying church with no subscription.
 
 A text goes out for a church only while it is in its trial, paying, in a failed payment's retries, or billed outside Stripe, checked in the one query every outbound text passes through.
+If that check itself fails the text goes out and support@ is told that day, because silencing live churches is worse than an ended church texting briefly.
 Participants are never texted about billing.
 A church may cancel itself, and the cancellation takes effect at the end of the period it has paid for.
 Any Admin of the church can manage billing.
@@ -1305,7 +1308,7 @@ An applied credit shows on the inviting church's Billing page, which is the only
 The Billing card is the first card in Settings: one line, such as "Free trial until December 30, 2026, then $77.60 a month · Visa ending 4242", and an "Open billing" button.
 It opens Discipler's own Billing page, which shows the plan, the trial or next payment date and amount, any offer in force, the card brand and last four or the bank's name, any referral credit, and past invoices, all read from Stripe on the server.
 Its buttons open Stripe's billing page straight at the step they name (update the payment method, cancel), because Stripe's page cannot be framed inside Discipler.
-Discipler stores only Stripe's IDs, the card brand and last four digits, never a card or account number.
+Discipler stores only Stripe's IDs, the card brand and last four digits, and Stripe's fingerprint of the card or bank account, never a card or account number.
 After sign-up, prices do show: on Billing, its card in Settings, the restart page and the trial-ending email.
 
 ## Settled: The Follow-Up Item Kinds

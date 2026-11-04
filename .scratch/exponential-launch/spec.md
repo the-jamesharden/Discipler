@@ -40,7 +40,8 @@ The flow is modelled on Planning Center's sign-up.
    The token is verified on the server before anything costs money.
 2. **Email and mobile phone.** One page asks for both.
    Under the phone field sits this fine print, word for word: "By continuing, you agree to receive texts from Discipler at this number, including sign-in codes and test check-ins. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help."
-   Continuing records a consent for that phone with a new `consent_source` value, `ministry_setup` (the enum is `('pastor_link', 'qr_code')` today, from `20260827000200_intake_is_the_consent_gate.sql`).
+   Continuing is the consent, and its time is kept.
+   The record is written when the church opens, with that time and a new `consent_source` value, `ministry_setup` (the enum is `('pastor_link', 'qr_code')` today, from `20260827000200_intake_is_the_consent_gate.sql`), because `consent_record` needs a Person and a Ministry, and nothing is texted before then (James, 2026-11-03).
    That consent lets Discipler text the Admin without changing their Roster status, because participation still needs an Intake.
 3. **Verify your email.** A 6-digit code is emailed through Resend.
    It expires after 10 minutes, allows 5 tries, and can be resent after 60 seconds.
@@ -119,6 +120,7 @@ The marketing site gets a "Start your ministry" button.
 ### A church invited by another church
 
 - The invited church's first paid month is free, as a 100%-off first invoice after the trial.
+  A yearly church gets one month at the rate it pays instead, $77.60 off its first bill, rather than a free year (James, 2026-11-03).
 - It does not stack with the Exponential special offer; whichever saves the church more applies, which is the Exponential special offer.
 - The inviting church still earns its credit when the invited church pays its first real bill, whichever offer the invited church got.
 
@@ -253,6 +255,7 @@ Texts over it fail with Twilio error 30023 until midnight Pacific.
   5. First Intake received.
   6. First relationship created.
   7. First relationship accepted.
+- The bar stays off on production, with `SETUP_METER_ON` unset, until tickets 27 and 28 ship, because steps 2 and 3 cannot be done until then (James, 2026-11-03).
 - Nothing about ratings, meetings or Follow-Up earns progress.
 - At 100% a badge animation plays once for each Admin, and then the bar goes away.
   The badge is a green seal with a sprout and gold rays, with no word on it, over "{Ministry} is up and running" and a "Thank you!" button (mock-up 3).
@@ -377,13 +380,14 @@ Texts over it fail with Twilio error 30023 until midnight Pacific.
 - The apex domain's SPF `-all` and DMARC `p=quarantine` are left untouched.
 - New sign-ups, support and bug reports, feature requests, the over-200 follow-up and the capacity and balance alerts go to support@trydiscipler.com.
 - Church-plant applications go to james@trydiscipler.com and lerone@trydiscipler.com.
-- No email carries congregation names, phone numbers or Concerns.
+- No email Discipler composes carries congregation names, phone numbers or Concerns.
+  A support message is emailed as typed, with phone numbers stripped: the form asks people to leave names out, and a name someone typed anyway can reach support@ (James, 2026-11-03).
 
 ## Security
 
 ### The required protections (Q23)
 
-1. Card and bank details are typed only on Stripe's pages, and Discipler stores only Stripe's IDs, the card brand and the last four digits.
+1. Card and bank details are typed only on Stripe's pages, and Discipler stores only Stripe's IDs, the card brand, the last four digits and Stripe's fingerprint of the card or bank account, which Q57 needs to know a method has had its free month and which cannot be turned back into a number.
 2. The Stripe webhook verifies the signature on the raw body, refuses everything when the secret is unset, refuses events from the wrong mode, records each event once by its ID, and always re-reads the subscription from Stripe instead of trusting event order.
 3. Billing rows are written under `discipler_command` scoped to one church, found through a narrow definer function from the stored Stripe customer, never with `service_role`.
 4. The server decides which church is paying and never takes a church ID from the browser; the "payment complete" page unlocks nothing.
@@ -407,7 +411,9 @@ Texts over it fail with Twilio error 30023 until midnight Pacific.
 - Admins with a verified email get an emailed reset link (Q29).
 - The privacy policy and terms in `docs/legal/` are updated, reviewed by James or a lawyer, and published by James before sign-up goes live, and sign-up stays off until they are (Q30).
 - Bank accounts only through instant verification (Q31).
-- A church's texts go out only while its subscription is trialing or active, or it is billed outside Stripe, checked in the one query every outbound text passes through (Q32).
+- A church's texts go out only while its subscription is trialing, active or past due, or it is billed outside Stripe, checked in the one query every outbound text passes through (Q32).
+  Past due is in that list because everything keeps running during Stripe's retries (James, 2026-11-03).
+  If that check itself fails the text goes out and support@ is told that day, because silencing live churches is worse than an ended church texting briefly (James, 2026-11-03).
 - Stripe keys exist only on Production, and Preview deployments need a Vercel sign-in (Q33).
 - The sign-in guessing hole is tested first, and if it is real, Discipler adds its own limit of 10 failures per account and per network per 15 minutes (Q34).
 - AI chats are deleted after 90 days, readable only by their author, and sent with zero data retention (Q35).
@@ -476,8 +482,8 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | 01 - Operator-only tables and the coverage test | Every table is church-scoped or operator-only, proven by the test | shipped | Nothing |
 | 02 - Staging | A copy with its own database, Stripe in test mode and no real texting | ready-for-human | Nothing |
 | 03 - Billing records and the Stripe webhook | The only writer of billing state | shipped | 01 |
-| 04 - Prices, offers and the Checkout session | $97, $147, the trial, the offers, and the hosted Checkout | ready-for-agent | 03 |
-| 05 - The texting gate | No text leaves for a church without a live subscription | ready-for-agent | 03 |
+| 04 - Prices, offers and the Checkout session | $97, $147, the trial, the offers, and the hosted Checkout | shipped | 03 |
+| 05 - The texting gate | No text leaves for a church without a live subscription | shipped | 03 |
 | 06 - The shared numbers | A Discipler number per person per church, replacing a number per church | shipped | Nothing |
 | 07 - The daily cap | Spread check-ins, hold texts on error 30023, alert once a day | needs-info | 06 |
 | 08 - The Twilio balance and spend alarm | An email before an empty balance stops every text | shipped | 10 |
@@ -486,9 +492,9 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | 11 - Email codes and the human check | Turnstile and the 6-digit email code, on the server | shipped | 01, 10 |
 | 12 - Password policy | 8 characters, a blocklist, 64 and more allowed | shipped | Nothing |
 | 13 - The sign-in guessing limit | Test the hole, and close it if it is real | shipped | Nothing |
-| 14 - The over-200 follow-up | An email when a church stays above 200 people for a month | ready-for-agent | 03, 10 |
-| 15 - Sign-up: are you human, email and phone | Steps 1 and 2 of sign-up | needs-info | 11 |
-| 16 - Sign-up: verify your email | Step 3 of sign-up | needs-info | 15 |
+| 14 - The over-200 follow-up | An email when a church stays above 200 people for a month | shipped | 03, 10 |
+| 15 - Sign-up: are you human, email and phone | Steps 1 and 2 of sign-up | shipped | 11 |
+| 16 - Sign-up: verify your email | Step 3 of sign-up | shipped | 15 |
 | 17 - Sign-up: set up your account | Step 4, opening the church through `provisionMinistry` | needs-info | 12, 16 |
 | 18 - Sign-up: Checkout and landing on Overview | Steps 5 and 7 | needs-info | 04, 17 |
 | 19 - Sign-up: the church-plant question and application | Step 6, and the operator approval command | needs-info | 18 |
@@ -496,13 +502,13 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | 21 - Sign in with email or phone | One box for both | needs-info | 17 |
 | 22 - Forgot password | The emailed reset link for Admins | needs-info | 10, 21 |
 | 23 - The top nav and Help menu | The gear, the avatar, the meter's place and the six Help items | shipped | Nothing |
-| 24 - Search | The directory behind ⌘K, `/` and the search bar | needs-info | 23 |
-| 25 - Contact, bug and feature form | Stored and emailed to support@ | needs-info | 10, 23 |
-| 26 - The setup meter and the badge | Seven steps, never going down, one badge per Admin | ready-for-agent | 23 |
+| 24 - Search | The directory behind ⌘K, `/` and the search bar | ready-for-human | 23 |
+| 25 - Contact, bug and feature form | Stored and emailed to support@ | shipped | 10, 23 |
+| 26 - The setup meter and the badge | Seven steps, never going down, one badge per Admin | shipped | 23 |
 | 27 - The onboarding modal and the tour | The modal, the welcome video, the three cards, the checklist and the seven-step demo tour | ready-for-agent | 26, 30 |
 | 28 - The test check-in | A check-in to the Admin's own phone, never counted | ready-for-agent | 05, 09, 27, 40 |
 | 29 - The unpaired pop-up | The bottom-right card on Overview | shipped | Nothing |
-| 30 - What's new and office hours | The two cards, from repo files | ready-for-agent | 23 |
+| 30 - What's new and office hours | The two cards, from repo files | shipped | 23 |
 | 31 - The AI guide | Help-docs-only answers through the AI Gateway | ready-for-agent | 26, 34 |
 | 32 - Refer and the referral credit | The Refer page and the credit | ready-for-agent | 04, 20 |
 | 33 - Billing in Settings and the billing states | The Billing row, the banners and the restart page | ready-for-agent | 04, 05 |

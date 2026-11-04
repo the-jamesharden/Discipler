@@ -66,7 +66,8 @@ When someone signs a church or ministry up for Discipler, we collect:
 
 Card and bank details are entered only on forms provided by Stripe, our payment processor, and never reach Discipler's servers.
 If you add a bank account, you sign in to your bank through Stripe, under Stripe's own privacy policy.
-Discipler keeps only Stripe's reference numbers, the card brand and its last four digits or the bank's name, the plan, and the history of invoices and payments.
+Discipler keeps only Stripe's reference numbers, the card brand and its last four digits or the bank's name, Stripe's fingerprint of the card or bank account, the plan, and the history of invoices and payments.
+The fingerprint does not show the card or account number, and Discipler uses it to check that one card or bank account does not claim the same offer twice.
 
 ### Account information
 

@@ -38,9 +38,11 @@ import {
 } from '~/platform/supabase/outbound-queue'
 import { createSupabaseMaterialsReader } from '~/platform/supabase/materials-reader'
 import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reader'
+import { createSupabaseSearchReader } from '~/platform/supabase/search-reader'
 import { messageTransportKind } from '~/platform/deployment'
 import { createRecordingTransport } from '~/platform/recording-transport'
 import { createRecordingVerifier } from '~/platform/recording-verifier'
+import { firstPriceIdsIn } from '~/platform/stripe/prices'
 import { createTwilioBalanceReader } from '~/platform/twilio/account-balance'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { createResendTransport } from '~/platform/resend/email-transport'
@@ -68,11 +70,20 @@ import {
   type PostgresSharedNumbers,
 } from '~/platform/supabase/shared-numbers'
 import {
+  createPostgresOver200FollowUps,
+  type PostgresOver200FollowUps,
+} from '~/platform/supabase/over-200-follow-ups'
+import {
   createPostgresTwilioBalanceFalls,
   type PostgresTwilioBalanceFalls,
 } from '~/platform/supabase/twilio-balance-falls'
+import {
+  createPostgresSupportSubmissions,
+  type PostgresSupportSubmissions,
+} from '~/platform/supabase/support-submissions'
 import type { CapacityConcern } from '~/domain/shared-numbers'
-import { createStripeBilling } from '~/platform/stripe/billing'
+import { createStripeBilling, stripeClient } from '~/platform/stripe/billing'
+import { createStripeTrials } from '~/platform/stripe/trials'
 import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
 import { createCommandService, type CommandService } from './command-service'
 import { createDailyCap, type DailyCap } from './daily-cap'
@@ -87,7 +98,10 @@ import {
   type StripeEventSweep,
   type StripeEventWork,
 } from './stripe-events'
+import type { Invitations, TrialWork } from './open-trial'
+import { watchOver200Churches, type Over200WatchOutcome } from './over-200-watch'
 import { createEmailSupportAlerts } from './support-alerts'
+import { createSupportForm, type SupportForm, type SupportSweep } from './support-form'
 import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
 import type {
   Accounts,
@@ -110,6 +124,7 @@ import type {
   OutboundQueue,
   OverviewReader,
   RosterReader,
+  SearchReader,
   SharedNumberCapacity,
   SignInLimit,
   StripeEventInbox,
@@ -168,10 +183,13 @@ let outboundQueue: PostgresOutboundQueue | undefined
 let ministryDirectory: PostgresMinistryDirectory | undefined
 let messageTransport: MessageTransport | undefined
 let emailSender: EmailSender | undefined
+let supportSubmissions: PostgresSupportSubmissions | undefined
+let supportForm: SupportForm | undefined
 let phoneChecks: PostgresPhoneChecks | undefined
 let phoneCheck: PhoneCheck | undefined
 let sharedNumbers: PostgresSharedNumbers | undefined
 let twilioBalanceFalls: PostgresTwilioBalanceFalls | undefined
+let over200FollowUps: PostgresOver200FollowUps | undefined
 let dailyCapHolds: PostgresDailyCapHolds | undefined
 let pendingSignups: PostgresPendingSignups | undefined
 let signUp: SignUp | undefined
@@ -418,6 +436,27 @@ export const getSignUp = (): SignUp => {
 }
 
 /**
+ * The Help menu's form (Exponential launch, ticket 25). The store is on the trusted
+ * connection, and drops into `discipler_command` for a church's own write, because
+ * somebody signed out has no session to write with. Turnstile's secret is read per use.
+ */
+export const getSupportForm = (): SupportForm => {
+  if (!supportForm) {
+    supportSubmissions = createPostgresSupportSubmissions(commandDatabaseUrl())
+    supportForm = createSupportForm({
+      submissions: supportSubmissions,
+      humanCheck: createTurnstile(),
+      sender: getEmailSender(),
+      clock: systemClock,
+    })
+  }
+  return supportForm
+}
+
+/** The tick's pass over the form's two tables. It throws when the database does, and the tick catches it. */
+export const sweepTheSupportSubmissions = (): Promise<SupportSweep> => getSupportForm().sweep()
+
+/**
  * One drain of one Ministry's queue, assembled from the parts above so that its
  * callers cannot assemble it differently. The scheduler drains after its tick, and
  * every request whose command queued a message drains after its response, the
@@ -458,6 +497,10 @@ export const getSharedNumbers = (): SharedNumberCapacity => {
 /** What support@ is told about, emailed through the one sender. */
 export const getSupportAlerts = (): SupportAlerts => createEmailSupportAlerts(getEmailSender())
 
+/** Once a day, by the email's own key, however many passes find it (Exponential launch, ticket 05). */
+export const tellSupportTheTextingGateIsUnread = (): Promise<void> =>
+  getSupportAlerts().textingGateUnread({ day: systemClock.now().toISOString().slice(0, 10) })
+
 /** One pass of the capacity watch, assembled so its callers cannot assemble it differently. */
 export const watchTheSharedNumbers = (): Promise<readonly CapacityConcern[]> =>
   watchSharedNumberCapacity({
@@ -481,7 +524,24 @@ const stripeEventWork = (): StripeEventWork => ({
   inbox: billing().inbox,
   records: billing().records,
   stripe: createStripeBilling(),
+  trials: createStripeTrials(),
   alerts: getSupportAlerts(),
+  clock: systemClock,
+})
+
+/**
+ * Who invited a church. Nobody, until ticket 32's `referral` table holds the answer:
+ * that table is written when a church opens (ticket 17) and not taken from the browser,
+ * so this is the one line for it to change.
+ */
+export const getInvitations = (): Invitations => ({ wasInvited: async () => false })
+
+/** Opening a church's trial, on the server's word about everything but the choice. */
+export const getTrialWork = (): TrialWork => ({
+  records: billing().records,
+  stripe: createStripeBilling(),
+  trials: createStripeTrials(),
+  invitations: getInvitations(),
   clock: systemClock,
 })
 
@@ -510,6 +570,27 @@ export const watchTheTwilioBalance = async (): Promise<TwilioBalanceWatchOutcome
     falls: twilioBalanceFalls,
     alerts: getSupportAlerts(),
     clock: systemClock,
+  })
+}
+
+/**
+ * One pass of the over-200 watch (Exponential launch, ticket 14). Where there is no
+ * Stripe, or its catalog does not have both of the first price's billing choices,
+ * nobody can be said to be on it, so nothing more is read, and the tick's response says
+ * so rather than reporting a quiet month. Throws when Stripe or the churches could not
+ * be read, and the tick catches it.
+ */
+export const watchTheOver200Churches = async (): Promise<Over200WatchOutcome | 'no_prices'> => {
+  if (!process.env.STRIPE_SECRET_KEY) return 'no_prices'
+  const firstPrices = await firstPriceIdsIn(stripeClient())
+  if (!firstPrices) return 'no_prices'
+
+  if (!over200FollowUps) over200FollowUps = createPostgresOver200FollowUps(commandDatabaseUrl())
+  return watchOver200Churches({
+    followUps: over200FollowUps,
+    alerts: getSupportAlerts(),
+    clock: systemClock,
+    firstPrices,
   })
 }
 
@@ -563,10 +644,12 @@ export const closeCommandService = async (): Promise<void> => {
   const checks = phoneChecks
   const shared = sharedNumbers
   const balanceFalls = twilioBalanceFalls
+  const followUps = over200FollowUps
   const capHolds = dailyCapHolds
   const limit = signInLimit
   const signUps = pendingSignups
   const billed = postgresBilling
+  const submissions = supportSubmissions
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -578,11 +661,14 @@ export const closeCommandService = async (): Promise<void> => {
   phoneCheck = undefined
   sharedNumbers = undefined
   twilioBalanceFalls = undefined
+  over200FollowUps = undefined
   dailyCapHolds = undefined
   signInLimit = undefined
   pendingSignups = undefined
   signUp = undefined
   postgresBilling = undefined
+  supportSubmissions = undefined
+  supportForm = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
@@ -596,10 +682,12 @@ export const closeCommandService = async (): Promise<void> => {
   await checks?.close()
   await shared?.close()
   await balanceFalls?.close()
+  await followUps?.close()
   await capHolds?.close()
   await limit?.close()
   await signUps?.close()
   await billed?.close()
+  await submissions?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)
@@ -659,6 +747,13 @@ export const getCheckInsReader = (): CheckInsReader => createSupabaseCheckInsRea
  * question about now, as is the state each card's pill shows.
  */
 export const getMaterialsReader = (): MaterialsReader => createSupabaseMaterialsReader(systemClock)
+
+/**
+ * Search reads through the signed-in Admin's session like every page, and takes the
+ * clock because whether the Overview draws an unaccepted relationship yet is a
+ * question about now.
+ */
+export const getSearchReader = (): SearchReader => createSupabaseSearchReader(systemClock)
 
 /**
  * The Leader Dashboard reads through the signed-in user's session and takes no

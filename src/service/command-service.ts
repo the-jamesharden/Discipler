@@ -276,6 +276,9 @@ export const applyEffects = async (
   const shortNameChanges = effects.flatMap((effect) =>
     effect.kind === 'shortName.change' ? [effect.change] : [],
   )
+  const setupSeen = effects.flatMap((effect) =>
+    effect.kind === 'setup.markSeen' ? [effect.seen] : [],
+  )
   const intakeFormSaves = effects.flatMap((effect) =>
     effect.kind === 'intakeForm.save' ? [effect.saving] : [],
   )
@@ -314,6 +317,9 @@ export const applyEffects = async (
   )
   const viewings = effects.flatMap((effect) =>
     effect.kind === 'concern.view' ? [effect.viewing] : [],
+  )
+  const whatsNewDismissals = effects.flatMap((effect) =>
+    effect.kind === 'whatsNew.dismiss' ? [effect.dismissal] : [],
   )
   const concernResolutions = effects.flatMap((effect) =>
     effect.kind === 'concern.resolve' ? [effect.resolution] : [],
@@ -444,6 +450,7 @@ export const applyEffects = async (
   // decision nobody made -- and, worse here, claiming words were cleared that are
   // still on the row.
   for (const viewing of viewings) await unit.recordConcernViewing(viewing)
+  for (const dismissal of whatsNewDismissals) await unit.recordWhatsNewDismissal(dismissal)
   for (const resolution of concernResolutions) await unit.resolveConcern(resolution)
 
   // The exchange that is ending, then the one that replaces it, then the moves
@@ -476,6 +483,8 @@ export const applyEffects = async (
   // after history had recorded the change would leave a record of a link nobody
   // can open.
   for (const change of shortNameChanges) await unit.changeShortName(change)
+
+  for (const seen of setupSeen) await unit.markSetupSeen(seen)
 
   // Before the history saying it happened, like every other write here: the
   // database refuses a version number already taken, and being refused after
@@ -576,6 +585,28 @@ type AboutOneRelationship = Extract<
       | 'group.configure'
   }
 >
+
+/**
+ * What an Admin's act from a page says when it would text and the church holds no
+ * access (Exponential launch, ticket 05): refused, with nothing written, in the code
+ * family its own surface already words. The command follows the refusal for the
+ * reason `NOT_FOUND` below gives.
+ *
+ * Only an Admin's acts, on purpose. The links people were already texted keep working
+ * while a church is ended and their answers are kept (the spec, Decisions), and an
+ * inbound text is heard: their commands are carried out and any text they compose is
+ * closed by the gate in `OutboundQueue.due`. That gate is what stops a text. This is
+ * so an Admin is told instead of finding out by silence.
+ */
+const REFUSED_WITHOUT_ACCESS: Partial<Readonly<Record<Command['type'], () => Error>>> = {
+  'relationship.create': () => new PairingRefused('relationship.church_has_no_access'),
+  'group.add_participant': () => new GroupJoinRefused('joining.church_has_no_access'),
+  'group.add_leader': () => new GroupJoinRefused('joining.church_has_no_access'),
+  'relationship.admit': () => new GroupRefused('group.church_has_no_access'),
+  'relationship.resume': () => new PauseRefused('pause.church_has_no_access'),
+  'invitation.reissue': () => new ReinvitationRefused('reinvite.church_has_no_access'),
+  'invitation.withdraw': () => new InvitationRefused('invitation.church_has_no_access'),
+}
 
 /**
  * The six commands that name one relationship an Admin is acting on. Each needs
@@ -1146,6 +1177,7 @@ export const createCommandService = ({
               checkInsDue: await unit.leadersDueForCheckIn(),
               paused: await unit.pausedRelationships(),
               materialNotices: await unit.materialRecipients(),
+              churchHasAccess: await unit.churchHasAccess(),
             }
           : {}),
         ...(isAboutOneRelationship(command)
@@ -1233,6 +1265,18 @@ export const createCommandService = ({
           : {}),
       })
 
+      // After the domain, so an act refused for its own reasons says that, and an act
+      // that turns out to send nothing is not refused for a text it was never going to
+      // send. Before anything is written, so a refusal leaves nothing behind.
+      const refusedWithoutAccess = REFUSED_WITHOUT_ACCESS[command.type]
+      if (
+        refusedWithoutAccess &&
+        result.effects.some((effect) => effect.kind === 'message.enqueue') &&
+        !(await unit.churchHasAccess())
+      ) {
+        throw refusedWithoutAccess()
+      }
+
       await applyEffects(result.effects, unit)
 
       return result
@@ -1319,8 +1363,11 @@ export const createCommandService = ({
   },
 
   async withdrawLapsedInvitations(ministryId) {
-    const lapsed = await store.transact(ministryId, (unit) =>
-      unit.lapsedInvitations(clock.now()),
+    // Nothing moves while a church holds no access (ticket 05). A withdrawal can start
+    // a relationship and text its Starter Messages, which would be closed unsent, so
+    // it waits for the first tick after a restart.
+    const lapsed = await store.transact(ministryId, async (unit) =>
+      (await unit.churchHasAccess()) ? unit.lapsedInvitations(clock.now()) : [],
     )
 
     let withdrawn = 0
@@ -1343,7 +1390,15 @@ export const createCommandService = ({
   },
 
   async settleIntendedPairings(ministryId) {
-    const open = await store.transact(ministryId, (unit) => unit.openIntendedPairings())
+    const { open, hasAccess } = await store.transact(ministryId, async (unit) => ({
+      open: await unit.openIntendedPairings(),
+      hasAccess: await unit.churchHasAccess(),
+    }))
+    // A plan is formed by texting its Leaders their invitation, and that text would be
+    // closed unsent, leaving a pair nobody was told about (ticket 05). So it waits, and
+    // the first tick after a restart forms it and its invitation goes then.
+    if (!hasAccess) return { fulfilled: 0, refused: 0, waiting: open.length }
+
     const settled = { fulfilled: 0, refused: 0, waiting: 0 }
 
     for (const plan of open) {

@@ -28,6 +28,7 @@ You choose monthly or yearly when you sign up.
   The code works until the end of {{exponentialLastDay}}, Pacific time.
   After that your free trial still applies.
 - **Invited by another church.** Sign up through another church's link and your first paid month is free.
+  On yearly billing, that is one month at your yearly rate off your first bill.
   If you also have the Exponential special offer, you get that instead, since it saves you more.
 - **Church plants.** A church that launched in the last {{plantLaunchedWithin}}, or is launching in the next {{plantLaunchingWithin}}, can apply for {{churchPlantFree}} free after its trial.
   Answer Yes to "Is your church a church plant?" when you sign up.
@@ -44,7 +45,8 @@ The Billing card in [Settings](/help/settings) shows your plan, your trial or ne
 To update your payment method or cancel, Discipler opens Stripe's own billing page at the right step.
 
 Card and bank details are only ever typed on Stripe's forms.
-Discipler keeps only the card's brand and last four digits.
+Discipler keeps only the card's brand and last four digits, and Stripe's fingerprint of the card or bank account.
+The fingerprint does not show the number, and is how Discipler checks that one card or bank account does not claim the same offer twice.
 A bank account is added by signing in to your bank through Stripe.
 To change to a different bank account, write to [support@trydiscipler.com](mailto:support@trydiscipler.com).
 

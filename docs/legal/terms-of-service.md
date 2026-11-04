@@ -192,6 +192,7 @@ These are the offers available when these Terms take effect:
   After that date the code is refused, and the ordinary free trial still applies.
 - **Inviting another Organization.**
   An Organization invited through another Organization's referral link gets its first paid month free.
+  An Organization on yearly billing gets one month at the rate it pays off its first bill, rather than a free year.
   The inviting Organization earns one month free, applied to its own bill after the invited Organization pays its first bill that is not free.
   The credit is applied no sooner than 30 days after that payment, and is cancelled if the payment is refunded or disputed.
   We may review, and decline, a credit where the two Organizations appear to be the same or connected, for example because they share payment details or an email domain.

@@ -1,7 +1,20 @@
-import { currentSubscription, isStripeEventActedOn, type StripeEventRefusal } from '~/domain/billing'
+import {
+  currentSubscription,
+  isConfirmedAndLive,
+  isStripeEventActedOn,
+  type StripeEventRefusal,
+  type StripeSubscriptionFacts,
+} from '~/domain/billing'
 import type { Clock } from '~/domain/clock'
 import type { MinistryId } from '~/domain/ids'
-import type { BillingRecords, StripeBilling, StripeEventInbox, SupportAlerts } from './ports'
+import { paidPhasesOf } from '~/domain/offers'
+import type {
+  BillingRecords,
+  StripeBilling,
+  StripeEventInbox,
+  StripeTrials,
+  SupportAlerts,
+} from './ports'
 
 /**
  * Processing a Stripe event that has been verified and kept (Exponential launch,
@@ -19,11 +32,15 @@ import type { BillingRecords, StripeBilling, StripeEventInbox, SupportAlerts } f
  *
  * The church comes from the stored customer. The IDs the event's metadata names are
  * only a cross-check, and one that disagrees stops the event and tells support@.
+ *
+ * Once a Subscription this church opened is seen confirmed, what follows from that is
+ * done once (`settleConfirmedTrial`), after and apart from recording it (ticket 04).
  */
 export interface StripeEventWork {
   readonly inbox: StripeEventInbox
   readonly records: BillingRecords
   readonly stripe: StripeBilling
+  readonly trials: StripeTrials
   readonly alerts: SupportAlerts
   readonly clock: Clock
 }
@@ -36,10 +53,56 @@ export const STRIPE_EVENTS_PER_SWEEP = 50
 
 export type StripeEventProcessed = 'recorded' | 'refused' | 'ignored' | 'not-claimed'
 
+/**
+ * What a confirmed setup intent sets going, once per Subscription (ticket 04): the card
+ * or bank account becomes the Subscription's default, and the bills its offer promised
+ * are scheduled. Only now, because a first free month depends on whose card it is, and
+ * a Subscription nobody confirms needs none of this.
+ *
+ * It holds the church's billing lock across Stripe's writes, so a second event about
+ * the same confirmation waits and then finds it settled. A failure rolls back the claim
+ * on the fingerprint with the rest, and the sweep comes back to it: the writes before
+ * it can be done again.
+ */
+const settleConfirmedTrial = async (
+  { records, trials, clock }: StripeEventWork,
+  church: MinistryId,
+  customerId: string,
+  subscription: StripeSubscriptionFacts,
+): Promise<void> => {
+  if (!isConfirmedAndLive(subscription)) return
+
+  await records.establish(church, async (unit) => {
+    const opening = await unit.openingOf(subscription.id)
+    if (!opening || opening.settled) return
+
+    const method = await trials.confirmDefaultPaymentMethod(subscription.id, customerId)
+    // Confirmed, by Stripe's own word, and yet nothing saved: not something to settle
+    // as though it were fine, so it goes back round.
+    if (!method) throw new Error('A confirmed Subscription has no payment method to bill')
+
+    // A method with no fingerprint has not used anything up, and cannot be held to it.
+    const allowed =
+      opening.offer !== 'referral' ||
+      !method.fingerprint ||
+      (await unit.claimFingerprint(method.fingerprint, 'first_free_month', clock.now()))
+
+    const phases = paidPhasesOf({
+      cycle: opening.cycle,
+      offer: allowed ? opening.offer : 'none',
+      plantYear: false,
+    })
+    if (phases.length > 0) await trials.schedulePhases(subscription.id, phases)
+
+    await unit.settleOpening(subscription.id, allowed ? 'as_opened' : 'free_month_refused', clock.now())
+  })
+}
+
 export const processStripeEvent = async (
-  { inbox, records, stripe, alerts, clock }: StripeEventWork,
+  work: StripeEventWork,
   eventId: string,
 ): Promise<StripeEventProcessed> => {
+  const { inbox, records, stripe, alerts, clock } = work
   const entry = await inbox.claim(eventId, clock.now(), STRIPE_EVENT_LEASE_MS)
   if (!entry) return 'not-claimed'
 
@@ -73,7 +136,7 @@ export const processStripeEvent = async (
   const recorded = await records.establish(church, async (unit) => {
     const subscription = currentSubscription(await stripe.subscriptionsOf(customerId))
 
-    if (subscription?.namedChurch && subscription.namedChurch !== church) return false
+    if (subscription?.namedChurch && subscription.namedChurch !== church) return { refused: true } as const
 
     await unit.record(
       {
@@ -88,9 +151,15 @@ export const processStripeEvent = async (
       },
       clock.now(),
     )
-    return true
+    return { refused: false, subscription } as const
   })
-  if (!recorded) return refuse('church_mismatch', church)
+  if (recorded.refused) return refuse('church_mismatch', church)
+
+  // Committed before this starts, so a church's access is not held back by a Stripe
+  // write that fails: the sweep comes back for this, and finds the record already there.
+  if (recorded.subscription) {
+    await settleConfirmedTrial(work, church, customerId, recorded.subscription)
+  }
 
   await inbox.finish(eventId, { outcome: 'recorded', church }, clock.now())
   return 'recorded'

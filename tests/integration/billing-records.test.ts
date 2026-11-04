@@ -12,7 +12,7 @@ import { ministryId } from '~/domain/ids'
 import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
 import { readPageDocument, resolutionOf } from '~/platform/supabase/page'
 import { provisionMinistry } from '~/platform/supabase/provisioning'
-import type { BillingEventRefused, StripeBilling, SupportAlerts } from '~/service/ports'
+import type { BillingEventRefused, StripeBilling, StripeTrials, SupportAlerts } from '~/service/ports'
 import {
   processStripeEvent,
   STRIPE_EVENT_LEASE_MS,
@@ -45,6 +45,7 @@ const aSubscription = (
 ): StripeSubscriptionFacts => ({
   id: `sub_${unique()}`,
   status,
+  awaitingPaymentMethod: false,
   createdAt: new Date('2026-11-01T00:00:00Z'),
   priceId: 'price_97',
   latestInvoiceId: `in_${unique()}`,
@@ -88,7 +89,7 @@ describe('Billing records and the Stripe webhook', () => {
   beforeAll(async () => {
     pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
     billing = createPostgresBilling(localSupabase().databaseUrl)
-    northgate = await createMinistryWithAdmin('Northgate Fellowship')
+    northgate = await createMinistryWithAdmin('Northgate Fellowship', undefined, { billedOutsideStripe: false })
   })
 
   afterAll(async () => {
@@ -105,15 +106,25 @@ describe('Billing records and the Stripe webhook', () => {
       async twilioBalanceLow() {},
       async twilioSpendPassed() {},
       async dailyCapReached() {},
+      async over200FollowUp() {},
       async billingEventRefused(alert) {
         told.push(alert)
       },
+      async textingGateUnread() {},
     }
-    work = { inbox: billing.inbox, records: billing.records, stripe: fake.stripe, alerts, clock }
+    work = {
+      inbox: billing.inbox,
+      records: billing.records,
+      stripe: fake.stripe,
+      // Nothing here was opened through the route, so nothing here is ever settled.
+      trials: {} as StripeTrials,
+      alerts,
+      clock,
+    }
 
     // A church of its own per test: a customer can be stored once and history can
     // never be cleared, so nothing carries between them.
-    riverside = await createMinistryWithAdmin('Riverside Chapel')
+    riverside = await createMinistryWithAdmin('Riverside Chapel', undefined, { billedOutsideStripe: false })
     customer = aCustomer()
     await billing.records.rememberCustomer(riverside.id, customer, false)
   })

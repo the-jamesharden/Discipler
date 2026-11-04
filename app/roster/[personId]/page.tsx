@@ -5,6 +5,7 @@ import { ClipboardField } from '../../intake-forms/clipboard-field'
 import { OwnAnswers } from '../../own-answers'
 import { initialsOf, NotAnAdmin, PageShell } from '../../shell'
 import { AdminNav } from '../../top-nav'
+import { CHURCH_HAS_NO_ACCESS_TO_TEXTING } from '../../texting-gate-copy'
 import { getRosterReader } from '~/service/container'
 import { personId as asPersonId } from '~/domain/ids'
 import { goalAsShown } from '~/domain/discipleship-goals'
@@ -60,6 +61,7 @@ export default async function PersonPage({
     intakeLink?: string
     /** A new invitation was just sent. The route sets this only when a text went out. */
     reinvited?: string
+    noAccess?: string
     /** What an Unpair just did, or that it was refused. A code, never a sentence. */
     unpair?: string
     /** Remove was pressed once, so the card opens on its question. */
@@ -101,9 +103,13 @@ export default async function PersonPage({
       subtitle={admin.ministryName}
       back={{ href: '/roster', label: 'Back to the Roster' }}
       actions={<AdminNav admin={admin} />}
+      admin={admin}
     >
       {query.reinvited ? (
         <p className="toast" role="status">{REINVITED(person.fullName)}</p>
+      ) : null}
+      {query.noAccess ? (
+        <p className="toast error" role="alert">{CHURCH_HAS_NO_ACCESS_TO_TEXTING}</p>
       ) : null}
       {isUnpaired(query.unpair) ? (
         <p className="toast" role="status">{UNPAIRED_RECEIPT[query.unpair]}</p>

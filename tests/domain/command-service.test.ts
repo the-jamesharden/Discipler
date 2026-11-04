@@ -67,6 +67,9 @@ describe('applying a command\'s effects', () => {
         ratesLineHistory: async () => {
           throw new Error('nobody’s rates line should have been looked up')
         },
+        churchHasAccess: async () => {
+          throw new Error('nobody should have asked whether this church may text')
+        },
         materialRecipients: async () => {
           throw new Error('nobody should have been looked up for a Material text')
         },
@@ -214,6 +217,9 @@ describe('applying a command\'s effects', () => {
         recordConcernViewing: async () => {
           throw new Error('no Concern should have been opened')
         },
+        recordWhatsNewDismissal: async () => {
+          throw new Error('no What\u2019s new entry should have been dismissed')
+        },
         resolveConcern: async () => {
           throw new Error('no Concern should have been resolved')
         },
@@ -311,6 +317,9 @@ describe('applying a command\'s effects', () => {
         },
         ministryShortName: async () => {
           throw new Error('the short name should not have been read')
+        },
+        markSetupSeen: async () => {
+          throw new Error('nothing should have been marked seen')
         },
         changeShortName: async () => {
           throw new Error('the short name should not have been changed')

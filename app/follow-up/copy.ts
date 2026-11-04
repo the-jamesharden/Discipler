@@ -18,6 +18,7 @@ import { daysSince } from '~/domain/clock'
 import type { CareReason, RelationshipState } from '~/domain/relationship-state'
 import type { RelationshipOutcome } from '~/domain/relationships'
 import { refusalIn } from '../refusals'
+import { CHURCH_HAS_NO_ACCESS_TO_TEXTING } from '../texting-gate-copy'
 
 /**
  * Everything Care Needed says in words. The reader deals in kinds, reasons and
@@ -544,6 +545,7 @@ const PAUSE_REFUSALS: Record<PauseRefusal, string> = {
   'pause.already_paused': 'That relationship is already paused.',
   'pause.not_paused': 'That relationship is not paused, so there is nothing to resume.',
   'pause.period_not_selectable': 'That is not one of the pause periods.',
+  'pause.church_has_no_access': CHURCH_HAS_NO_ACCESS_TO_TEXTING,
 }
 
 const REINVITATION_REFUSALS: Record<ReinvitationRefusal, string> = {
@@ -552,6 +554,7 @@ const REINVITATION_REFUSALS: Record<ReinvitationRefusal, string> = {
   'reinvite.already_accepted': 'They have accepted since, so there is nobody to invite. Resolve this item.',
   'reinvite.already_in_it': 'They are being discipled in that relationship, so they cannot be invited to lead it.',
   'reinvite.never_invited': 'They were never invited to that relationship. Pair them from the Roster instead.',
+  'reinvite.church_has_no_access': CHURCH_HAS_NO_ACCESS_TO_TEXTING,
 }
 
 export const SIGN_IN_AGAIN = 'You have been signed out. Sign in again, then copy the link.'

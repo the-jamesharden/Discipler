@@ -12,14 +12,15 @@
  * the compiler refuses it, and so does the tag at run time for anything cast past
  * the compiler.
  *
- * **No email carries congregation data**: no name from the Roster, no phone number,
- * no Concern and no referred church's name. Resend keeps what it sends, and an
- * inbox is read by whoever can read it. The types refuse the congregation data the
- * domain brands (a phone number, a Person's own words for a goal, a Person or
- * Concern ID), and every field has any phone number taken out of it. A name is a
- * plain string everywhere in the domain, so nothing can tell a congregant's name
+ * **No email Discipler composes carries congregation data**: no name from the Roster,
+ * no phone number, no Concern and no referred church's name. Resend keeps what it
+ * sends, and an inbox is read by whoever can read it. The types refuse the congregation
+ * data the domain brands (a phone number, a Person's own words for a goal, a Person or
+ * Concern ID), and every field of words has any phone number taken out of it. A name
+ * is a plain string everywhere in the domain, so nothing can tell a congregant's name
  * from a church's: an email says "something needs your attention" and links into
- * the signed-in app, and never names who.
+ * the signed-in app, and never names who. What somebody typed into the support form is
+ * theirs and not composed, so a name in it can reach support@ (`./support-form`).
  */
 import type { Branded } from './branded'
 import type { ConcernId, PersonId } from './ids'
@@ -164,6 +165,16 @@ export class EmailField {
       throw new UnescapedEmailField('An email links only to Discipler.')
     }
     return new EmailField(url.href, false)
+  }
+
+  /**
+   * An address to write back to, whole. It has been through `asEmailAddress`, so it
+   * holds nothing to fold away, and any digits before its @ are the address itself.
+   */
+  static address(raw: EmailAddress): EmailField {
+    const address = asEmailAddress(raw)
+    if (address === null) throw new UnescapedEmailField('An address is one ordinary email address.')
+    return new EmailField(address, false)
   }
 
   /** Sign-up's one-time code: six digits and nothing else (ticket 11). */
@@ -333,6 +344,8 @@ export const EMAIL_KINDS = {
   over200FollowUp: 'support',
   /** A Stripe event named a church other than its customer's, or a customer of no church (ticket 03). */
   billingEventRefused: 'support',
+  /** The texting gate could not read a church's access, and texts went on unchecked (ticket 05). */
+  textingGateUnread: 'support',
   /** A church-plant application, with no approve link in it (ticket 19). */
   churchPlantApplication: 'founders',
   /** Sign-up's 6-digit code, and the notice sent instead when the address has an account (ticket 11). */

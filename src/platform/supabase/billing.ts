@@ -1,12 +1,14 @@
 import pg from 'pg'
 import { billingStateOf, type BillingFact, type StripeInboxEntry } from '~/domain/billing'
 import { ministryId, type MinistryId } from '~/domain/ids'
+import { isBillingCycle, type TrialOffer } from '~/domain/offers'
 import type {
   BillingRecords,
   BillingUnit,
   ChurchBilling,
   StripeEventEnding,
   StripeEventInbox,
+  TrialOpening,
 } from '~/service/ports'
 
 /**
@@ -48,6 +50,21 @@ const entryOf = (row: InboxRow): StripeInboxEntry => ({
   namedChurches: row.named_churches,
 })
 
+const TRIAL_OFFERS: readonly TrialOffer[] = ['none', 'exponential', 'referral']
+
+const openingOf = (row: Readonly<Record<string, unknown>>): TrialOpening => {
+  const offer = TRIAL_OFFERS.find((known) => known === row.offer)
+  if (!offer || !isBillingCycle(row.billing_cycle)) {
+    throw new Error('A trial opening holds a cycle or an offer this reader does not know')
+  }
+  return {
+    subscriptionId: String(row.stripe_subscription_id),
+    cycle: row.billing_cycle,
+    offer,
+    settled: row.settled_at !== null,
+  }
+}
+
 const unitFor = (client: pg.PoolClient): BillingUnit => ({
   async record(fact: BillingFact, at: Date) {
     const { subscription } = fact
@@ -57,8 +74,8 @@ const unitFor = (client: pg.PoolClient): BillingUnit => ({
          (ministry_id, stripe_event_id, stripe_event_type, stripe_event_at, recorded_at, livemode,
           stripe_customer_id, stripe_invoice_id, stripe_charge_id, stripe_subscription_id,
           subscription_status, stripe_price_id, stripe_latest_invoice_id,
-          trial_ends_at, current_period_ends_at, cancels_at)
-       values (app.command_ministry_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          trial_ends_at, current_period_ends_at, cancels_at, awaiting_payment_method)
+       values (app.command_ministry_id(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        on conflict (stripe_event_id) do nothing`,
       [
         fact.eventId,
@@ -76,6 +93,7 @@ const unitFor = (client: pg.PoolClient): BillingUnit => ({
         subscription?.trialEndsAt ?? null,
         subscription?.currentPeriodEndsAt ?? null,
         subscription?.cancelsAt ?? null,
+        subscription?.awaitingPaymentMethod ?? false,
       ],
     )
 
@@ -90,6 +108,41 @@ const unitFor = (client: pg.PoolClient): BillingUnit => ({
         where ministry_id = app.command_ministry_id()`,
       [subscription.id, subscription.latestInvoiceId, subscription.priceId, fact.livemode],
     )
+  },
+
+  async recordOpening(opening, at) {
+    await client.query(
+      `insert into trial_opening
+         (stripe_subscription_id, ministry_id, billing_cycle, offer, opened_at)
+       values ($1, app.command_ministry_id(), $2, $3, $4)
+       on conflict (stripe_subscription_id) do nothing`,
+      [opening.subscriptionId, opening.cycle, opening.offer, at],
+    )
+  },
+
+  async openingOf(subscriptionId) {
+    const { rows } = await client.query(
+      `select * from trial_opening
+        where stripe_subscription_id = $1 and ministry_id = app.command_ministry_id()`,
+      [subscriptionId],
+    )
+    return rows[0] ? openingOf(rows[0]) : null
+  },
+
+  async settleOpening(subscriptionId, settledAs, at) {
+    await client.query(
+      `update trial_opening set settled_at = $2, settled_as = $3
+        where stripe_subscription_id = $1 and settled_at is null`,
+      [subscriptionId, at, settledAs],
+    )
+  },
+
+  async claimFingerprint(fingerprint, grant, at) {
+    const { rows } = await client.query<{ claimed: boolean }>(
+      `select app.claim_payment_fingerprint($1, $2, $3) as claimed`,
+      [fingerprint, grant, at],
+    )
+    return rows[0]!.claimed
   },
 })
 

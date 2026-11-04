@@ -187,8 +187,8 @@ Contact support is one form for questions, bugs and feature requests, stored and
 
 Search is a directory, not a question box.
 It opens with ⌘K, with `/`, or from the search bar at the right end of the tab row.
-With nothing typed it lists pages: the tabs, each Settings section, Intake forms, the Help pages, Account, Refer and Billing.
-Typing groups results under People, Relationships, Materials and Help, each saying where it opens; it never searches what anybody replied.
+With nothing typed it lists pages: the tabs, Settings, Intake forms, Account, the Help menu's items, and Refer and Billing once they exist.
+Typing also finds each Settings section and every help page, and groups results under People, Relationships, Materials, the pages' own headings and Help, each saying where it opens; it never searches what anybody replied.
 
 **Ask Discipler** is a circle in the bottom-right corner of every Admin page: a white speech bubble with a green smile and a gold "AI" tag.
 It answers from the help docs only, never sees the church's data, and ends each answer with the help page it came from (`docs/adr/0032-the-ai-guide-answers-from-the-help-docs-only.md`).
@@ -219,6 +219,7 @@ The last Next reads Done, and only Done counts the tour as taken.
 
 Until setup is done, a slim bar titled "Jumpstart discipleship" sits under the tabs on every Admin page, showing "{n}% complete · {done} of 7", a thin progress line, and "Next: {step}" with that step's button.
 Resting the pointer on it, focusing it, or tapping it on a phone grows it to show all seven steps as checkboxes nobody can click.
+The bar is not drawn on production until the tutorial and the test check-in ship (`src/platform/setup-meter-switch.ts`).
 
 The seven steps belong to the church, shared by every Admin, and never go down:
 
@@ -257,8 +258,12 @@ It can be closed, it goes away when the Admin moves to another tab, and it hides
 ## What's new and office hours
 
 Two cards sit in a row at the top of Overview.
-What's new reads its entries from a file in the repo, and each Admin dismisses them for themselves.
-Office hours shows the team's next Zoom call, every two weeks, from a file in the repo, and hides itself once the date has passed.
+What's new reads its entries from a file in the repo, `app/help/whats-new.ts`, and shows the newest this Admin has not dismissed; each Admin dismisses them for themselves.
+Office hours shows the team's next Zoom call, every two weeks, from a file in the repo, `app/help/office-hours.ts`, and hides itself once the date has passed where the call is held.
+One card alone takes the row, and with neither there is no row.
+
+In the Help menu, What's new opens every entry at `/help/whats-new`, and wears its New tag while this Admin has an undismissed entry.
+Office hours is there only while the Overview card is, and opens that card.
 
 ## Refer and Billing
 

@@ -530,12 +530,12 @@ The spec says "points and the What's new item come off the list", and also says 
 `docs/non-goals.md` keeps "points", because removing it would read as approving points, and it has no What's new item to remove.
 What needs deciding: whether that reading stands.
 
-## Open: whether a past-due church keeps texting
+## Resolved: whether a past-due church keeps texting
 
 Raised on 2026-11-01 by the Exponential launch, ticket 35.
 The spec's Billing section says "everything keeps running during Stripe's retries", while its Q32 says texts go out only while trialing or active.
-The docs and ticket 05 follow "everything keeps running", so a `past_due` church keeps texting.
-What needs deciding: whether that stands, before ticket 05 is built.
+The docs and ticket 05 follow "everything keeps running", so a `past_due` church keeps texting, and ticket 05 is built that way.
+James decided on 2026-11-03 that it stands, and the spec's Q32 line now lists past due.
 
 ## Resolved: the reply choices ticket 40 lists
 
@@ -547,6 +547,8 @@ Ticket 40 was triaged with the four ratings, and it is built with "Reply A for o
 Raised on 2026-11-01 by the Exponential launch, ticket 36.
 James filled every bracket in the privacy policy and the terms of service on 2026-11-03, with no refund on cancellation and an effective date of November 3, 2026.
 No lawyer or accountant has reviewed them, including the tax line and the Stripe and Cloudflare disclosures.
+The privacy policy's sentences on Stripe's fingerprint of a card or bank account were added on 2026-11-03 to match ticket 04 and the spec, after James filled it, and are his or a lawyer's to approve before it is published.
+The terms' sentence on a yearly Organization's referral month was added the same day to match James's decision, and is his or a lawyer's to approve too.
 The opt-in page's sign-up section still has its screenshot, which waits on ticket 15, and the checks of the Twilio Verify, HELP and STOP wording.
 All three are to be published on trydiscipler.com, and sign-up stays off in production until they are live.
 What is left: James publishes the two finished documents, registers himself with the US Copyright Office as the copyright agent, and adds the address's ZIP code if he wants it shown.
@@ -578,7 +580,9 @@ What needs deciding: whether to add any of them, and which.
 
 Raised on 2026-11-03 when James approved the retention periods in `docs/legal/privacy-policy.md`, section 7.
 No job in the code deletes anything yet, so each period is a promise to build before it first falls due.
-The periods with no job are support messages at 12 months, help assistant chats at 90 days, abandoned sign-ups at 30 days, billing records and agreements at 7 years, and the information of an ended church or of a church that never completed Checkout and has no subscription at 12 months with an email to its Admins 30 days before.
+Support messages have one since ticket 25: the tick deletes a `support_submission` after 12 months.
+What it cannot reach is the mail those messages became, so the support@ mailbox needs its own 12-month retention, which is a setting and James's to set.
+The periods with no job are help assistant chats at 90 days, abandoned sign-ups at 30 days, billing records and agreements at 7 years, and the information of an ended church or of a church that never completed Checkout and has no subscription at 12 months with an email to its Admins 30 days before.
 The email to Admins is new, so its wording is James's to approve.
 What needs deciding: which tickets own the jobs, and the wording of that email.
 The Billing help page and ticket 33 still say a church's information is "kept", and they change with the deletion job.
@@ -625,7 +629,7 @@ If Resend is down through all of Twilio's retries, that day's spend alarm is los
 Neither the balance read nor the Usage Trigger's signed callback has met the real Twilio.
 What needs deciding: whether repeated failed reads should email support@, and James's one check of both against the real Twilio, with auto-recharge set to add $500 below $100 and a backup card.
 
-## Open: sign-up's numbers and wording, before ticket 15
+## Open: sign-up's numbers and wording, before sign-up opens
 
 Raised on 2026-11-03 by the Exponential launch, ticket 11.
 The spec gives none of these, so the build chose: 5 emails per address and 30 per network each hour, a human check lasting 30 minutes, a proven address lasting 60, and one human pass per address.
@@ -642,20 +646,20 @@ An emoji counts as one character toward the 160, and it can make a text cost mor
 ADR-0034 lists "reminders" as Discipler's words and `docs/product-rules.md` says a conversation keeps its sentences, reminders included; the build reads ADR-0034's as the acceptance reminder.
 What needs deciding: whether those refusals stand, the wording, whether `Messages read as` gets the same refusals, and which reading of reminders is right.
 
-## Open: a trial Subscription reads as access before payment is confirmed
+## Resolved: a trial Subscription reads as access before payment is confirmed
 
 Raised on 2026-11-03 by the Exponential launch, ticket 03.
 The spec says a church that leaves the payment step sends no texts.
 With the Payment Element, a trial Subscription reads `trialing` from when the server creates it, before its setup intent is confirmed, and the webhook subscribes to no setup-intent event.
-Nothing reads access until ticket 05, so this does nothing yet.
-What needs deciding: when tickets 04 and 18 are rewritten, whether the Subscription is created only once the payment method is confirmed, or a pending setup intent counts as no access.
+Ticket 04 settled it: a pending setup intent counts as no access, and the webhook now subscribes to `setup_intent.succeeded`.
 
 ## Open: Setup Link churches are billed outside Stripe automatically
 
 Raised on 2026-11-03 by the Exponential launch, ticket 03.
 The spec names SAU BCM and Anthem Community Church for the operator flag and says it is for churches James chooses to comp.
 As built, a church opened by a Setup Link gets the flag automatically.
-What needs deciding: whether that stands, before ticket 05 makes the flag matter.
+Ticket 05 makes the flag matter from the deploy: a church with it keeps texting with no subscription.
+What needs deciding: whether that stands.
 
 ## Open: consent Statement 2's wording
 
@@ -666,11 +670,115 @@ What needs deciding: which one is right.
 ## Open: the help pages name Help menu items not yet shown
 
 Raised on 2026-11-03 by the Exponential launch, ticket 23.
-The Help menu holds only what exists, so items that wait on tickets 25, 27 and 30 are not there yet, and the help docs already mention them.
-What needs deciding: nothing if those tickets ship by the launch; otherwise the wording of those pages.
+The Help menu holds only what exists, so what waits on ticket 27, and Office hours until a next call is set, are not there yet, and the help docs already mention them.
+What needs deciding: nothing if ticket 27 ships by the launch; otherwise the wording of those pages.
 
 ## Open: the wording Twilio Verify really sends
 
 Raised on 2026-11-03 by the Exponential launch, ticket 36.
 The opt-in draft's sample is "Your Discipler verification code is: 123456", from Twilio's documented pattern rather than a code anyone has received.
 What needs deciding: nothing; James checks a real code against the sample before the sign-up section is published.
+
+## Resolved: a church's texts when the access read fails
+
+Raised on 2026-11-03 by the Exponential launch, ticket 05.
+Every text is checked against the church's access as it leaves, and the ticket does not say what happens when that read itself fails.
+It was built so a failed read sends, and alerts, because silencing every live church over a database hiccup is worse than an ended church texting briefly.
+James decided on 2026-11-03 that it stands, and the spec says so.
+
+## Open: Discipler's HELP reply for a church without access
+
+Raised on 2026-11-03 by the Exponential launch, ticket 05.
+The fine print on every sign-up says "HELP for help", while a church without access has Discipler's own HELP reply closed like any other text.
+Twilio may answer HELP itself, and nobody has checked that on a real phone.
+An exemption is a hole in the one query, because a row does not say today that it is a HELP reply.
+James decided on 2026-11-03 to test on a real phone, and exempt the reply if Twilio does not answer.
+What is left: that test, and the exemption if it is needed, before a church can be without access, which needs sign-up open or a subscription ended.
+
+## Resolved: a name typed into a support message reaches support@
+
+Raised on 2026-11-03 by the Exponential launch, ticket 25.
+The spec says "No email carries congregation names, phone numbers or Concerns".
+The support form strips phone numbers from the message it emails, but it cannot detect a name or a Concern somebody typed, and its hint only asks people to leave them out.
+The alternative is an email carrying only the kind and a reference, with the message read from the row by an operator.
+James decided on 2026-11-03 that it may, and the spec's sentence now covers what Discipler composes.
+
+## Resolved: when sign-up's consent is recorded
+
+Raised on 2026-11-03 by the Exponential launch, tickets 15 and 17.
+The spec says continuing past page two records a consent for that phone.
+`consent_record` needs a Person and a Ministry, neither of which exists yet at page two, so tickets 15 and 17 record it when the church opens, and nothing is texted before then.
+The attempt's row keeps only its latest send, so as built the moment the person agreed could be lost.
+James decided on 2026-11-03: the record stays at opening, ticket 17 carries the time the person agreed, and the spec is reworded.
+
+## Open: nothing links to sign-up yet
+
+Raised on 2026-11-03 by the Exponential launch, ticket 15.
+The spec and mock-up 1 draw "Create an account" on the sign-in page, and no ticket builds it.
+What needs deciding: whether it joins ticket 17, and whether `ref` stays the parameter name for `/r/<code>`.
+
+## Open: the edges of a free month and an offer
+
+Raised on 2026-11-03 by the Exponential launch, ticket 04.
+The spec said a referral is "a 100%-off first invoice"; James decided on 2026-11-03 that a yearly church gets $77.60 off, one month at the rate it pays, and the spec says so.
+A church refused a free month because its card has had one is told nothing (`free_month_refused`).
+Stripe Link gives no fingerprint, so a church paying by Link always gets the free month.
+Every offer church is on a Subscription Schedule, the spec says "A church may cancel itself", and whether Stripe lets a scheduled Subscription cancel at period end has not been tried.
+Payment methods are listed explicitly rather than left to Stripe's dynamic methods, and `schedulePhases` assumes the trial is the current phase (ticket 19).
+What needs deciding: what a refused church is told, and a sandbox test of cancelling before ticket 19 ships.
+
+## Open: what wave 3 left James to do in Stripe and on production
+
+Raised on 2026-11-03 by the Exponential launch, tickets 04, 14, 24 and 25.
+Nothing in wave 3 has reached real Stripe, so its tests prove only what a fake can.
+Ticket 04's "For James" holds the steps: the catalog, the restricted key's access, the webhook's `setup_intent.succeeded`, the publishable key, the payment methods, and the staging check before the rehearsal.
+Until the key and the catalog are in place the tick reports `over200` as `failed` or `no_prices` and no email goes, and ticket 14 asks for one check of its price lookup against real Stripe after the deploy.
+Ticket 24 asks for `npm run smoke:pages` on production after the migrations are pushed and before the merge, and stays `ready-for-human` until it passes.
+Ticket 25's form was never drawn in a mock-up.
+What is left: those steps, looking at the form, and approving the drafted words in `app/signup/payment/copy.ts`, `app/texting-gate-copy.ts` and `app/help/contact/copy.ts` and the `textingGateUnread` email.
+
+## Open: the over-200 follow-up's edges
+
+Raised on 2026-11-03 by the Exponential launch, ticket 14.
+The spec says "A church that stays above 200", and the ticket narrows it to churches on $97, because the follow-up exists to move them to the next price.
+A dip of a minute below 200 spoils the month, because the count is read at every instant the history changed.
+A paused relationship's people are not counted, because the product already says paused is not active.
+When the first price cannot be found the tick reports `no_prices`, and a repeated failed alert tells nobody.
+What needs deciding: whether a brief dip should spoil the month, whether paused relationships count, and who hears about a failure that repeats.
+
+## Open: Office hours and What's new
+
+Raised on 2026-11-03 by the Exponential launch, ticket 30.
+The Office hours menu item opens the Overview's card rather than Zoom, and the card stays up all of the call's date, in the call's zone.
+The launch entry is dated 2026-11-03 rather than October 30.
+The repo is public, so a Zoom link in `NEXT_OFFICE_HOURS` is public too.
+What needs deciding: whether a public link is acceptable or the call needs a waiting room, and the first date.
+
+## Open: search once Ask Discipler ships
+
+Raised on 2026-11-03 by the Exponential launch, ticket 24.
+Search lists an Ask Discipler entry that needs an address, and ticket 31 may build a circle with none.
+Results open over the page rather than hanging from the bar.
+What needs deciding: whether ticket 31 gives the circle an address or removes the entry, and whether results stay over the page.
+
+## Resolved: the setup meter cannot reach 100% yet
+
+Raised on 2026-11-03 by the Exponential launch, ticket 26.
+Steps 2 and 3, the tour and the test check-in, wait for tickets 27 and 28, so every church stays below 100%, and a church with only those left has no "Next:" line, though the spec says "always showing".
+SAU BCM will read 5 of 7, and an Admin's first sign-in plays every finished step's confetti at once.
+James decided on 2026-11-03 that the bar waits for them: `SETUP_METER_ON` stays unset on production until 27 and 28 ship.
+Until then `getting-started.md`, `settings.md` and `test-check-in.md` in the help pages describe a bar that is not drawn.
+
+## Open: Leaders on the support form
+
+Raised on 2026-11-03 by the Exponential launch, ticket 25.
+A signed-in Leader is treated as signed out, so sees the Turnstile check and gives their own address.
+What needs deciding: whether that stands.
+
+## Open: an intermittent React hydration error on Admin pages
+
+Raised on 2026-11-03 by the Exponential launch, ticket 25.
+React error 418 came on a few visits to pages with the Admin header, on a production build with the machine heavily loaded: 3 of 20 visits in one run, and 2 of 40 in another.
+The page recovers by rendering in the browser, and nothing looked wrong on screen.
+It did not come back in 275 visits on the combined branch, so what mismatched was never captured and the cause is not known; the history is in ticket 25.
+What needs deciding: nothing yet; look again if it is seen on a phone or in production.

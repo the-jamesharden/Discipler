@@ -18,6 +18,13 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # Supabase's ports in supabase/config.toml sit inside Linux's ephemeral range,
+      # so any outbound connection (an image pull, say) can take one, and holds it
+      # through TIME_WAIT after closing. `supabase start` then fails with "address
+      # already in use". First, so no earlier step's connection can hold one either.
+      - name: Keep outbound connections off the Supabase ports
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54329
+
       - name: Check out the repository
         uses: actions/checkout@v4
 
@@ -76,6 +83,7 @@ jobs:
             echo "TWILIO_AUTH_TOKEN=ci-only-twilio-auth-token"
             echo "CRON_SECRET=ci-only-cron-secret"
             echo "STRIPE_WEBHOOK_SECRET=whsec_ci_only"
+            echo "SETUP_METER_ON=true"
           } >> "$GITHUB_ENV"
 
       - name: Typecheck

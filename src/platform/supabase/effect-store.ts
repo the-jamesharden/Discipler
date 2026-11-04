@@ -45,6 +45,7 @@ import type {
   ParticipantDeparture,
   RelationshipCancellation,
   RelationshipEnding,
+  SetupSeen,
   ShortNameChange,
   IntakeAnswersRemoval,
   IntakeFormSaving,
@@ -96,6 +97,7 @@ import { materialItemFrom } from './material-items'
 import { count, text } from './rows'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
+import type { WhatsNewDismissal } from '~/domain/whats-new'
 import {
   CancellationRefused,
   ConcernRefused,
@@ -919,6 +921,23 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     return new Set<PersonId>(rows.map((row) => personId(row.person_id)))
   },
 
+  async churchHasAccess(): Promise<boolean> {
+    // A savepoint, because a statement that fails aborts the whole transaction, and
+    // the command it is inside has to be able to go on. Only `false` is a no.
+    await client.query('savepoint texting_access')
+    try {
+      const { rows } = await client.query<{ has_access: boolean | null }>(
+        `select app.billing_has_access(app.command_ministry_id()) as has_access`,
+      )
+      await client.query('release savepoint texting_access')
+      return rows[0]?.has_access !== false
+    } catch (error) {
+      console.error('Could not read a church\'s texting access for a command', error)
+      await client.query('rollback to savepoint texting_access')
+      return true
+    }
+  },
+
   async ministryVoice(): Promise<MinistryVoice> {
     // Scoped by the policy on `ministry`, like everything else on this connection.
     //
@@ -1219,6 +1238,24 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     if (rowCount !== 1) {
       throw new Error('This command has no Ministry to give a short name to')
     }
+  },
+
+  async markSetupSeen(seen: SetupSeen) {
+    // Added to and never replaced, so two tabs reporting different steps both land.
+    const { rowCount } = await client.query(
+      `update ministry_member
+          set setup_steps_seen = array(
+                select distinct step
+                  from unnest(setup_steps_seen || $2::text[]) as step
+                 order by step
+              ),
+              setup_badge_seen_at = coalesce(setup_badge_seen_at, $3)
+        where user_id = $1
+          and tier = 'admin'`,
+      [seen.userId, seen.steps, seen.badgeSeenAt],
+    )
+
+    if (rowCount !== 1) throw new Error('This command has no Admin to mark the setup meter seen for')
   },
 
   async createPeople(people: readonly NewPerson[]) {
@@ -3904,6 +3941,15 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       }
       throw error
     }
+  },
+
+  async recordWhatsNewDismissal(dismissal: WhatsNewDismissal) {
+    await client.query(
+      `insert into whats_new_dismissal (ministry_id, user_id, entry_id, dismissed_at)
+       values ($1, $2, $3, $4)
+       on conflict do nothing`,
+      [dismissal.ministryId, dismissal.userId, dismissal.entryId, dismissal.dismissedAt],
+    )
   },
 
   async resolveConcern(resolution: ConcernResolution) {

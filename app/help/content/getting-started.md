@@ -63,3 +63,9 @@ Press Next to move through it, and Done at the end.
   See [The Roster and Intake](/help/roster-and-intake).
 
 The gear at the top opens [Settings](/help/settings), the question mark opens Help, and your initials open your account.
+
+## Find anything with search
+
+Search sits at the end of the tabs.
+Click it, or press ⌘K or /, to jump to any page, or to a person, relationship or material by name.
+It looks only through your own church, and never through anybody's replies.

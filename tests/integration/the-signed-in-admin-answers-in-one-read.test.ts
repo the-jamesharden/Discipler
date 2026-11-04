@@ -19,10 +19,11 @@ import {
  * and each is checked here from the session that earns it.
  */
 
-// A church that has not paid, on any page's document (Exponential launch, ticket 03).
-const NOTHING_ESTABLISHED = {
-  standing: 'no_subscription',
-  has_access: false,
+// A fixture church, billed outside Stripe, on any page's document (Exponential launch,
+// tickets 03 and 05).
+const OUTSIDE_STRIPE = {
+  standing: 'outside_stripe',
+  has_access: true,
   trial_ends_at: null,
   current_period_ends_at: null,
   cancels_at: null,
@@ -46,8 +47,11 @@ describe('the signed-in Admin answers in one read', () => {
         ministry_name: 'Riverside Chapel',
         person_id: riverside.adminPersonId,
         full_name: riverside.adminName,
+        whats_new_dismissed: [],
       },
-      billing: NOTHING_ESTABLISHED,
+      billing: OUTSIDE_STRIPE,
+      // The setup meter's own document (ticket 26), proved in `the-setup-meter-over-http`.
+      setup: expect.objectContaining({ finished: false }),
     })
   })
 
@@ -67,6 +71,7 @@ describe('the signed-in Admin answers in one read', () => {
       ministry_name: 'The Chapel With No Row',
       person_id: null,
       full_name: null,
+      whats_new_dismissed: [],
     })
     const resolution = resolutionOf(doc)
     expect(resolution.status === 'admin' && resolution.admin.fullName).toBeNull()
@@ -139,6 +144,7 @@ describe('the signed-in Admin answers in one read', () => {
       ministry_name: 'Northgate Community Church',
       person_id: northgate.adminPersonId,
       full_name: northgate.adminName,
+      whats_new_dismissed: [],
     })
     expect(JSON.stringify(doc)).not.toContain(riverside.id)
   })

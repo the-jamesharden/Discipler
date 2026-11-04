@@ -72,6 +72,7 @@ export default async function ResetPasswordPage({
         subtitle={admin.ministryName}
         back={{ href: `/roster/${personId}`, label: 'Back to their page' }}
         actions={<AdminNav admin={admin} />}
+        admin={admin}
       >
         <div className="card">
           <p className="toast error" role="alert">{passwordResetRefusalMessage(refusal)}</p>
@@ -109,6 +110,7 @@ export default async function ResetPasswordPage({
       subtitle={admin.ministryName}
       back={{ href: `/roster/${target.personId}`, label: 'Back to their page' }}
       actions={<AdminNav admin={admin} />}
+      admin={admin}
     >
       <div className="card">
         <p className="notice">{resetWarning(target.fullName)}</p>

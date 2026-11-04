@@ -225,10 +225,61 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.2rem; height: 1.2rem; padding: 0 0.35rem; margin-left: 0.4rem; background: var(--primary); color: #fff; border-radius: 10px; font-size: 0.7rem; font-weight: 700; }
 
 /* The tab row slides on a phone (`app/tab-slider.tsx`). Every tab fits on anything
-   wider, so the arrows are drawn only below this width. */
-.tabs-wrap { position: relative; margin-bottom: 1.75rem; }
-.tabs-wrap .tabs { margin-bottom: 0; }
+   wider, so the arrows are drawn only below this width. Search sits at its right end
+   (`app/search/search.tsx`), layout B of mock-up 2. */
+.tabs-row { display: flex; align-items: flex-end; gap: 1rem; border-bottom: 2px solid var(--border); margin-bottom: 1.75rem; }
+.tabs-wrap { position: relative; flex: 1; min-width: 0; }
+.tabs-wrap .tabs { margin-bottom: 0; border-bottom: 0; }
 .tab-arrow { display: none; }
+
+/* The search bar: a button that looks like a field, and grows when clicked. */
+button.search-bar { display: flex; flex: none; align-items: center; gap: 0.55rem; width: 17rem; margin-bottom: 0.45rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-light); font-size: 0.88rem; font-weight: 400; line-height: 1.6; text-align: left; cursor: text; transition: width 0.25s ease, box-shadow 0.25s ease; }
+button.search-bar:hover { background: var(--surface); border-color: var(--primary-light); }
+button.search-bar.on { width: 24rem; }
+button.search-bar.on, button.search-bar:focus-visible { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(45, 80, 22, 0.1); }
+.search-bar .ico { width: 1rem; height: 1rem; flex: none; }
+.search-bar-word { flex: 1; min-width: 0; }
+.search-bar kbd, .palette kbd, button.palette-esc { font-family: var(--sans); font-size: 0.7rem; font-weight: 600; line-height: 1.6; color: var(--text-light); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0.02rem 0.35rem; background: var(--bg); }
+@media (prefers-reduced-motion: reduce) { button.search-bar { transition: none; } }
+
+/* Search, open: over the whole page, in the browser's own top layer. */
+dialog.palette { inset: 12vh 0 auto; width: calc(100% - 2rem); max-width: 620px; margin: 0 auto; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2); }
+dialog.palette::backdrop { background: rgba(45, 45, 45, 0.28); }
+.palette-input { display: flex; align-items: center; gap: 0.7rem; padding: 0.95rem 1.1rem; border-bottom: 1px solid var(--border); }
+.palette-input .ico { width: 1.15rem; height: 1.15rem; color: var(--primary); flex: none; }
+.palette-input input[type="text"] { flex: 1; width: auto; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; outline: none; background: transparent; box-shadow: none; font-size: 1.05rem; }
+button.palette-esc { flex: none; cursor: pointer; }
+button.palette-esc:hover { background: var(--bg); color: var(--primary); }
+.palette-body { max-height: 52vh; max-height: 52dvh; overflow-y: auto; overscroll-behavior: contain; padding: 0.4rem 0 0.6rem; }
+.palette-group { padding: 0.35rem 0; }
+.palette-group h4 { padding: 0.35rem 1.1rem; font-family: var(--sans); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.07em; color: var(--text-light); text-transform: uppercase; }
+.palette-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 1.1rem; color: var(--text); font-size: 0.92rem; text-decoration: none; }
+.palette-row.on { background: rgba(45, 80, 22, 0.06); box-shadow: inset 3px 0 0 var(--primary); }
+.palette-mark { display: grid; flex: none; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: 7px; background: var(--bg); color: var(--primary); font-size: 0.75rem; font-weight: 700; }
+.palette-mark .ico { width: 1rem; height: 1rem; }
+.palette-mark.palette-initials { border-radius: 50%; background: var(--primary); color: #fff; }
+.palette-words { flex: 1; min-width: 0; }
+.palette-label { display: block; overflow-wrap: anywhere; }
+.palette-words small { display: block; overflow: hidden; color: var(--text-light); font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
+.palette-row mark { padding: 0 1px; border-radius: 2px; background: rgba(201, 168, 106, 0.35); color: inherit; }
+.palette-where { flex: none; margin-left: auto; color: var(--text-light); font-size: 0.75rem; white-space: nowrap; }
+.palette-note { padding: 0.9rem 1.1rem; color: var(--text-light); font-size: 0.9rem; }
+.palette-foot { display: flex; flex-wrap: wrap; gap: 1.1rem; padding: 0.6rem 1.1rem; border-top: 1px solid var(--border); background: var(--bg); color: var(--text-light); font-size: 0.75rem; }
+/* Where a search for a relationship lands. */
+.rel-card:target { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* A window too narrow for the tabs and the bar side by side, and a phone, as drawn: the
+   bar has its own row under the tabs, the width of the page, and the row's line runs
+   under it. There is nothing left to grow into, so clicking it only colours it. */
+@media (max-width: 1060px) {
+  .tabs-row { display: block; }
+  button.search-bar, button.search-bar.on { width: 100%; }
+}
+/* No keyboard to say a shortcut for. By the kind of screen and not its width, so a
+   narrow window on a laptop keeps them. */
+@media (hover: none) and (pointer: coarse) {
+  .search-bar kbd, .palette-foot { display: none; }
+}
 
 @media (max-width: 760px) {
   /* The buttons sit to the right, with a page's way back, if it has one, to the left. */
@@ -245,7 +296,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
   .botanical .header > div:first-child { padding: 0.55rem 0.75rem; margin: -0.55rem -0.75rem 0; background: rgba(245, 241, 235, 0.88); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); border-radius: 10px; }
 
   /* Three tabs to a view, and the arrow pages to the other three. */
-  .tabs-wrap { padding: 0 1.4rem; border-bottom: 2px solid var(--border); }
+  .tabs-wrap { padding: 0 1.4rem; }
   .tabs-wrap .tabs { gap: 0; border-bottom: 0; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .tabs-wrap .tabs::-webkit-scrollbar { display: none; }
   .tabs-wrap .tabs li { flex: 0 0 calc(100% / 3); min-width: 0; scroll-snap-align: start; }
@@ -485,7 +536,7 @@ fieldset.fe-choice-boxes { display: grid; gap: 0.5rem; margin: 0; padding: 0; bo
 
 /* ---- relationship cards ---- */
 
-.rel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+.rel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 1rem; }
 .rel-card { display: block; padding: 1.1rem 1.25rem; border: 1px solid var(--border); border-left-width: 4px; border-left-color: var(--border); border-radius: 6px; background: rgba(45, 80, 22, 0.02); color: inherit; text-decoration: none; transition: background 0.2s ease; }
 a.rel-card:hover { box-shadow: 0 3px 14px rgba(45, 80, 22, 0.12); }
 .rel-card.s-needs_care { border-left-color: var(--red-concern); background: linear-gradient(135deg, rgba(220, 53, 69, 0.06), rgba(220, 53, 69, 0.03)); }
@@ -542,6 +593,21 @@ a.rel-card:hover { box-shadow: 0 3px 14px rgba(45, 80, 22, 0.12); }
 .unpaired .line { font-size: 1.02rem; margin-top: 0.55rem; line-height: 1.45; }
 .unpaired .acts { display: flex; gap: 0.6rem; margin-top: 1rem; flex-wrap: wrap; }
 .unpaired .acts .btn { font-size: 0.95rem; padding: 0.55rem 1rem; }
+
+/* What's new and office hours (Exponential launch, ticket 30): side by side at the top
+   of Overview, and one alone takes the row. */
+.news-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
+.news-card { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1.1rem 1rem; box-shadow: 0 2px 12px var(--shadow); min-width: 0; }
+.news-card .kicker { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--amber-ink); }
+.news-card .kicker .ico { width: 1rem; height: 1rem; }
+.news-card h2 { font-family: var(--sans); font-size: 1rem; font-weight: 700; color: var(--text); margin: 0.3rem 0 0.15rem; padding-right: 1.5rem; }
+.news-card p:not(.kicker) { font-size: 0.86rem; color: var(--text-light); }
+.news-card > a:not(.btn) { display: inline-block; font-size: 0.86rem; font-weight: 600; color: var(--primary); margin-top: 0.45rem; }
+.news-card .btn { margin-top: 0.6rem; }
+.news-card .x { position: absolute; top: 0.55rem; right: 0.55rem; background: transparent; color: var(--text-light); padding: 0.2rem; border-radius: 6px; line-height: 0; }
+.news-card .x:hover { background: rgba(0, 0, 0, 0.05); color: var(--text); }
+.news-card .x .ico { width: 1rem; height: 1rem; }
+@media (max-width: 760px) { .news-row { grid-auto-flow: row; } }
 @media (max-width: 560px) {
   .unpaired { left: 1rem; right: 1rem; bottom: 1rem; width: auto; max-width: none; }
 }
@@ -750,6 +816,30 @@ input[type="file"] { display: block; margin-bottom: 1rem; font-size: 0.88rem; }
 .goal-question:not(:has(input[value="other"]:checked)) .goal-other { display: none; }
 .form-actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 1.5rem; }
 .form-actions .btn.sec { font-weight: 500; }
+
+/* ---- sign-up (Exponential launch, tickets 15 and 16; mock-up 1) ---- */
+
+.req { color: var(--red-ink); font-weight: 700; }
+.hint { font-size: 0.78rem; color: var(--text-light); margin-top: 0.3rem; line-height: 1.45; }
+.fine { font-size: 0.74rem; color: var(--text-light); margin-top: 0.45rem; line-height: 1.5; }
+.field-error { font-size: 0.78rem; color: var(--red-ink); margin-top: 0.3rem; line-height: 1.45; }
+.field-notice { font-size: 0.78rem; color: var(--primary); margin-top: 0.3rem; line-height: 1.45; }
+button.full { width: 100%; padding: 0.75rem 1.1rem; font-size: 0.95rem; }
+button.full.after-field { margin-top: 0.6rem; }
+.sent-to { background: rgba(45, 80, 22, 0.04); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 0.9rem; font-size: 0.86rem; margin-bottom: 1.25rem; overflow-wrap: anywhere; }
+input.code-input { font-size: 1.6rem; letter-spacing: 0.5em; text-align: center; font-family: ui-monospace, 'SF Mono', Menlo, monospace; padding: 0.7rem 0.7rem 0.7rem 1.2rem; }
+.row-links { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; font-size: 0.84rem; margin-top: 1rem; }
+.muted-link { color: var(--text-light); }
+button.link-button, button.link-button:hover { display: inline; width: auto; padding: 0; background: none; border: none; color: var(--primary); font-size: inherit; font-weight: 400; line-height: inherit; text-decoration: underline; }
+/* The Turnstile widget is 300px wide and cannot shrink, wider than a 360px phone's
+   card leaves it, so it is let out into the card's padding. Its height is held so the
+   card does not jump when it arrives. */
+.human-check { display: flex; justify-content: center; min-height: 65px; margin: 0.5rem -0.75rem 1rem; }
+/* A refusal takes the widget's place: its own "Success!" beside "We couldn't confirm"
+   reads as a contradiction, and a script that never arrived leaves only a gap. */
+.human-check:has(+ .human-check-refused) { display: none; }
+.human-check-refused { text-align: center; margin: 0.5rem 0 1rem; }
+.human-check-refused .field-error { margin: 0 0 0.75rem; }
 
 /* ---- the wizard's progress bar ---- */
 
@@ -1418,6 +1508,14 @@ details.pc-member[open] .pc-chev { transform: rotate(180deg); }
 .help-pager-label { display: inline-flex; align-items: center; gap: 0.3rem; font-family: var(--sans); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-light); }
 .help-pager-next .help-pager-label { align-self: flex-end; }
 
+/* The support form (Exponential launch, ticket 25). Turnstile draws nothing unless it
+   needs somebody to press something, so an empty box takes no room. */
+.contact-kinds { margin-bottom: 1rem; }
+.contact-field-hint { display: block; font-size: 0.82rem; color: var(--text-light); margin: 0.35rem 0 0; line-height: 1.45; }
+.contact-attached { margin-bottom: 1rem; overflow-wrap: anywhere; }
+.contact-sent-link { margin: 0.75rem 0 0; }
+.contact-human-check { margin-bottom: 1rem; max-width: 100%; overflow: hidden; }
+.contact-human-check:empty { margin-bottom: 0; }
 .help-foot { text-align: center; font-size: 0.88rem; color: var(--text-light); margin: 0.5rem 0 1rem; }
 
 @media (max-width: 600px) {
@@ -1425,3 +1523,78 @@ details.pc-member[open] .pc-chev { transform: rotate(180deg); }
   .card ul.help-list { margin: 0 -1.5rem; }
   .help-pager a { max-width: none; flex: 1 1 0; font-size: 0.98rem; }
 }
+
+/* ---- The setup meter: "Jumpstart discipleship", one slim line under the tabs ---- */
+/* The bar sits in pages of three widths, so what it does when narrow goes by its own width and not the window's. */
+.setup { container-type: inline-size; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 2px 10px var(--shadow); position: relative; overflow: hidden; padding: 0.55rem 1rem; margin: -0.9rem 0 1.4rem; border-radius: 14px; transition: padding 0.25s ease; }
+/* On a page with no tabs it sits under the header, with no tabs' margin to tuck into. */
+.header + .setup { margin-top: 0; }
+.setup:focus { outline: none; }
+.setup:focus-visible { outline: 2px solid var(--primary-light); outline-offset: 2px; }
+.setup .burst { position: absolute; inset: 0; pointer-events: none; width: 100%; height: 100%; }
+.setup .setup-line { display: flex; align-items: center; gap: 0.9rem; min-width: 0; font-size: 0.84rem; cursor: default; }
+.setup .setup-line strong { font-family: var(--serif); color: var(--primary); font-size: 0.98rem; white-space: nowrap; }
+.setup .mini { flex: 0 1 9rem; height: 5px; background: var(--cell); border-radius: 5px; overflow: hidden; min-width: 3rem; }
+.setup .mini > div { height: 100%; background: var(--primary); border-radius: 5px; transition: width 0.6s cubic-bezier(.2,.8,.2,1); }
+.setup .count { font-weight: 700; color: var(--amber-ink); white-space: nowrap; }
+.setup .next-line { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; min-width: 0; color: var(--text); }
+.setup .next-line span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.setup .next-line a { font-weight: 700; color: var(--primary); white-space: nowrap; text-decoration: none; background: #fbf4e6; border: 1px solid var(--accent); border-radius: 999px; padding: 0.15rem 0.7rem; }
+.setup .more { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s ease; }
+.setup .more > div { overflow: hidden; }
+.setup .steps { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.5rem; list-style: none; margin-top: 0; padding-top: 0; }
+.setup .step { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; padding: 0.55rem 0.6rem; border-radius: 8px; border: 1px solid transparent; font-size: 0.8rem; line-height: 1.3; color: var(--text); min-width: 0; position: relative; }
+.setup .step .box { width: 1.35rem; height: 1.35rem; border-radius: 50%; border: 2px solid var(--border); display: grid; place-items: center; background: #fff; flex: none; cursor: default; padding: 0; }
+.setup .step .box svg { width: 0.8rem; height: 0.8rem; color: #fff; opacity: 0; }
+.setup .step .txt > span:first-child { display: inline; background-image: linear-gradient(var(--text-light), var(--text-light)); background-repeat: no-repeat; background-position: 0 55%; background-size: 0 1.5px; -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: background-size 0.45s ease 0.15s; }
+.setup .step.done .txt { color: var(--text-light); }
+.setup .step.done .txt > span:first-child { background-size: 100% 1.5px; }
+.setup .step.done .box { background: var(--primary); border-color: var(--primary); }
+.setup .step.done .box svg { opacity: 1; }
+.setup .step.next { border-color: var(--accent); background: #fbf4e6; }
+.setup .step.next .box { border-color: var(--amber); }
+.setup .step .go { font-size: 0.74rem; font-weight: 700; color: var(--primary); text-decoration: none; margin-top: 0.1rem; }
+.setup .step.popping .box { animation: setup-pop 0.5s cubic-bezier(.2,1.6,.4,1); }
+@keyframes setup-pop { 0% { transform: scale(1); } 40% { transform: scale(1.55); } 100% { transform: scale(1); } }
+/* It grows on focus and tap at once, and on a hover only once the pointer has rested
+   for 0.4 seconds, so passing over it does nothing. Hover is for a real pointer: on a
+   phone a tap would leave it stuck. */
+.setup:focus-within, .setup.open { padding: 0.8rem 1rem 0.9rem; }
+.setup:focus-within .more, .setup.open .more { grid-template-rows: 1fr; }
+.setup:focus-within .steps, .setup.open .steps { padding-top: 0.8rem; }
+@media (hover: hover) {
+  .setup:hover { padding: 0.8rem 1rem 0.9rem; }
+  .setup:hover .more { grid-template-rows: 1fr; }
+  .setup:hover .steps { padding-top: 0.8rem; }
+  .setup:hover:not(:focus-within):not(.open), .setup:hover:not(:focus-within):not(.open) .more, .setup:hover:not(:focus-within):not(.open) .steps { transition-delay: 0.4s; }
+}
+@container (max-width: 860px) {
+  .setup .steps { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 9.5rem; overflow-x: auto; padding-bottom: 0.3rem; }
+}
+@container (max-width: 720px) {
+  .setup .setup-line { flex-wrap: wrap; gap: 0.4rem 0.7rem; }
+  .setup .setup-line strong { font-size: 0.92rem; }
+  .setup .next-line { margin-left: 0; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .setup, .setup .more, .setup .mini > div, .setup .step .txt > span:first-child { transition: none; }
+  .setup .step.popping .box { animation: none; }
+}
+
+/* Where the bar's Edit settings lands, with room above the heading. */
+#check-in { scroll-margin-top: 1.5rem; }
+
+/* The badge at 100%: a green seal with a sprout and gold rays, over the church's name */
+.badge-bg { align-items: center; background: rgba(30, 40, 22, 0.45); }
+.badge-burst { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.modal.badge-card { position: relative; max-width: 26rem; text-align: center; padding: 2rem 1.8rem 1.6rem; border-radius: 16px; overflow: visible; margin: auto; max-height: none; }
+.badge-card .seal { width: 9rem; height: 9rem; margin: -5rem auto 0.6rem; animation: seal-in 0.9s cubic-bezier(.2, 1.4, .4, 1) both; filter: drop-shadow(0 8px 18px rgba(45, 80, 22, 0.3)); }
+.badge-card .seal svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.badge-card .seal .rays { transform-origin: 60px 60px; animation: seal-spin 14s linear infinite; }
+@keyframes seal-in { from { transform: scale(0.2) rotate(-40deg); opacity: 0; } }
+@keyframes seal-spin { to { transform: rotate(360deg); } }
+.badge-card h2 { font-family: var(--serif); font-size: 1.7rem; color: var(--primary); line-height: 1.2; }
+.badge-card p { color: var(--text-light); margin-top: 0.5rem; font-size: 0.93rem; }
+.badge-card button { margin-top: 1.2rem; }
+@media (prefers-reduced-motion: reduce) { .badge-card .seal, .badge-card .seal .rays { animation: none; } }
+@media (max-width: 760px) { .modal-bg.badge-bg { padding: 0.6rem; } }

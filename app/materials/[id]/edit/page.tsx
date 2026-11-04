@@ -60,7 +60,7 @@ export default async function EditMaterialPage({
   const self = `${folder}/edit`
 
   return (
-    <PageShell title={MATERIALS} subtitle={page.admin.ministryName} actions={<AdminNav admin={page.admin} />}>
+    <PageShell title={MATERIALS} subtitle={page.admin.ministryName} actions={<AdminNav admin={page.admin} />} admin={page.admin}>
       <BackLink small className="mat-back" href={folder} label={material.title} />
 
       <div className="card">
