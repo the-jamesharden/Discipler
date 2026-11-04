@@ -1232,7 +1232,7 @@ Every page of it is subtitled "Create an account", and the sign-in page offers i
 
 1. **Are you human.** A human check runs on its own page, and is verified on the server before anything costs money.
 2. **Email and mobile phone.** One page asks for both, with the text-message consent under the phone field, word for word in `docs/consent-language.md`.
-   Continuing records the Admin's `ministry_setup` consent.
+   Continuing is the Admin's `ministry_setup` consent, recorded when the church is opened.
 3. **Verify your email.** A 6-digit code is emailed; the same answer is given whether or not the address already has an account, and an existing account's owner is told somebody tried.
 4. **Set up your account.** One page asks for the church's name, the Admin's full name, where they heard about Discipler, a password, the timezone, whether the church is a church plant (with its application on the same page), and monthly or yearly, and has the Admin agree to the Terms of Service and the Privacy Policy, recorded with the terms version and the time.
    The login email is shown and locked.
@@ -1263,6 +1263,7 @@ There are three offers:
 - **The Exponential special offer**, from the code `EXPO26` or the booth's QR code: more free days, then 20% off the first year, until the code expires.
   It is never called a founding church rate or a coupon.
 - **A church invited by another church** gets its first paid month free.
+  A yearly church gets one month at the rate it pays off its first bill, rather than a free year.
 - **A church plant** gets a free year after its trial, once James or Lerone approves its application by operator command.
   A plant that came through `EXPO26` gets its free days, then the free year, then the Exponential year.
 
@@ -1284,6 +1285,7 @@ A church's billing state is derived from the history the Stripe webhook records,
 - **Billed outside Stripe.** An operator flag for a church billed by agreement, such as SAU BCM and Anthem Community Church, which runs as a paying church with no subscription.
 
 A text goes out for a church only while it is in its trial, paying, in a failed payment's retries, or billed outside Stripe, checked in the one query every outbound text passes through.
+If that check itself fails the text goes out and support@ is told that day, because silencing live churches is worse than an ended church texting briefly.
 Participants are never texted about billing.
 A church may cancel itself, and the cancellation takes effect at the end of the period it has paid for.
 Any Admin of the church can manage billing.

@@ -11,7 +11,7 @@ On 2026-10-31 eleven tickets were built by parallel agents, and they are now on 
 1. `.scratch/exponential-launch/spec.md` holds every settled decision, including each mock-up review so far.
    Where the spec and an older ticket disagree, the spec wins.
 2. `.scratch/exponential-launch/issues/01` to `40`.
-   Tickets 04, 18 and 19 carry a note that they must be rewritten for the mock-up 1 changes before anyone builds them.
+   Tickets 18 and 19 carry a note that they must be rewritten for the mock-up 1 changes before anyone builds them.
 3. `.scratch/exponential-launch/research/` holds the research behind the decisions: security, SMS scaling, SMS providers, Twilio A2P, and the Twilio support ticket text.
 
 ## The dates
@@ -75,13 +75,23 @@ Ten are `shipped`; 02 is `ready-for-human`, with the reason at the end of its co
 
 Tickets 03, 07, 08, 11, 23 and 40 and the intake form's consent links were built on 2026-11-03 and merged into one branch, `launch/wave-2026-11-03`.
 Five are `shipped`; 07 is `needs-info`, because James kept the send pass hourly for the launch, so check-ins are not spread.
-Sign-up stays shut until `SIGN_UP_OPEN=true`, and nothing reads a church's billing access until ticket 05.
 What they left for a human is in `docs/open-questions.md`.
 
 - Every later replacement of `app.page_session()` or `app.short_name_is_reserved` must keep every field and name, including `billing`, `full_name`, `signup` and `stripe`.
-- `dailyCap` is required on `dispatchQueue`, and ticket 05's fixtures need `billedOutsideStripe: true`.
+- `dailyCap` is required on `dispatchQueue`.
 
-Next: triage 15 to 22, 24 and 25, rewrite 04, 18 and 19, then build the next wave in the same way, one worktree per ticket merged into one launch branch cut from `origin/main`.
+Tickets 04, 05, 14, 15, 16, 24, 25, 26 and 30 were built on 2026-11-03 and merged into one branch, `launch/wave-3-2026-11-03`, and James's decisions on them are in the spec and `docs/open-questions.md`.
+Their nine migrations, dated 20261104, are not pushed; James says when, and they must be pushed before the merge.
+Their `Status:` lines and the spec's ticket table are not yet moved to `shipped`, because that needs the merge.
+Sign-up stays shut until `SIGN_UP_OPEN=true`, which waits for ticket 17, because until then the flow stops after the email is verified.
+From the deploy, the texting gate checks every text and the over-200 watch runs on the tick.
+What they left for a human is in `docs/open-questions.md`.
+
+- New environment variable: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`; the Turnstile keys now guard the signed-out support form too.
+- `npm run stripe:catalog` creates the Stripe product, prices and coupons, once per account, staging's sandbox first.
+- Operator-only tables added: `over_200_follow_up`, `payment_fingerprint_grant`, `signed_out_support_submission`.
+
+Next: triage 17 to 22, rewrite 18 and 19, then build the next wave in the same way, one worktree per ticket merged into one launch branch cut from `origin/main`.
 
 ## Blocked on James
 

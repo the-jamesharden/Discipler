@@ -36,7 +36,8 @@ The wording sits under the phone field, word for word:
 
 > By continuing, you agree to receive texts from Discipler at this number, including sign-in codes and test check-ins. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.
 
-Continuing records a consent for that phone with `source = 'ministry_setup'`, when the church is opened.
+Continuing is the consent, and its time is kept.
+The record for that phone is written when the church is opened, with that time and `source = 'ministry_setup'`, because it needs a Person and a Ministry, and nothing is texted before then.
 It covers the texts it names, a code that proves the phone is theirs and the test check-in, and nothing else: it is never consent to the Check-In Rhythm as a Leader or a Participant.
 It is not an Intake: it does not change the Admin's Participation Status, and being paired still needs an Intake, with both statements below.
 

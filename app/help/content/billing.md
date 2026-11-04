@@ -28,6 +28,7 @@ You choose monthly or yearly when you sign up.
   The code works until the end of {{exponentialLastDay}}, Pacific time.
   After that your free trial still applies.
 - **Invited by another church.** Sign up through another church's link and your first paid month is free.
+  On yearly billing, that is one month at your yearly rate off your first bill.
   If you also have the Exponential special offer, you get that instead, since it saves you more.
 - **Church plants.** A church that launched in the last {{plantLaunchedWithin}}, or is launching in the next {{plantLaunchingWithin}}, can apply for {{churchPlantFree}} free after its trial.
   Answer Yes to "Is your church a church plant?" when you sign up.

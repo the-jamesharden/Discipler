@@ -187,8 +187,8 @@ Contact support is one form for questions, bugs and feature requests, stored and
 
 Search is a directory, not a question box.
 It opens with ⌘K, with `/`, or from the search bar at the right end of the tab row.
-With nothing typed it lists pages: the tabs, each Settings section, Intake forms, the Help pages, Account, Refer and Billing.
-Typing groups results under People, Relationships, Materials and Help, each saying where it opens; it never searches what anybody replied.
+With nothing typed it lists pages: the tabs, Settings, Intake forms, Account, the Help menu's items, and Refer and Billing once they exist.
+Typing also finds each Settings section and every help page, and groups results under People, Relationships, Materials, the pages' own headings and Help, each saying where it opens; it never searches what anybody replied.
 
 **Ask Discipler** is a circle in the bottom-right corner of every Admin page: a white speech bubble with a green smile and a gold "AI" tag.
 It answers from the help docs only, never sees the church's data, and ends each answer with the help page it came from (`docs/adr/0032-the-ai-guide-answers-from-the-help-docs-only.md`).

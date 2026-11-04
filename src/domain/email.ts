@@ -12,14 +12,15 @@
  * the compiler refuses it, and so does the tag at run time for anything cast past
  * the compiler.
  *
- * **No email carries congregation data**: no name from the Roster, no phone number,
- * no Concern and no referred church's name. Resend keeps what it sends, and an
- * inbox is read by whoever can read it. The types refuse the congregation data the
- * domain brands (a phone number, a Person's own words for a goal, a Person or
+ * **No email Discipler composes carries congregation data**: no name from the Roster,
+ * no phone number, no Concern and no referred church's name. Resend keeps what it
+ * sends, and an inbox is read by whoever can read it. The types refuse the congregation
+ * data the domain brands (a phone number, a Person's own words for a goal, a Person or
  * Concern ID), and every field of words has any phone number taken out of it. A name
  * is a plain string everywhere in the domain, so nothing can tell a congregant's name
  * from a church's: an email says "something needs your attention" and links into
- * the signed-in app, and never names who.
+ * the signed-in app, and never names who. What somebody typed into the support form is
+ * theirs and not composed, so a name in it can reach support@ (`./support-form`).
  */
 import type { Branded } from './branded'
 import type { ConcernId, PersonId } from './ids'

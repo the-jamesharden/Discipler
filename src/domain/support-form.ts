@@ -22,8 +22,9 @@ import { RESERVED_SHORT_NAMES } from './short-name'
  * invisible characters go, and any phone number is taken out. A name cannot be taken
  * out, because a name is a plain string and nothing can tell it from any other word.
  * So the form asks people to leave names out, and a name somebody types anyway does
- * reach support@. That is a limit of the rule "no email carries congregation names",
- * recorded on the ticket, and nothing here loosens the sender to get round it.
+ * reach support@. James accepted that on 2026-11-03, and the spec's rule on
+ * congregation names now covers what Discipler composes. Nothing here loosens the
+ * sender to get round it.
  *
  * What the form attaches by itself carries no such risk: a bug report's address is
  * the path alone, with anything that is not a route word replaced, and nothing from
