@@ -129,6 +129,13 @@ Built on `wave4/20`, on top of tickets 17, 18, 19 and 21.
 - The offer screen sits above everything at z-index 1000 and scrolls on a short screen, and its canvas is fixed.
 - `pending_signup.agreed_at` has a new comment in this migration naming "Continue", and the old migration's comment stays as history.
 
+### What was looked at
+
+The changed pages were looked at in headless Chrome at 390 and 1280 pixels, on a production build with stand-ins for Turnstile and Resend, and compared with the mock-ups.
+The look found two differences, both fixed: the popup's paragraph took `.card p`'s margin and pushed OK down by 12 pixels, and the refusal sentence's line height was tighter than drawn.
+The app's DM Sans renders a little heavier than the mock-ups' on the buttons and the offer's small line; that was left alone.
+The card's foot is 12 pixels shorter than `c1-have-a-code.html`, because the script after that mock-up's last paragraph stops `.card p:last-child` matching; the built foot matches `s2-email-phone.html?offer=referral`.
+
 ### What in this ticket turned out wrong
 
 - The banner is one sentence in the ticket, but mock-up 5 draws two pieces: a title with no period, then "Your first paid month is on us."
