@@ -644,6 +644,11 @@ Added on 2026-11-04 by ticket 17, all drafts inside the approved "Set up your ac
 - The email to support@ when a church signs up, `tellSupport` in `src/service/opening-a-church.ts`, which nobody outside the team reads.
 - A password refused here uses the wording every other password form already uses.
 
+Added on 2026-11-04 by ticket 21, two checks only production can answer, neither of them a sentence:
+
+- Email sign-in needs Supabase's email provider left on. If it is off on production, every email sign-in reads "That email or phone and password did not match.", with nothing logged.
+- Any account already on production that holds an email can now sign in with it, proven or not. Every account Discipler makes without sign-up holds none, so the count of `auth.users` with an email should be zero until sign-up opens.
+
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
 
 ## Open: the check-in words' refusals and `Messages read as`
@@ -725,6 +730,7 @@ James decided on 2026-11-03: the record stays at opening, ticket 17 carries the 
 Raised on 2026-11-03 by the Exponential launch, ticket 15.
 The spec and mock-up 1 draw "Create an account" on the sign-in page, and no ticket built it.
 Settled in the triage of 2026-11-04: it joins ticket 21, which rebuilds that page, and `ref` stays the parameter name for `/r/<code>`.
+Built by ticket 21: the button shows only while `signUpIsOpen` says so.
 
 ## Open: the edges of a free month and an offer
 

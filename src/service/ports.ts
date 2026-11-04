@@ -808,10 +808,17 @@ export interface UnitOfWork {
 
 /**
  * Whose account a sign-in is trying, as far as the guessing limit is concerned.
- * The number typed at the sign-in form, or the account of the session whose
- * current password is being checked at a change of password.
+ * The number or the email typed at the sign-in form, or the account of the session
+ * whose current password is being checked at a change of password.
+ *
+ * An email counts under the phone of the account that holds it, so the two ways in
+ * to one account share one count (Exponential launch, ticket 21). The port looks that
+ * up, so no caller can count the two apart by accident.
  */
-export type SignInAccount = { readonly phone: string } | { readonly userId: string }
+export type SignInAccount =
+  | { readonly phone: string }
+  | { readonly email: string }
+  | { readonly userId: string }
 
 /**
  * One try at a password, reserved before Supabase Auth is asked. It stays counted
@@ -844,9 +851,10 @@ export interface SignInLimit {
  * it happens before the transaction and it cannot be rolled back with it.
  *
  * Not a Leader's alone. An Admin comes into existence through the same mint, so
- * "a phone identity with a password and no email" is decided in one place -- see
- * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`, which says the
- * credential is the same for every user.
+ * "a phone identity with a password, and an email only where sign-up proved one" is
+ * decided in one place -- see
+ * `docs/adr/0030-an-admin-signs-in-with-email-or-phone.md`, and ADR-0008 for everybody
+ * without one.
  */
 export interface Accounts {
   /**

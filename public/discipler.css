@@ -824,7 +824,11 @@ input[type="file"] { display: block; margin-bottom: 1rem; font-size: 0.88rem; }
 .fine { font-size: 0.74rem; color: var(--text-light); margin-top: 0.45rem; line-height: 1.5; }
 .field-error { font-size: 0.78rem; color: var(--red-ink); margin-top: 0.3rem; line-height: 1.45; }
 .field-notice { font-size: 0.78rem; color: var(--primary); margin-top: 0.3rem; line-height: 1.45; }
-button.full { width: 100%; padding: 0.75rem 1.1rem; font-size: 0.95rem; }
+button.full, a.btn.full { width: 100%; padding: 0.75rem 1.1rem; font-size: 0.95rem; }
+/* The sign-in page's "Create an account" (ticket 21). The transparent border is "Sign in"'s, so the two are one height. */
+a.btn.full { display: block; text-align: center; border: 1px solid transparent; }
+.divider-or { display: flex; align-items: center; gap: 0.7rem; color: var(--text-light); font-size: 0.8rem; margin: 1.1rem 0; }
+.divider-or::before, .divider-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 button.full.after-field { margin-top: 0.6rem; }
 .sent-to { background: rgba(45, 80, 22, 0.04); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 0.9rem; font-size: 0.86rem; margin-bottom: 1.25rem; overflow-wrap: anywhere; }
 input.code-input { font-size: 1.6rem; letter-spacing: 0.5em; text-align: center; font-family: ui-monospace, 'SF Mono', Menlo, monospace; padding: 0.7rem 0.7rem 0.7rem 1.2rem; }

@@ -97,13 +97,14 @@ export const supabaseAccounts: Accounts = {
     const refused = newPasswordRefusal(newPassword)
     if (refused) return { refusal: refused }
 
-    // The number comes from the account and never from the caller. The form that
-    // reaches here carries none, and a check against a number somebody typed would
-    // verify a password against whichever account they named.
+    // What it checks against comes from the account and never from the caller. The
+    // form that reaches here carries none, and a check against a number somebody typed
+    // would verify a password against whichever account they named. The phone where
+    // there is one, and otherwise the email, since either now signs in (ADR-0030).
     const { data, error: lookup } = await serviceRoleClient().auth.admin.getUserById(userId)
     if (lookup) throw lookup
-    const phone = data.user.phone
-    if (!phone) throw new Error(`Account ${userId} holds no phone number to verify against`)
+    const { phone, email } = data.user
+    if (!phone && !email) throw new Error(`Account ${userId} holds nothing to verify against`)
 
     // The check is a password sign-in, on a client that keeps nothing. There is no
     // verify-only endpoint, and this one goes through the same door as the sign-in
@@ -116,10 +117,9 @@ export const supabaseAccounts: Accounts = {
     const checking = createClient(url, anonKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     })
-    const { error } = await checking.auth.signInWithPassword({
-      phone,
-      password: currentPassword,
-    })
+    const { error } = await checking.auth.signInWithPassword(
+      phone ? { phone, password: currentPassword } : { email: email!, password: currentPassword },
+    )
 
     if (error) {
       // Only a wrong password is an answer. Anything else -- the endpoint rate

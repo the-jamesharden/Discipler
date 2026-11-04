@@ -1,5 +1,6 @@
 import { COMMON_PASSWORDS } from './common-passwords'
 import { PASSWORD_WORDS } from './password-words'
+import { asPhoneNumber, type PhoneNumber } from './roster'
 
 /**
  * What an account is, stated where the domain can see it. The thing that creates
@@ -8,9 +9,29 @@ import { PASSWORD_WORDS } from './password-words'
  * product made, not decisions Supabase made, and the surfaces that render them
  * should not have to reach through an adapter to find out what they are.
  *
- * The credential is a phone number and a password, for every user, on one form.
- * See `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
+ * One form for every user, with one box for who they are and a password. An Admin who
+ * signed up with an email may type either that or their phone, and everybody else
+ * types their phone: `docs/adr/0030-an-admin-signs-in-with-email-or-phone.md`, which
+ * supersedes ADR-0008 for an Admin with a verified email and leaves it standing for
+ * everybody else.
  */
+
+/**
+ * What was typed into "Email or phone", read. An email is whatever holds an `@`, in
+ * lower case, which is how Supabase Auth keeps one, and is never checked further: a
+ * mistyped address and an address nobody holds are the same answer, so a check here
+ * would only add a second sentence that says less. Anything else goes through the one
+ * reading of a phone number, and null is a typo the person can fix.
+ */
+export type SignInEntry = { readonly email: string } | { readonly phone: PhoneNumber }
+
+export const readSignInEntry = (typed: string): SignInEntry | null => {
+  const entry = typed.trim()
+  if (entry.includes('@')) return { email: entry.toLowerCase() }
+
+  const phone = asPhoneNumber(entry)
+  return phone ? { phone } : null
+}
 
 /**
  * Why minting an account was refused. Codes, never prose -- the page renders its
