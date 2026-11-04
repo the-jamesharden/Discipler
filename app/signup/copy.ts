@@ -49,7 +49,26 @@ export const EMAIL_PAGE = {
   emailLabel: 'Email',
   emailHint: 'This will be your login email.',
   phoneLabel: 'Mobile phone',
-  submit: 'Email me a code',
+  // Renamed by James in mock-up 6 (2026-11-04), for every sign-up.
+  submit: 'Continue',
+  haveACode: 'Have a code?',
+  yourCode: 'Your code',
+  apply: 'Apply',
+} as const
+
+/** The Exponential special offer, over the whole screen, in the mock-up's capitals. */
+export const OFFER_SCREEN = {
+  eyebrow: 'EXPONENTIAL SPECIAL OFFER',
+  big: `${EXPONENTIAL_OFFER.trialDays} DAYS FREE`,
+  then: `THEN ${EXPONENTIAL_OFFER.discountPercent}% OFF YOUR FIRST YEAR`,
+  small: 'FOR CHURCHES THAT JOIN THROUGH EXPONENTIAL',
+  claim: 'CLAIM MY OFFER',
+} as const
+
+/** What a live referral code shows on the email and phone page. It never names the church. */
+export const INVITED_BANNER = {
+  title: 'You were invited by another church',
+  line: 'Your first paid month is on us.',
 } as const
 
 export const CODE_PAGE = {
@@ -64,6 +83,11 @@ export const CODE_PAGE = {
   newCode: 'Send a new code',
   newCodeIn: (wait: string) => `Send a new code in ${wait}`,
   cantFindIt: "Can't find it? Please check your spam or promotions folder. The email comes from notify.trydiscipler.com.",
+  // The popup on arrival from "Continue" (mock-up 6's `c2-code-sent.html`).
+  sentTitle: 'Login code sent',
+  sentPopupBefore: 'A login code has been sent to ',
+  sentPopupAfter: '.',
+  sentOk: 'OK',
 } as const
 
 /**

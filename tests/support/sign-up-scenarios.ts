@@ -569,7 +569,7 @@ export const describeSignUpScenarios = (makeBacking: () => Promise<SignUpScenari
     const agreedAtOf = async (token: Awaited<ReturnType<typeof h.attempt>>) =>
       (await backing.store.read(token))?.agreedAt
 
-    it('is when "Email me a code" was pressed, and a resend keeps it', async () => {
+    it('is when "Continue" was pressed, and a resend keeps it', async () => {
       const pressed = h.clock.now()
       const { token, address } = await h.attemptWithCode()
       expect(await agreedAtOf(token)).toEqual(pressed)

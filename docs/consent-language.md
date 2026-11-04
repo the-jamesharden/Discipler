@@ -45,7 +45,7 @@ An Admin from before sign-up has no such consent.
 The test check-in's card shows them the same sentence with "By sending" in place of "By continuing", above its button, and sending is their agreement.
 
 This is different wording from Statement 1, so it is recorded with a version identifier of its own, `SIGN_UP_CONSENT_VERSION` in `src/domain/consent.ts`, never one of the identifiers on this page.
-Its time is when "Email me a code" was pressed for that phone: a resend keeps it, and pressing it again with a different phone moves it, since the consent is for that number.
+Its time is when "Continue" was pressed on the email and phone page for that phone: a resend keeps it, and pressing it again with a different phone moves it, since the consent is for that number.
 The public description of this opt-in, for the carrier registration, is drafted for trydiscipler.com/sms-opt-in in `docs/legal/sms-opt-in-sign-up-section.md`.
 
 ## Statement 1 — SMS consent

@@ -31,6 +31,7 @@ let cookie: string | undefined
 
 let session: { status: string; admin?: { ministryId: string } } = { status: 'signed-out' }
 let churchesThatSignedUp: readonly string[] = []
+let liveCodes: readonly string[] = []
 
 vi.mock('~/service/container', () => ({
   getSignUp: () => {
@@ -40,6 +41,7 @@ vi.mock('~/service/container', () => ({
   getChurchSignups: () => ({
     of: async (church: string) => (churchesThatSignedUp.includes(church) ? { cycle: 'month' } : null),
   }),
+  getReferralCodes: () => ({ isLive: async (code: string) => liveCodes.includes(code) }),
 }))
 
 vi.mock('~/platform/supabase/current-admin', () => ({
@@ -105,6 +107,7 @@ beforeEach(() => {
   cookie = undefined
   session = { status: 'signed-out' }
   churchesThatSignedUp = []
+  liveCodes = []
   vi.stubEnv('SIGN_UP_OPEN', 'true')
   vi.stubEnv('NEXT_PUBLIC_TURNSTILE_SITE_KEY', 'a-site-key')
 })
@@ -319,7 +322,8 @@ describe('email and phone, page two', () => {
     expect(words).toContain('Step 1 of 3 Your email')
     expect(words).toContain('Email * This will be your login email.')
     expect(words).toContain(`Mobile phone * ${TEXTING_FINE_PRINT}`)
-    expect(words).toContain('Email me a code')
+    expect(words).toContain('Continue')
+    expect(words).not.toContain('Email me a code')
     expect(words).toContain('Already have an account? Sign in')
     expect(html).toContain('type="email"')
     expect(html).toContain('type="tel"')
@@ -334,6 +338,156 @@ describe('email and phone, page two', () => {
     await h.signUp.sendCode({ attempt: cookie, email: address, phone: US_PHONE, network: aNetworkAddress() })
 
     expect(await htmlOf(EmailPage)).toContain(`value="${address}"`)
+  })
+})
+
+describe('how somebody arrived, on page two (ticket 20)', () => {
+  const OFFER_WORDS = [
+    'EXPONENTIAL SPECIAL OFFER',
+    '60 DAYS FREE',
+    'THEN 20% OFF YOUR FIRST YEAR',
+    'FOR CHURCHES THAT JOIN THROUGH EXPONENTIAL',
+    'CLAIM MY OFFER',
+  ]
+  const EXPIRED = 'That code has expired, but your free trial still applies.'
+  const BANNER = 'You were invited by another church Your first paid month is on us.'
+  const AFTER_THE_LAST_DAY = new Date('2026-12-12T08:00:00Z')
+
+  const afterTheLastDay = async <T>(work: () => Promise<T>): Promise<T> => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(AFTER_THE_LAST_DAY)
+    try {
+      return await work()
+    } finally {
+      vi.useRealTimers()
+    }
+  }
+
+  beforeEach(atEmailAndPhone)
+
+  it('opens the offer over the whole screen with the booth link, in its capitals', async () => {
+    const html = await htmlOf(EmailPage, { code: 'EXPO26' })
+
+    expect(html).toContain('class="takeover"')
+    expect(html).toContain('aria-modal="true"')
+    expect(html).toContain('class="confetti"')
+    for (const line of OFFER_WORDS) expect(wordsOf(html)).toContain(line)
+  })
+
+  it('takes a code in lower case the same', async () => {
+    expect(await htmlOf(EmailPage, { code: 'expo26' })).toContain('class="takeover"')
+  })
+
+  it('never calls it automatic, a coupon or a founding church rate', async () => {
+    const words = wordsOf(await htmlOf(EmailPage, { code: 'EXPO26' })).toLowerCase()
+
+    for (const never of ['applied automatically', 'coupon', 'founding church']) expect(words).not.toContain(never)
+  })
+
+  it('opens no offer once it has been claimed in this tab, and leaves the page as it was', async () => {
+    const html = await htmlOf(EmailPage, { code: 'EXPO26', claimed: '1' })
+
+    expect(html).not.toContain('class="takeover"')
+    expect(wordsOf(html)).toContain('Email * This will be your login email.')
+  })
+
+  it('says its sentence for an expired code, with no offer, and carries on', async () => {
+    const html = await afterTheLastDay(() => htmlOf(EmailPage, { code: 'EXPO26' }))
+
+    expect(html).not.toContain('class="takeover"')
+    expect(wordsOf(html)).toContain(EXPIRED)
+    expect(wordsOf(html)).toContain('Continue')
+  })
+
+  it('still opens the offer through the last day, Pacific', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-12-12T07:59:00Z'))
+    try {
+      expect(await htmlOf(EmailPage, { code: 'EXPO26' })).toContain('class="takeover"')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('offers "Have a code?" only to somebody who arrived with none', async () => {
+    expect(wordsOf(await htmlOf(EmailPage))).toContain('Have a code?')
+    expect(wordsOf(await htmlOf(EmailPage, { ref: 'k7m2qp9xab' }))).toContain('Have a code?')
+    expect(wordsOf(await htmlOf(EmailPage, { code: 'EXPO26', claimed: '1' }))).not.toContain('Have a code?')
+    expect(wordsOf(await htmlOf(EmailPage, { code: 'NOPE' }))).not.toContain('Have a code?')
+  })
+
+  it('shows the banner for a live referral code, and names nobody', async () => {
+    liveCodes = ['k7m2qp9xab']
+    const html = await htmlOf(EmailPage, { ref: 'k7m2qp9xab' })
+
+    expect(wordsOf(html)).toContain(BANNER)
+    expect(html).not.toContain('class="takeover"')
+    expect(wordsOf(html).toLowerCase()).not.toContain('church of')
+  })
+
+  it('reads an unknown or retired code exactly as no code at all', async () => {
+    const withNoCode = await htmlOf(EmailPage)
+
+    expect(await htmlOf(EmailPage, { ref: 'k7m2qp9xab' })).toBe(withNoCode)
+    expect(await htmlOf(EmailPage, { ref: 'not a code!' })).toBe(withNoCode)
+  })
+
+  it('differs for a live code by the banner and nothing else', async () => {
+    liveCodes = ['k7m2qp9xab']
+    const live = await htmlOf(EmailPage, { ref: 'k7m2qp9xab' })
+    const withoutBanner = live.replace(/<div class="offer">.*?<\/span><\/div>/, '')
+
+    expect(withoutBanner).toBe(await htmlOf(EmailPage))
+  })
+
+  it('shows only the offer when a church holds both', async () => {
+    liveCodes = ['k7m2qp9xab']
+    const html = await htmlOf(EmailPage, { code: 'EXPO26', ref: 'k7m2qp9xab' })
+
+    expect(html).toContain('class="takeover"')
+    expect(wordsOf(html)).not.toContain('You were invited')
+  })
+
+  it('shows the banner beside the sentence when the offer has ended', async () => {
+    liveCodes = ['k7m2qp9xab']
+    const html = await afterTheLastDay(() => htmlOf(EmailPage, { code: 'EXPO26', ref: 'k7m2qp9xab' }))
+
+    expect(wordsOf(html)).toContain(BANNER)
+    expect(wordsOf(html)).toContain(EXPIRED)
+  })
+})
+
+describe('"Login code sent" (ticket 20)', () => {
+  it('shows over the code page on arrival from "Continue", in James\'s words', async () => {
+    const { address } = await atCode()
+    const html = await htmlOf(CodePage, { sent: '1' })
+
+    expect(html).toContain('role="dialog"')
+    expect(wordsOf(html)).toContain(`Login code sent A login code has been sent to ${address} . OK`)
+    expect(html).not.toContain('autofocus')
+  })
+
+  it('is not there on a reload, and the code box has the cursor', async () => {
+    await atCode()
+    const html = await htmlOf(CodePage)
+
+    expect(html).not.toContain('role="dialog"')
+    expect(wordsOf(html)).not.toContain('Login code sent')
+    expect(html).toMatch(/autofocus/i)
+  })
+
+  it('leaves the code page\'s own words as they were', async () => {
+    const { address } = await atCode()
+    const words = wordsOf(await htmlOf(CodePage, { sent: '1' }))
+
+    expect(words).toContain(`We sent a 6-digit code to ${address} . Please enter it below. It works for 10 minutes.`)
+    expect(words).toContain("Can't find it? Please check your spam or promotions folder.")
+  })
+
+  it('goes on no further than the code page, if the attempt stands elsewhere', async () => {
+    await atAccount()
+
+    expect(await open(CodePage, { sent: '1', code: 'EXPO26' })).toEqual({ redirect: '/signup/account?code=EXPO26' })
   })
 })
 

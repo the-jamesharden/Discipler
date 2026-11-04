@@ -89,7 +89,7 @@ export interface PendingSignup {
   readonly email: EmailAddress | null
   readonly phone: PhoneNumber | null
   /**
-   * When "Email me a code" was pressed for this phone, which is the time of the Admin's
+   * When "Continue" was pressed for this phone, which is the time of the Admin's
    * consent. A resend keeps it, because the agreement was the press, and another phone
    * moves it, because the agreement was for that number. Null exactly when `phone` is.
    */

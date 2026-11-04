@@ -1295,7 +1295,7 @@ Any Admin of the church can manage billing.
 
 ## Settled: Referrals
 
-Each church has one referral link, `trydiscipler.com/r/<code>`, whose code is random and unguessable and never the church's name.
+Each church has one referral link, `app.trydiscipler.com/r/<code>`, whose code is random and unguessable and never the church's name.
 "Get a new link" replaces it at once and retires the old code, which then opens sign-up at the normal price.
 
 The Refer page has one Copy button, which copies an approved note with the link; Discipler itself sends no invitation.

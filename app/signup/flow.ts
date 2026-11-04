@@ -1,4 +1,5 @@
 import { EMAIL_CODE } from '~/domain/launch-terms'
+import { offerFor, type CodeRefusal } from '~/domain/offers'
 import type { SignUpStanding } from '~/domain/sign-up-attempt'
 
 /**
@@ -23,10 +24,11 @@ const PATHS: Record<SignUpStep, string> = {
 /**
  * What the address carries through the flow, in the address and never a cookie (ticket
  * 15): `code` is the mock-up's `/signup?code=EXPO26`, and `ref` is what `/r/<code>`
- * redirects with. Nothing here acts on them; tickets 17 and 20 do, from the address of
- * the page they are on.
+ * redirects with. `claimed` says the offer screen has been closed in this tab (ticket 20),
+ * because the address is what a tab keeps across a reload and "Use a different email". The
+ * server reads it, so a reload paints no offer screen before it knows better.
  */
-const CARRIED_NAMES = ['code', 'ref'] as const
+const CARRIED_NAMES = ['code', 'ref', 'claimed'] as const
 
 /** Anything else cannot be a code, and is not repeated back into a link. */
 const CAN_BE_CARRIED = /^[A-Za-z0-9_-]{1,64}$/
@@ -47,14 +49,54 @@ export const carriedFrom = (params: Record<string, string | string[] | undefined
   return carried.toString()
 }
 
+/** What was carried, with one value more or changed, in the order it is always carried. */
+export const carrying = (carried: string, name: (typeof CARRIED_NAMES)[number], value: string): string => {
+  const params = Object.fromEntries(new URLSearchParams(carried))
+  return carriedFrom({ ...params, [name]: value })
+}
+
 /**
  * A step's address, with what was carried. `again` is page one for somebody who has an
  * attempt already and wants another address on a new one, which has to pass the check
- * again (ticket 11); without it page one would send them back where they stand.
+ * again (ticket 11); without it page one would send them back where they stand. `sent`
+ * is the code page on arrival from "Continue", which is what opens its popup, and the
+ * page takes it back out of the address so a reload does not open it again (ticket 20).
  */
-export const signUpHref = (step: SignUpStep, carried: string, { again = false } = {}): string => {
-  const query = [again ? 'again=1' : '', carried].filter(Boolean).join('&')
+export const signUpHref = (step: SignUpStep, carried: string, { again = false, sent = false } = {}): string => {
+  const query = [again ? 'again=1' : '', carried, sent ? 'sent=1' : ''].filter(Boolean).join('&')
   return query ? `${PATHS[step]}?${query}` : PATHS[step]
+}
+
+/** What the email and phone page opens with, from what the address carried (ticket 20). */
+export interface EmailPageArrival {
+  /** The offer is over the whole screen. */
+  readonly offerScreen: boolean
+  /** "You were invited by another church". Only the offer shows when a church holds both. */
+  readonly invited: boolean
+  /** Why the carried code does not apply. Sign-up carries on at the normal price. */
+  readonly codeRefusal: CodeRefusal | null
+  /** "Have a code?", which James drew only for somebody who arrived with no code. */
+  readonly canTypeACode: boolean
+}
+
+export const emailPageArrival = ({
+  code,
+  claimed,
+  refIsLive,
+  at,
+}: {
+  readonly code: string | null
+  readonly claimed: boolean
+  readonly refIsLive: boolean
+  readonly at: Date
+}): EmailPageArrival => {
+  const { offer, codeRefusal } = offerFor({ code: code ?? '', invited: refIsLive, at })
+  return {
+    offerScreen: offer === 'exponential' && !claimed,
+    invited: offer === 'referral',
+    codeRefusal,
+    canTypeACode: code === null,
+  }
 }
 
 /** A step to move to, in place of saying a refusal on the page. */
@@ -64,7 +106,7 @@ export interface NextStep {
 }
 
 /**
- * The refusals to "Email me a code" that mean another page. Too soon is the second of
+ * The refusals to the email page's "Continue" that mean another page. Too soon is the second of
  * a double click, or the back button, and the code is already on its way, so the code
  * page is right. Another address on the attempt, or a pass that lapsed, is page one.
  */
@@ -81,7 +123,7 @@ export const stepAfterSendRefusal = (refusal: string | null): NextStep | null =>
   }
 }
 
-/** The refusals to "Continue" and "Send a new code" that mean another page. */
+/** The refusals to the code page's "Continue" and "Send a new code" that mean another page. */
 export const stepAfterCodeRefusal = (refusal: string | null): NextStep | null => {
   switch (refusal) {
     case 'signup.human_check_needed':

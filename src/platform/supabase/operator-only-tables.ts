@@ -45,4 +45,6 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   'payment_fingerprint_grant',
   // The support form, from somebody not signed in as an Admin (Exponential launch, ticket 25).
   'signed_out_support_submission',
+  // Which church invited which, which neither church may read (Exponential launch, ticket 20).
+  'referral',
 ]

@@ -118,14 +118,14 @@ export interface ProvenSignUp {
   readonly pendingSignupId: string
   readonly email: EmailAddress
   readonly phone: PhoneNumber
-  /** When "Email me a code" was pressed for this phone: the time of the consent. */
+  /** When "Continue" was pressed for this phone: the time of the consent. */
   readonly agreedAt: Date
 }
 
 export interface SignUp {
   /** Page one: spends a Turnstile token, and starts an attempt if it passes. */
   passHumanCheck(humanToken: string): Promise<HumanCheckPassing>
-  /** Page two's "Email me a code", with what was typed. */
+  /** Page two's "Continue", with what was typed. */
   sendCode(request: {
     readonly attempt: string | null | undefined
     readonly email: string

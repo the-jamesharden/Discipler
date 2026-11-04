@@ -186,6 +186,7 @@ describe('The payment step', { timeout: 30_000 }, () => {
         agreedAt: at,
         cycle,
         carriedCode,
+        carriedRef: null,
         heardFrom: null,
       },
     })

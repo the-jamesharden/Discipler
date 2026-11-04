@@ -6,6 +6,7 @@ import type { EmailAddress } from '~/domain/email'
 import { MinistrySetupRefused } from '~/domain/errors'
 import type { MinistrySetupToken } from '~/domain/ministry-setup'
 import type { BillingCycle } from '~/domain/offers'
+import { readReferralCode } from '~/domain/referrals'
 import { asPhoneNumber } from '~/domain/roster'
 import type { HeardFrom } from '~/domain/sign-up-account'
 import { isKnownTimezone } from '~/domain/week'
@@ -103,11 +104,13 @@ export interface NewAdmin {
 export interface SignedUpChurch {
   /** The attempt it spends, in the same transaction. */
   readonly pendingSignupId: string
-  /** When they pressed "Email me a code" for this phone, which is their consent's time. */
+  /** When they pressed "Continue" for this phone, which is their consent's time. */
   readonly agreedAt: Date
   readonly cycle: BillingCycle
   /** As the address carried it, whether or not it applied, or null for none. */
   readonly carriedCode: string | null
+  /** The referral code the address carried, as it came, or null for none (ticket 20). */
+  readonly carriedRef: string | null
   readonly heardFrom: HeardFrom | null
   /** Its church-plant application, if it made one (ticket 19). */
   readonly plant?: PlantAnswers | null
@@ -127,6 +130,8 @@ export interface ProvisionedMinistry {
   readonly shortName: string
   /** The church-plant application opened with it, or null for none. */
   readonly plantApplicationId: string | null
+  /** Whether a live referral code brought it, and so a `referral` row was written. */
+  readonly invited: boolean
 }
 
 /**
@@ -295,9 +300,10 @@ export const provisionMinistry = async (
     }
 
     let plantApplicationId: string | null = null
+    let invited = false
 
     if (ministry.signedUp) {
-      const { agreedAt, cycle, carriedCode, heardFrom, plant } = ministry.signedUp
+      const { agreedAt, cycle, carriedCode, carriedRef, heardFrom, plant } = ministry.signedUp
 
       await client.query(
         `insert into church_signup (ministry_id, billing_cycle, carried_code, heard_from)
@@ -344,6 +350,22 @@ export const provisionMinistry = async (
         )
         plantApplicationId = application.rows[0]!.id
       }
+
+      // Only a live code, read here and not on the page, so a code retired while the form
+      // sat open invites nobody. A referral is written even beside `EXPO26`, because the
+      // inviting church earns its credit whichever offer this church got (ticket 32). The
+      // row is the whole of what a church's free month rests on: `wasInvited` reads it.
+      const code = readReferralCode(carriedRef)
+      if (code) {
+        const recorded = await client.query(
+          `insert into referral (invited_church, inviting_church, referral_code, invited_at)
+           select $1::uuid, held.ministry_id, held.id, $3::timestamptz
+             from referral_code held
+            where held.code = $2 and held.retired_at is null`,
+          [ministryId, code, at],
+        )
+        invited = recorded.rowCount === 1
+      }
     }
 
     await client.query('commit')
@@ -355,6 +377,7 @@ export const provisionMinistry = async (
       adminPhone: phone,
       shortName,
       plantApplicationId,
+      invited,
     }
   } catch (error) {
     await client.query('rollback').catch(() => undefined)
@@ -404,11 +427,16 @@ export const openSignedUpChurch: ChurchOpener = async (church) => {
         agreedAt: church.agreedAt,
         cycle: church.cycle,
         carriedCode: church.carriedCode,
+        carriedRef: church.carriedRef,
         heardFrom: church.heardFrom,
         plant: church.plant ?? null,
       },
     })
-    return { ministryId: provisioned.ministryId, plantApplicationId: provisioned.plantApplicationId }
+    return {
+      ministryId: provisioned.ministryId,
+      plantApplicationId: provisioned.plantApplicationId,
+      invited: provisioned.invited,
+    }
   } catch (error) {
     if (error instanceof SignUpAttemptAlreadySpent) return { alreadyOpened: true }
     if (error instanceof MinistryNotProvisioned && error.refusal) return { refusal: error.refusal }

@@ -2,7 +2,7 @@ import type { AccountCreationRefusal, NewPasswordRefusal } from '~/domain/accoun
 import type { PlantAnswers } from '~/domain/church-plant'
 import type { Clock } from '~/domain/clock'
 import { EmailField, emailBody, emailSubject, type EmailAddress } from '~/domain/email'
-import { offerFor, type BillingCycle } from '~/domain/offers'
+import { offerFor, type BillingCycle, type TrialOffer } from '~/domain/offers'
 import type { PhoneNumber } from '~/domain/roster'
 import {
   heardFromLabel,
@@ -58,6 +58,8 @@ export interface OpeningRequest extends AccountFormFields {
   readonly humanToken: string
   /** What the address carried, as it came, or null. Checked again when it is used. */
   readonly carriedCode: string | null
+  /** The referral code the address carried, as it came, or null. Checked when the church opens. */
+  readonly carriedRef: string | null
 }
 
 export interface OpeningAChurch {
@@ -79,6 +81,7 @@ export interface ChurchToOpen {
   readonly agreedAt: Date
   readonly cycle: BillingCycle
   readonly carriedCode: string | null
+  readonly carriedRef: string | null
   readonly heardFrom: HeardFrom | null
   /** Its church-plant application, written in the same transaction, if it made one. */
   readonly plant?: PlantAnswers | null
@@ -86,7 +89,7 @@ export interface ChurchToOpen {
 
 /** The church and everything that goes with it, in one transaction, or why not. */
 export type ChurchOpener = (church: ChurchToOpen) => Promise<
-  | { readonly ministryId: string; readonly plantApplicationId?: string | null }
+  | { readonly ministryId: string; readonly plantApplicationId?: string | null; readonly invited?: boolean }
   | { readonly alreadyOpened: true }
   | { readonly refusal: AccountCreationRefusal }
 >
@@ -94,6 +97,13 @@ export type ChurchOpener = (church: ChurchToOpen) => Promise<
 /** Every refusal an account can bring here is one the page can say. */
 const openingRefusalOf = (refusal: AccountCreationRefusal): OpeningRefusal =>
   refusal === 'account.no_number_on_file' ? 'signup.not_opened' : (refusal satisfies NewPasswordRefusal | 'account.already_exists')
+
+/** What the email to support@ calls each offer. */
+const OFFER_FOR_SUPPORT: Record<TrialOffer, string> = {
+  exponential: 'The Exponential special offer',
+  referral: 'The first paid month free, invited by another church',
+  none: 'None',
+}
 
 export const createOpeningAChurch = ({
   signUp,
@@ -114,9 +124,10 @@ export const createOpeningAChurch = ({
     churchName: string,
     heardFrom: HeardFrom | null,
     carriedCode: string | null,
+    invited: boolean,
     at: Date,
   ): Promise<void> => {
-    const { offer } = offerFor({ code: carriedCode ?? '', invited: false, at })
+    const { offer } = offerFor({ code: carriedCode ?? '', invited, at })
     const name = EmailField.line(churchName)
     try {
       await sender.send({
@@ -125,7 +136,7 @@ export const createOpeningAChurch = ({
         body: emailBody`${name} just signed up for Discipler.
 
 Where it heard about us: ${EmailField.line(heardFrom ? heardFromLabel(heardFrom) : 'It did not say')}
-Offer: ${EmailField.line(offer === 'exponential' ? 'The Exponential special offer' : 'None')}
+Offer: ${EmailField.line(OFFER_FOR_SUPPORT[offer])}
 
 It has not added a card or bank account yet, and cannot text until it does.`,
         once: ministryId,
@@ -175,7 +186,7 @@ ${line(applicationId)}`,
   }
 
   return {
-    async open({ attempt, humanToken, carriedCode, ...fields }) {
+    async open({ attempt, humanToken, carriedCode, carriedRef, ...fields }) {
       const token = readAttemptToken(attempt)
       if (!token) return { refusal: 'signup.not_verified' }
 
@@ -204,6 +215,7 @@ ${line(applicationId)}`,
             agreedAt: ready.agreedAt,
             cycle: form.cycle,
             carriedCode,
+            carriedRef,
             heardFrom: form.heardFrom,
             plant: form.plant,
           })
@@ -216,7 +228,7 @@ ${line(applicationId)}`,
         if ('alreadyOpened' in opened) return opened
         if ('refusal' in opened) return { refusal: openingRefusalOf(opened.refusal) }
 
-        await tellSupport(opened.ministryId, form.churchName, form.heardFrom, carriedCode, at)
+        await tellSupport(opened.ministryId, form.churchName, form.heardFrom, carriedCode, opened.invited === true, at)
         if (form.plant && opened.plantApplicationId) {
           await tellTheFounders(opened.plantApplicationId, form.churchName, ready.email, form.plant)
         }

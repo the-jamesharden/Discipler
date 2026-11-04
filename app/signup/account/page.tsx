@@ -45,6 +45,7 @@ export default async function SetUpYourAccountPage({ searchParams }: { searchPar
         siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || null}
         action={HUMAN_CHECK_ACTIONS.openChurch}
         code={code}
+        referral={carriedValue(params.ref)}
         carried={carried}
       />
     </Centred>

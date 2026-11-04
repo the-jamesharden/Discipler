@@ -7,7 +7,7 @@ import { attemptFrom } from '../attempt-cookie'
 export const dynamic = 'force-dynamic'
 
 /**
- * **Email me a code** (Exponential launch, tickets 11 and 15). Takes the form fields
+ * **Continue**, on the email and phone page (Exponential launch, tickets 11 and 15). Takes the form fields
  * `email` and `phone`, and the attempt from its cookie.
  *
  * Answers `{ sent: true, email, resendInSeconds }` whether or not the address has an
