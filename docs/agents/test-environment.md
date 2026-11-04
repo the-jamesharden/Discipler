@@ -38,6 +38,10 @@ Start it in the background and read its log; a shell call that blocks on it will
 - **`AuthRetryableFetchError` in every `beforeAll`, and a whole suite that is over in under eighty seconds, is Auth not being back yet.**
   A reset restarts Auth, and Kong cannot reach it for about fifty seconds afterwards; two checkouts with different migrations reset on every handover of the lock.
   `locked-tests.sh` waits up to two minutes for `/auth/v1/health` to answer through Kong before it runs anything, and says so if it never does.
+- **`database error, code: 42P10` from every upload is a checkout that was linked, not a bug in Materials.**
+  `supabase link` pins production's service versions in `supabase/.temp`, and a reset obeys them, so production's Storage migrates the shared database past the Storage that is running.
+  `locked-tests.sh` removes those pins before it resets.
+  A plain `supabase db reset` from a linked checkout does not, and leaves the database broken for every checkout until the next reset.
   A run from a checkout that does not have that wait yet shows about 82 failed files and 692 skipped tests, and none of it is the code.
 - **`fetch failed` or `EADDRNOTAVAIL` across many suites is the host, not the code.**
   Past about fifty days of uptime macOS stops expiring sockets in TIME_WAIT and the ephemeral ports run out.

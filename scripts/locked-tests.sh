@@ -139,6 +139,10 @@ if [ "$FORCE_RESET" = 1 ] || [ "$WANT" != "$HAVE" ]; then
   # The CLI is a global install here (Homebrew), not a project dependency. `npx
   # supabase` would go to the registry and can stop on an install prompt.
   command -v supabase >/dev/null || die "the supabase CLI is not on PATH"
+  # `supabase link` pins the linked project's service versions here, and a reset obeys
+  # them: production's Storage would migrate the shared database past the Storage that
+  # is running, and every upload then fails with 42P10. The next link writes them again.
+  rm -f "$ROOT"/supabase/.temp/{gotrue,postgres,rest,storage}-version "$ROOT/supabase/.temp/storage-migration"
   if supabase db reset >"$LOG_DIR/db-reset.log" 2>&1 &&
     grep -Eq 'Reset local database|Finished supabase db reset' "$LOG_DIR/db-reset.log"; then
     printf '%s\n' "$WANT" >"$SCHEMA_FILE"
