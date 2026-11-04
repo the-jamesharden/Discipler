@@ -8,6 +8,7 @@ import type { MinistryId } from '~/domain/ids'
 import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
 import { createPostgresPendingSignups, type PostgresPendingSignups } from '~/platform/supabase/pending-signups'
 import { openSignedUpChurch } from '~/platform/supabase/provisioning'
+import { createPostgresReferralCredits } from '~/platform/supabase/referral-credits'
 import { createPostgresReferrals, type PostgresReferrals } from '~/platform/supabase/referrals'
 import { createEmailSender } from '~/service/email-sender'
 import { openTrial } from '~/service/open-trial'
@@ -378,6 +379,103 @@ describe('a church whose code does not count', { timeout: 60_000 }, () => {
 
     const told = h.email.delivered.find((email) => email.subject.includes('signed up for Discipler'))
     expect(told?.text).toContain('Offer: None')
+  })
+})
+
+describe('"Get a new link"', { timeout: 60_000 }, () => {
+  it('retires the old code, keeps it, and the old link signs a church up with no free month and earns no credit', async () => {
+    const inviter = await createMinistryWithAdmin(aChurchName())
+    const old = await liveCodeOf(inviter.id)
+
+    const made = await referrals.getANewCode(inviter.id as MinistryId, new Date())
+
+    expect(made).not.toBe(old)
+    expect(await liveCodeOf(inviter.id)).toBe(made)
+    expect(await referrals.isLive(old)).toBe(false)
+    expect(await referrals.isLive(made)).toBe(true)
+    const { rows } = await pool.query(`select retired_at from referral_code where code = $1`, [old])
+    expect(rows[0].retired_at).toBeInstanceOf(Date)
+
+    const church = await signUpWith({ ref: old })
+
+    expect(await referralsOf(church.id)).toEqual([])
+    expect(await referrals.wasInvited(church.id)).toBe(false)
+    expect(await offerOpenedFor(church, '')).toBe('none')
+    // Nothing is there for a first payment to earn from.
+    const credits = createPostgresReferralCredits(localSupabase().databaseUrl)
+    try {
+      expect(await credits.referralYetToEarn(church.id)).toBeNull()
+    } finally {
+      await credits.close()
+    }
+  })
+
+  it('leaves a church that had already signed up with the old link counted', async () => {
+    const inviter = await createMinistryWithAdmin(aChurchName())
+    const church = await signUpWith({ ref: await liveCodeOf(inviter.id) })
+
+    await referrals.getANewCode(inviter.id as MinistryId, new Date())
+
+    expect(await referralsOf(church.id)).toHaveLength(1)
+    expect(await referrals.wasInvited(church.id)).toBe(true)
+  })
+
+  it('takes a double click as two new links and leaves one live', async () => {
+    const inviter = await createMinistryWithAdmin(aChurchName())
+
+    const [first, second] = await Promise.all([
+      referrals.getANewCode(inviter.id as MinistryId, new Date()),
+      referrals.getANewCode(inviter.id as MinistryId, new Date()),
+    ])
+
+    expect(first).not.toBe(second)
+    expect([first, second]).toContain(await liveCodeOf(inviter.id))
+  })
+
+  it('can only ever be asked by a church of itself, and not by a browser', async () => {
+    const client = await pool.connect()
+    try {
+      await client.query('begin')
+      await client.query('set local role discipler_command')
+      await expect(client.query(`select app.get_a_new_referral_code(now())`)).rejects.toThrow(/asked for by a church/)
+      await client.query('rollback')
+      await client.query('begin')
+      await client.query('set local role authenticated')
+      await expect(client.query(`select app.get_a_new_referral_code(now())`)).rejects.toThrow(/permission denied/)
+      await client.query('rollback')
+    } finally {
+      client.release()
+    }
+  })
+})
+
+describe('the inviting church\'s own history', { timeout: 60_000 }, () => {
+  it('says "Signed up" with an ID that opens nothing, and nothing of the church it invited', async () => {
+    const inviter = await createMinistryWithAdmin(aChurchName())
+    const church = await signUpWith({ ref: await liveCodeOf(inviter.id) })
+
+    const { rows } = await pool.query<{ type: string; subject_id: string; payload: unknown }>(
+      `select type, subject_id, payload from ministry_event
+        where ministry_id = $1 and subject_type = 'referral'`,
+      [inviter.id],
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.type).toBe('referral.signed_up')
+    expect(rows[0]!.payload).toEqual({})
+    expect(rows[0]!.subject_id).not.toBe(church.id)
+    const { rows: named } = await pool.query(`select id from referral where invited_church = $1`, [church.id])
+    expect(rows[0]!.subject_id).toBe(named[0].id)
+  })
+
+  it('says nothing for a church that came with no referral', async () => {
+    const church = await signUpWith()
+    const { rowCount } = await pool.query(
+      `select 1 from ministry_event where ministry_id = $1 and subject_type = 'referral'`,
+      [church.id],
+    )
+
+    expect(rowCount).toBe(0)
   })
 })
 

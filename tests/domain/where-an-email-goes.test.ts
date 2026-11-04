@@ -84,6 +84,7 @@ describe('the routing', () => {
         'over200FollowUp',
         'paymentReminder',
         'passwordReset',
+        'referralCreditReview',
         'signUpAttemptNotice',
         'supportRequest',
         'textingGateUnread',

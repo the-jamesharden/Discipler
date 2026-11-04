@@ -90,8 +90,8 @@ describe('the Help menu for one Admin', () => {
 })
 
 describe('Refer a church', () => {
-  it('is not offered until the Refer page exists', () => {
-    expect(REFER_A_CHURCH.href).toBeNull()
-    expect(hasAPage('/refer')).toBe(false)
+  it('opens the Refer page', () => {
+    expect(REFER_A_CHURCH.href).toBe('/refer')
+    expect(hasAPage('/refer')).toBe(true)
   })
 })

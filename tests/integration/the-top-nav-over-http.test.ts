@@ -137,10 +137,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the top nav', () => {
       'Restart onboarding',
       'Setup videos',
       'Blog',
-      'Refer a church',
     ]) {
       expect(head, notYet).not.toContain(notYet)
     }
+    expect(head).toContain('href="/refer"')
     // No control anywhere in the nav is a link to nowhere.
     expect(head).not.toContain('href="#"')
   })

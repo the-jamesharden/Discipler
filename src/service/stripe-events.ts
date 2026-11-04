@@ -3,6 +3,7 @@ import {
   isConfirmedAndLive,
   isStripeEventActedOn,
   type StripeEventRefusal,
+  type StripeInboxEntry,
   type StripeSubscriptionFacts,
 } from '~/domain/billing'
 import type { Clock } from '~/domain/clock'
@@ -43,6 +44,8 @@ export interface StripeEventWork {
   readonly trials: StripeTrials
   readonly alerts: SupportAlerts
   readonly clock: Clock
+  /** What this event means for a referral credit (ticket 32), after it is recorded. */
+  readonly creditOnEvent: (entry: StripeInboxEntry, church: MinistryId, customerId: string) => Promise<void>
 }
 
 /** How long one attempt holds an event, comfortably past a function's time limit. */
@@ -160,6 +163,8 @@ export const processStripeEvent = async (
   if (recorded.subscription) {
     await settleConfirmedTrial(work, church, customerId, recorded.subscription)
   }
+
+  await work.creditOnEvent(entry, church, customerId)
 
   await inbox.finish(eventId, { outcome: 'recorded', church }, clock.now())
   return 'recorded'

@@ -32,6 +32,7 @@ const PAGE_FUNCTIONS = [
   'pair_page',
   'person_intake_page',
   'person_page',
+  'refer_page',
   'relationships_page',
   'roster_page',
   'search_page',

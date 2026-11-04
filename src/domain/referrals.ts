@@ -13,3 +13,7 @@ export const readReferralCode = (given: string | null | undefined): string | nul
   const code = given?.trim().toLowerCase() ?? ''
   return REFERRAL_CODE.test(code) ? code : null
 }
+
+/** The link as the Refer page shows and copies it: `app.trydiscipler.com/r/<code>`. */
+export const referralLinkShown = (appUrl: string, code: string): string =>
+  `${appUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/r/${code}`

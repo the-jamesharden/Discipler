@@ -93,6 +93,7 @@ describe('Opening a trial', { timeout: 30_000 }, () => {
       trials: fake.trials,
       alerts,
       clock,
+      creditOnEvent: async () => undefined,
     }
     tokenEmail = 'pastor@grace.example'
     vi.stubEnv('SIGN_UP_OPEN', 'true')

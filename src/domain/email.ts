@@ -417,6 +417,8 @@ export const EMAIL_KINDS = {
   textingGateUnread: 'support',
   /** A church-plant application, with no approve link in it (ticket 19). */
   churchPlantApplication: 'founders',
+  /** A referral credit Discipler will not apply by itself, for James to settle (ticket 32). */
+  referralCreditReview: 'founders',
   /** Sign-up's 6-digit code, and the notice sent instead when the address has an account (ticket 11). */
   emailCode: 'admin',
   signUpAttemptNotice: 'admin',
