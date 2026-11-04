@@ -1306,7 +1306,7 @@ An applied credit shows on the inviting church's Billing page, which is the only
 The Billing card is the first card in Settings: one line, such as "Free trial until December 30, 2026, then $77.60 a month · Visa ending 4242", and an "Open billing" button.
 It opens Discipler's own Billing page, which shows the plan, the trial or next payment date and amount, any offer in force, the card brand and last four or the bank's name, any referral credit, and past invoices, all read from Stripe on the server.
 Its buttons open Stripe's billing page straight at the step they name (update the payment method, cancel), because Stripe's page cannot be framed inside Discipler.
-Discipler stores only Stripe's IDs, the card brand and last four digits, never a card or account number.
+Discipler stores only Stripe's IDs, the card brand and last four digits, and Stripe's fingerprint of the card or bank account, never a card or account number.
 After sign-up, prices do show: on Billing, its card in Settings, the restart page and the trial-ending email.
 
 ## Settled: The Follow-Up Item Kinds

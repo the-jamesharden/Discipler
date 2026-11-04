@@ -82,7 +82,7 @@ The consequence, on purpose: no church can reach 100% or see the badge until 27 
 Each of 27 and 28 has one line to change, the address, and one thing to record.
 
 **Decided: what 27 and 28 record.**
-Ticket 27 appends `setup.tour_finished` with the builder `tourFinished`, and ticket 28 appends `setup.test_check_in_sent` with `testCheckInSent`, both in `src/domain/setup-meter.ts`.
+Ticket 27 appends `setup.tour_finished` and ticket 28 appends `setup.test_check_in_sent`, both named in `SETUP_HISTORY` in `src/domain/setup-meter.ts`.
 The alternative was reading ticket 28's table, which does not exist yet and would have had this migration name it.
 The SQL already reads both, so neither ticket has to touch the meter's read.
 

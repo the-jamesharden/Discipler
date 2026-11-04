@@ -4,6 +4,7 @@ import {
   EmailField,
   emailSubject,
   UnescapedEmailField,
+  type EmailAddress,
 } from '~/domain/email'
 
 /**
@@ -61,6 +62,16 @@ describe('a link', () => {
     ['not the web', 'javascript:alert(1)'],
   ])('to %s is refused', (_label, href) => {
     expect(() => EmailField.link(new URL(href))).toThrow(UnescapedEmailField)
+  })
+})
+
+describe('an address', () => {
+  it('stays whole, digits before the @ included', () => {
+    expect(EmailField.address('5551234567@vtext.com' as EmailAddress).text).toBe('5551234567@vtext.com')
+  })
+
+  it('refuses anything cast past the compiler that is not one address', () => {
+    expect(() => EmailField.address('Grace <grace@example.org>' as EmailAddress)).toThrow(UnescapedEmailField)
   })
 })
 

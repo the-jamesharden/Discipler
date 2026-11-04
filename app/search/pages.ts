@@ -1,7 +1,9 @@
+import { upcomingOfficeHours, type UpcomingOfficeHours } from '~/domain/office-hours'
 import { CHANGE_YOUR_PASSWORD } from '../account/copy'
 import { ADMIN_TABS } from '../admin-tabs'
+import { NEXT_OFFICE_HOURS } from '../help/office-hours'
 import { INTAKE_FORMS } from '../intake-forms/copy'
-import { HELP_MENU, REFER_A_CHURCH } from '../top-nav-menus'
+import { helpMenuFor, REFER_A_CHURCH } from '../top-nav-menus'
 import { BILLING_LINE, HEADINGS, SETTINGS_SECTIONS, WHERE } from './copy'
 import { matching, termsOf, type DirectoryGroup, type DirectoryRow } from './match'
 
@@ -19,8 +21,9 @@ import { matching, termsOf, type DirectoryGroup, type DirectoryRow } from './mat
  *   and this list reads the same line, so there is nothing to change here.
  * - **Billing (ticket 33)** sets `href` on its entry below, to its section of Settings.
  * - **Anything added to the Help menu** (Restart onboarding, What's new, Office hours,
- *   Contact support, Setup videos, Blog) is listed the moment `HELP_MENU` gives it an
- *   address, so tickets 25, 27 and 30 change nothing here.
+ *   Contact support, Setup videos, Blog) is listed the moment `helpMenuFor` gives it an
+ *   address, so tickets 25, 27 and 30 change nothing here. Office hours has one only
+ *   while there is a next call, so the pages are worked out when they are asked for.
  * - **Ask Discipler (ticket 31)** sets `href` on its entry below, if it has an address.
  * - **A new tab** is added to `ADMIN_TABS` and is listed with it. **A new page of any
  *   other kind** is one more entry here, under the heading it belongs with.
@@ -45,7 +48,7 @@ const section = (label: string, anchor: string): DirectoryPage => ({
   typedOnly: true,
 })
 
-export const DIRECTORY_PAGES: readonly DirectoryPage[] = [
+export const directoryPages = (officeHours: UpcomingOfficeHours | null): readonly DirectoryPage[] => [
   ...ADMIN_TABS.map(
     (tab): DirectoryPage => ({
       heading: HEADINGS.goTo,
@@ -97,16 +100,18 @@ export const DIRECTORY_PAGES: readonly DirectoryPage[] = [
     where: WHERE.account,
     icon: 'key',
   },
-  ...HELP_MENU.flatMap((group) => group.items).map(
-    (item): DirectoryPage => ({
-      heading: HEADINGS.help,
-      label: item.label,
-      href: item.href,
-      where: WHERE.help,
-      icon: item.icon,
-      ...(item.newTab ? { newTab: true } : {}),
-    }),
-  ),
+  ...helpMenuFor({ whatsNewIsNew: false, officeHours })
+    .flatMap((group) => group.items)
+    .map(
+      (item): DirectoryPage => ({
+        heading: HEADINGS.help,
+        label: item.label,
+        href: item.href,
+        where: WHERE.help,
+        icon: item.icon,
+        ...(item.newTab ? { newTab: true } : {}),
+      }),
+    ),
   {
     heading: HEADINGS.help,
     label: 'Ask Discipler',
@@ -147,7 +152,7 @@ export interface SearchNames {
 export const directoryFor = (
   query: string,
   names: SearchNames | null,
-  pages: readonly DirectoryPage[] = DIRECTORY_PAGES,
+  pages: readonly DirectoryPage[] = directoryPages(upcomingOfficeHours(NEXT_OFFICE_HOURS, new Date())),
 ): readonly DirectoryGroup[] => {
   if (query.trim() === '') return grouped(pages.filter((page) => !page.typedOnly))
 

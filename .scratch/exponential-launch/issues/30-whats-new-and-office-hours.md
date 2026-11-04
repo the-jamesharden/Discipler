@@ -47,7 +47,7 @@ The close button posts to `/overview/whats-new/dismiss`, which runs the command 
 The office hours file ships as null because James has not given the Zoom link or the next date, so no card shows and the Help item stays off.
 `tests/app/whats-new-and-office-hours.test.ts` says so, and that one test is deleted when the file is filled in.
 
-`speakWithTheTeamLine` in `app/help/office-hours.ts` is the welcome window's line with and without its Next, ready for ticket 27, which draws the modal.
+The welcome window's line with and without its Next belongs to ticket 27, which draws the modal.
 
 ### Decisions
 

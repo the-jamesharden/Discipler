@@ -21,7 +21,7 @@
 - No arrow-key hint is shown, though the arrow keys work.
 - It lists the tabs, each Settings section, Intake forms, the Help pages and Account, plus people, relationships and Materials by name.
 - **Refer and Billing are listed only once they exist.**
-  Each is written in its place in `DIRECTORY_PAGES` (`app/search/pages.ts`) with a null address, or reads the address its menu already holds, and appears the moment it has one.
+  Each is written in its place in `directoryPages` (`app/search/pages.ts`) with a null address, or reads the address its menu already holds, and appears the moment it has one.
 - **It never searches reply text or Concerns.**
   What it reads holds no such words, so there is nothing to search: names, titles, and nothing a person wrote in a text.
 - It reads through row-level security like every page, in one read of its own (`search_page`, ADR-0023), so an Admin finds only their own church.
@@ -70,11 +70,11 @@ The answer for the seeded church of 9 people, 2 relationships and 2 Materials wa
 
 ### How a later ticket adds its page
 
-Each is in `DIRECTORY_PAGES` (`app/search/pages.ts`) already, and nothing is listed while its address is null.
+Each is in `directoryPages` (`app/search/pages.ts`) already, and nothing is listed while its address is null.
 
 - **Refer a church (32):** sets `REFER_A_CHURCH.href` in `app/top-nav-menus.ts`, the line that also draws the header's button.
   Nothing to change in search.
-- **Restart onboarding (27), What's new and Office hours (30), Contact support (25), Setup videos, Blog:** listed under Help the moment `HELP_MENU` gives them an address.
+- **Restart onboarding (27), What's new and Office hours (30), Contact support (25), Setup videos, Blog:** listed under Help the moment `helpMenuFor` gives them an address.
   Nothing to change in search.
 - **Billing (33):** sets `href` on its entry to its section of Settings, and adds that section's name to `SETTINGS_SECTIONS` in `app/search/copy.ts` if it should be said under Settings.
 - **Ask Discipler (31):** the entry needs an address.

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
 import type { EmailEnvelope } from '~/domain/email'
 import type { GrowthHistory, GrowthMembership, GrowthPause, GrowthRelationship } from '~/domain/growth'
-import { fewestPeopleInActiveRelationships, peopleInActiveRelationshipsAt } from '~/domain/growth'
+import { fewestPeopleInActiveRelationships } from '~/domain/growth'
 import { ministryId, type MinistryId } from '~/domain/ids'
 import {
   closedMonthsToAsk,
@@ -96,6 +96,8 @@ const question = (overrides: Partial<Parameters<typeof over200FollowUpFor>[0]> =
 
 describe('who counts as a person in an active relationship', () => {
   const instant = at('2026-10-15T12:00:00Z')
+  const counted = (history: GrowthHistory) =>
+    fewestPeopleInActiveRelationships(history, instant, new Date(instant.getTime() + 1))
 
   it('counts Disciplers and Disciples together, each person once', () => {
     const history = historyOf(
@@ -110,7 +112,7 @@ describe('who counts as a person in an active relationship', () => {
       },
     )
 
-    expect(peopleInActiveRelationshipsAt(history, instant)).toBe(4)
+    expect(counted(history)).toBe(4)
   })
 
   it('leaves out a Discipler who has not accepted yet', () => {
@@ -118,7 +120,7 @@ describe('who counts as a person in an active relationship', () => {
       members: [{ relationshipId: 'a', personId: 'invited', role: 'leader', startedAt: LONG_AGO, endedAt: null, acceptedAt: null }],
     })
 
-    expect(peopleInActiveRelationshipsAt(history, instant)).toBe(1)
+    expect(counted(history)).toBe(1)
   })
 
   it('leaves out a relationship nobody accepted, one that ended and one that is paused', () => {
@@ -132,7 +134,7 @@ describe('who counts as a person in an active relationship', () => {
       { pauses: [{ relationshipId: 'paused', kind: 'paused', at: at('2026-10-02T00:00:00Z') }] },
     )
 
-    expect(peopleInActiveRelationshipsAt(history, instant)).toBe(2)
+    expect(counted(history)).toBe(2)
   })
 
   it('counts a relationship again once it has been resumed', () => {
@@ -143,7 +145,7 @@ describe('who counts as a person in an active relationship', () => {
       ],
     })
 
-    expect(peopleInActiveRelationshipsAt(history, instant)).toBe(3)
+    expect(counted(history)).toBe(3)
   })
 })
 

@@ -179,7 +179,7 @@ export const supportEmail = (submission: SupportSubmission): Email => {
   const from = EmailField.line(
     submission.churchName === null ? NOBODY_SIGNED_IN : `Church: ${submission.churchName}`,
   )
-  const replyTo = EmailField.line(submission.replyTo)
+  const replyTo = EmailField.address(submission.replyTo)
   const message = EmailField.quoted(submission.message)
 
   const body =

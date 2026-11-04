@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EmailEnvelope, type EmailAddress } from '~/domain/email'
+import { EMAIL_LINE_LONGEST, EmailEnvelope, type EmailAddress } from '~/domain/email'
 import { createTestClock } from '~/domain/clock'
 import { SUPPORT_SUBMISSIONS } from '~/domain/launch-terms'
 import {
@@ -220,6 +220,23 @@ describe('the email to support@', () => {
 
     expect(text).toContain('Write back to: grace@example.org')
     expect(text).toContain('Pressing Reply reaches support@, not them.')
+  })
+
+  it.each(['5551234567@vtext.com', '1234567890@qq.com'])(
+    'gives support a numeric address whole, because it is the way back: %s',
+    async (address) => {
+      const { text } = await opened(aSubmission({ replyTo: address as EmailAddress }))
+
+      expect(text).toContain(`Write back to: ${address}`)
+    },
+  )
+
+  it('gives support a long address whole, past the length of a line', async () => {
+    const address = `${'a'.repeat(60)}.${'b'.repeat(50)}@${'c'.repeat(60)}.${'d'.repeat(60)}.example.org`
+    const { text } = await opened(aSubmission({ replyTo: address as EmailAddress }))
+
+    expect(address.length).toBeGreaterThan(EMAIL_LINE_LONGEST)
+    expect(text).toContain(`Write back to: ${address}`)
   })
 })
 

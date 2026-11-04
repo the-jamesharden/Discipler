@@ -202,10 +202,6 @@ const peopleAt = (arranged: Arranged, instant: Date): number => {
   return counted.size
 }
 
-/** How many people were in active relationships at an instant. */
-export const peopleInActiveRelationshipsAt = (history: GrowthHistory, instant: Date): number =>
-  peopleAt(arrange(history), instant)
-
 /**
  * The fewest people in active relationships at any instant from `from` up to but not
  * including `until`, read off the history rather than sampled, so a dip of a minute

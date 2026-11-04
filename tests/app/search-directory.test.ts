@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { HEADINGS } from '../../app/search/copy'
 import { labelParts, rowMatches, termsOf, type DirectoryRow } from '../../app/search/match'
-import { DIRECTORY_PAGES, directoryFor, type DirectoryPage, type SearchNames } from '../../app/search/pages'
+import { directoryFor, directoryPages, type DirectoryPage, type SearchNames } from '../../app/search/pages'
 import { HELP_PAGES, helpPage } from '../../app/help/library'
 
 /**
@@ -29,6 +29,9 @@ const NAMES: SearchNames = {
   materials: [row('Growing in prayer')],
   help: [row('Groups and co-leaders')],
 }
+
+const PAGES = directoryPages(null)
+const UPCOMING = { date: 'Thursday, November 12', time: '12pm CT', link: 'https://example.com/the-call' }
 
 const labels = (query: string, names: SearchNames | null = NAMES, pages?: readonly DirectoryPage[]) =>
   directoryFor(query, names, pages).flatMap((group) => group.rows.map((each) => each.label))
@@ -73,17 +76,17 @@ describe('a page that does not exist yet', () => {
     'is not listed: %s',
     (label) => {
       // Whichever of these another ticket has landed is the point of the next test.
-      const entry = [...DIRECTORY_PAGES].find((page) => page.label === label)
+      const entry = PAGES.find((page) => page.label === label)
       expect(entry, `${label} should be written in its place`).toBeDefined()
       if (entry!.href !== null) return
 
-      expect(labels('')).not.toContain(label)
-      expect(labels(label)).not.toContain(label)
+      expect(labels('', NAMES, PAGES)).not.toContain(label)
+      expect(labels(label, NAMES, PAGES)).not.toContain(label)
     },
   )
 
   it('is listed the moment its entry has an address, with nothing else to change', () => {
-    const billed = DIRECTORY_PAGES.map((page) =>
+    const billed = PAGES.map((page) =>
       page.label === 'Billing' ? { ...page, href: '/settings#billing' } : page,
     )
 
@@ -102,7 +105,7 @@ describe('a page that does not exist yet', () => {
       existsSync(`${app}${path}/page.tsx`) ||
       (path.startsWith('/help/') && helpPage(path.slice('/help/'.length)) !== null)
 
-    for (const page of DIRECTORY_PAGES) {
+    for (const page of directoryPages(UPCOMING)) {
       if (page.href === null || page.newTab) continue
       expect(served(page.href.split('#')[0]!), page.href).toBe(true)
     }

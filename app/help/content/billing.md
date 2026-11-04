@@ -44,7 +44,8 @@ The Billing card in [Settings](/help/settings) shows your plan, your trial or ne
 To update your payment method or cancel, Discipler opens Stripe's own billing page at the right step.
 
 Card and bank details are only ever typed on Stripe's forms.
-Discipler keeps only the card's brand and last four digits.
+Discipler keeps only the card's brand and last four digits, and Stripe's fingerprint of the card or bank account.
+The fingerprint does not show the number, and is how Discipler checks that one card or bank account does not claim the same offer twice.
 A bank account is added by signing in to your bank through Stripe.
 To change to a different bank account, write to [support@trydiscipler.com](mailto:support@trydiscipler.com).
 

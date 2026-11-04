@@ -3,8 +3,8 @@ import { calendarDayOf } from './week'
 /**
  * Office hours (Exponential launch, ticket 30): a Zoom call with the team, set in a
  * file in the repo (`app/help/office-hours.ts`). The Overview card, the Help menu's
- * item and the welcome window's card all ask here, so none of them can go on showing
- * a call that has been and gone.
+ * item, search and the welcome window's card all ask here, so none of them can go on
+ * showing a call that has been and gone.
  */
 
 export interface OfficeHours {

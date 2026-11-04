@@ -16,8 +16,8 @@
  * no Concern and no referred church's name. Resend keeps what it sends, and an
  * inbox is read by whoever can read it. The types refuse the congregation data the
  * domain brands (a phone number, a Person's own words for a goal, a Person or
- * Concern ID), and every field has any phone number taken out of it. A name is a
- * plain string everywhere in the domain, so nothing can tell a congregant's name
+ * Concern ID), and every field of words has any phone number taken out of it. A name
+ * is a plain string everywhere in the domain, so nothing can tell a congregant's name
  * from a church's: an email says "something needs your attention" and links into
  * the signed-in app, and never names who.
  */
@@ -164,6 +164,16 @@ export class EmailField {
       throw new UnescapedEmailField('An email links only to Discipler.')
     }
     return new EmailField(url.href, false)
+  }
+
+  /**
+   * An address to write back to, whole. It has been through `asEmailAddress`, so it
+   * holds nothing to fold away, and any digits before its @ are the address itself.
+   */
+  static address(raw: EmailAddress): EmailField {
+    const address = asEmailAddress(raw)
+    if (address === null) throw new UnescapedEmailField('An address is one ordinary email address.')
+    return new EmailField(address, false)
   }
 
   /** Sign-up's one-time code: six digits and nothing else (ticket 11). */

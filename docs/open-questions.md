@@ -547,6 +547,7 @@ Ticket 40 was triaged with the four ratings, and it is built with "Reply A for o
 Raised on 2026-11-01 by the Exponential launch, ticket 36.
 James filled every bracket in the privacy policy and the terms of service on 2026-11-03, with no refund on cancellation and an effective date of November 3, 2026.
 No lawyer or accountant has reviewed them, including the tax line and the Stripe and Cloudflare disclosures.
+The privacy policy's sentences on Stripe's fingerprint of a card or bank account were added on 2026-11-03 to match ticket 04 and the spec, after James filled it, and are his or a lawyer's to approve before it is published.
 The opt-in page's sign-up section still has its screenshot, which waits on ticket 15, and the checks of the Twilio Verify, HELP and STOP wording.
 All three are to be published on trydiscipler.com, and sign-up stays off in production until they are live.
 What is left: James publishes the two finished documents, registers himself with the US Copyright Office as the copyright agent, and adds the address's ZIP code if he wants it shown.
@@ -754,6 +755,7 @@ What needs deciding: whether ticket 31 gives the circle an address or removes th
 Raised on 2026-11-03 by the Exponential launch, ticket 26.
 Steps 2 and 3, the tour and the test check-in, wait for tickets 27 and 28, so every church stays below 100%, and a church with only those left has no "Next:" line, though the spec says "always showing".
 SAU BCM will read 5 of 7, and an Admin's first sign-in plays every finished step's confetti at once.
+Wave 3 ships ticket 26 without 27 and 28, so all of this is live on every Admin page from the merge unless the bar is held.
 What needs deciding: nothing if 27 and 28 ship together with this, otherwise whether the bar waits for them.
 
 ## Open: Leaders on the support form
