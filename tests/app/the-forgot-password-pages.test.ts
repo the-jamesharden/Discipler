@@ -44,7 +44,16 @@ afterEach(() => {
 })
 
 describe('the sign-in page', () => {
+  it('offers no link while sign-up is shut, when no account holds an email', async () => {
+    vi.stubEnv('SIGN_UP_OPEN', '')
+
+    const html = renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve({}) }))
+
+    expect(html).not.toContain('Forgot your password?')
+  })
+
   it('links to the request page under the password box, as drawn', async () => {
+    vi.stubEnv('SIGN_UP_OPEN', 'true')
     const html = renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve({}) }))
 
     expect(html).toContain('<p class="hint"><a href="/login/forgot">Forgot your password?</a></p>')

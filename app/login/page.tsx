@@ -70,9 +70,13 @@ export default async function LoginPage({
             required
             autoComplete="current-password"
           />
-          <p className="hint">
-            <a href="/login/forgot">Forgot your password?</a>
-          </p>
+          {/* Only while sign-up is open: until then no account holds an email, so
+              the page could only say a link went when none did. */}
+          {signUpIsOpen(process.env) ? (
+            <p className="hint">
+              <a href="/login/forgot">Forgot your password?</a>
+            </p>
+          ) : null}
         </div>
 
         <button type="submit" className="full sec">
