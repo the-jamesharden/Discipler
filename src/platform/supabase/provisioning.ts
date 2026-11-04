@@ -6,6 +6,7 @@ import type { EmailAddress } from '~/domain/email'
 import { MinistrySetupRefused } from '~/domain/errors'
 import type { MinistrySetupToken } from '~/domain/ministry-setup'
 import type { BillingCycle } from '~/domain/offers'
+import { REFERRAL_EVENTS } from '~/domain/referral-credit'
 import { readReferralCode } from '~/domain/referrals'
 import { asPhoneNumber } from '~/domain/roster'
 import type { HeardFrom } from '~/domain/sign-up-account'
@@ -365,6 +366,15 @@ export const provisionMinistry = async (
           [ministryId, code, at],
         )
         invited = recorded.rowCount === 1
+
+        // On the inviting church's own history, with an ID that opens nothing it can read.
+        await client.query(
+          `insert into ministry_event (ministry_id, occurred_at, type, subject_type, subject_id)
+           select inviting_church, $2::timestamptz, $3, 'referral', id
+             from referral
+            where invited_church = $1 and inviting_church is not null`,
+          [ministryId, at, REFERRAL_EVENTS.signedUp],
+        )
       }
     }
 

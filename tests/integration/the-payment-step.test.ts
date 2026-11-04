@@ -141,6 +141,7 @@ describe('The payment step', { timeout: 30_000 }, () => {
       trials: fake.trials,
       alerts: { async billingEventRefused() {} } as unknown as SupportAlerts,
       clock,
+      creditOnEvent: async () => undefined,
     }
     vi.stubEnv('SIGN_UP_OPEN', 'true')
     vi.stubEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'pk_test_not_a_real_key')

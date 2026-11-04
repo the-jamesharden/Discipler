@@ -692,6 +692,18 @@ Also from ticket 22, three things to check on production before anybody relies o
 - `RESEND_API_KEY` and `RESEND_EMAIL_DOMAIN`, or the page says "Email sent." and the only sign that nothing went is `A reset email for link ... did not go` in the log.
 - The link shows on the sign-in page whether or not sign-up is open, so until sign-up opens it answers "Email sent." to everybody and sends nobody anything, because nobody's account holds an address yet.
 
+Added on 2026-11-04 by ticket 32, the Refer page's words being James's own:
+
+- The email to james@ and lerone@ about a credit Discipler will not apply by itself, `referralCreditForReview` in `src/service/support-alerts.ts`, which nobody outside the team reads.
+  Subject: "A referral credit is waiting for you".
+  It names both churches, both Stripe customers, the opaque referral ID, and one sentence of why.
+- Every shared email domain sends a credit to review, a shared `gmail.com` included, because the spec says "an email domain".
+  If James finds he is reviewing credits between strangers on the same free mail service, leaving those domains out is one line in `whyTheyLookLikeOne` in `src/domain/referral-credit.ts`.
+
+Also from ticket 32, for the Stripe steps below: the restricted key needs Invoices and Charges read, on top of what ticket 04 lists, and Customers write has to cover customer balance transactions.
+Nothing here has reached real Stripe, so a credit on a test clock on staging is the check: a church invited, its first real payment, 30 days, then a "Referral credit" on the inviting customer's next invoice.
+Ticket 32's review sends James an email and nothing more: he settles it in Stripe or on the church's invoice, and Discipler's row stays `in_review`.
+
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
 
 ## Open: the check-in words' refusals and `Messages read as`

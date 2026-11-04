@@ -4,12 +4,14 @@ import type { MinistryId } from '~/domain/ids'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import type { SettledPairings } from '~/service/command-service'
 import type { PaymentReminderOutcome } from '~/service/payment-reminder-watch'
+import type { ReferralCreditSweep } from '~/service/referral-credits'
 import type { StripeEventSweep } from '~/service/stripe-events'
 import type { SupportSweep } from '~/service/support-form'
 import {
   drainOutboundQueue,
   getCommandService,
   getMinistryDirectory,
+  sweepTheReferralCredits,
   sweepTheStripeEvents,
   sweepTheSupportSubmissions,
   sweepUnsavedUploads,
@@ -189,6 +191,17 @@ export async function GET(request: NextRequest) {
     stripeEvents = 'failed'
   }
 
+  // Then the referral credits whose hold is over (Exponential launch, ticket 32), after the
+  // sweep, so a refund the sweep just took in is seen. Caught on its own: a credit that
+  // could not be settled stays due, and the next pass comes back to it.
+  let referralCredits: ReferralCreditSweep | 'failed'
+  try {
+    referralCredits = await sweepTheReferralCredits()
+  } catch (error) {
+    console.error(`Sweeping the referral credits failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    referralCredits = 'failed'
+  }
+
   // Then the churches that stayed above the first price's limit for a month (Exponential
   // launch, ticket 14), last, so it reads what the sweep just recorded. Caught on its
   // own: nothing it found is lost, and the next pass asks again and tells what is owed.
@@ -242,6 +255,7 @@ export async function GET(request: NextRequest) {
     capacity,
     twilioBalance,
     stripeEvents,
+    referralCredits,
     over200,
     supportSubmissions,
     paymentReminders,

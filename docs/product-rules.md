@@ -1300,8 +1300,10 @@ Each church has one referral link, `app.trydiscipler.com/r/<code>`, whose code i
 
 The Refer page has one Copy button, which copies an approved note with the link; Discipler itself sends no invitation.
 The invited church's first paid month is free.
-The inviting church earns one month free, applied automatically after the invited church pays its first real bill, held for a while after that payment and taken back if the payment is refunded or disputed.
-Where both churches pay with the same card or bank account, or share an email domain, the credit goes to James for review instead; so does a credit earned by a church billed outside Stripe.
+The inviting church earns one month free, applied automatically after the invited church pays its first real bill, held for a while after that payment and taken back if the payment is refunded or disputed in that time.
+It is one month of the inviting church's own price, $97 or $147, however that church bills, taken off its next bills as a credit on its Stripe balance.
+Where both churches pay with the same card or bank account, share an email domain or are one Stripe customer, the credit goes to James for review instead; so does a credit earned by a church billed outside Stripe, or by a church with no subscription running.
+What the inviting church's own history records is that a referral signed up, is paying and earned a credit, under an ID that opens nothing, and no page lists those.
 
 No page lists the churches a church invited, and an invited church is never named to the church that invited it.
 An applied credit shows on the inviting church's Billing page, which is the only thing one church learns about another through a referral.

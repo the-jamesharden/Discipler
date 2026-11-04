@@ -95,10 +95,10 @@ export const helpMenuFor = ({
     }),
   }))
 
-/** The header's button with a gift on it. Ticket 32 builds the page it opens. */
+/** The header's button with a gift on it (ticket 32). */
 export const REFER_A_CHURCH: { readonly label: string; readonly href: string | null } = {
   label: 'Refer a church',
-  href: null,
+  href: '/refer',
 }
 
 /** An item that has somewhere to go. */

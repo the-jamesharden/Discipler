@@ -51,6 +51,12 @@ import type {
 } from '~/domain/billing'
 import type { PlantApplication, PlantDecision } from '~/domain/church-plant'
 import type { BillingCycle, FingerprintGrant, PaidPhase, TrialOffer } from '~/domain/offers'
+import type {
+  ChargeFacts,
+  PaidInvoiceFacts,
+  ReferralCreditCancelled,
+  ReferralCreditReview,
+} from '~/domain/referral-credit'
 import type { GrowthChoice, GrowthHistory, GrowthSeries } from '~/domain/growth'
 import type { ChurchPriceRecord } from '~/domain/over-200'
 import type { CalendarMonth, IsoWeek } from '~/domain/week'
@@ -1796,6 +1802,8 @@ export interface SupportAlerts {
   /** `day` is the Pacific day it was reached in, and what makes the email once a day. */
   dailyCapReached(alert: { readonly day: string }): Promise<void>
   billingEventRefused(alert: BillingEventRefused): Promise<void>
+  /** Words only from what was recorded, so a retry is the same message. */
+  referralCreditForReview(review: ReferralCreditForReview): Promise<void>
   /**
    * The texting gate could not read a church's access, so texts went unchecked
    * (Exponential launch, ticket 05). `day` is what makes the email once a day.
@@ -1966,6 +1974,110 @@ export interface StripeBilling {
   subscriptionsOf(customerId: string): Promise<readonly StripeSubscriptionFacts[]>
   /** The customer a charge was made to, for a dispute, which names only its charge. */
   customerOfCharge(chargeId: string): Promise<string | null>
+}
+
+/**
+ * Stripe as the referral credit needs it (Exponential launch, ticket 32): what is true now
+ * about a payment and the two churches, and the one thing written. Throws when Stripe
+ * cannot answer, which leaves the event or the credit for the next pass.
+ */
+export interface StripeCredits {
+  /** An invoice as it is now, or null where Stripe has no such invoice. */
+  invoice(invoiceId: string): Promise<PaidInvoiceFacts | null>
+  charge(chargeId: string): Promise<ChargeFacts>
+  /** The customer's email and the fingerprint of every payment method it holds. */
+  customer(customerId: string): Promise<{
+    readonly email: string | null
+    readonly fingerprints: readonly string[]
+  }>
+  /** What a price is called in the catalog, in whichever Stripe account this is. */
+  lookupKeyOfPrice(priceId: string): Promise<string | null>
+  /**
+   * The balance transaction already made for this credit, or null. Asked before every
+   * write, because a retry may come after Stripe's idempotency key has gone.
+   */
+  appliedCredit(customerId: string, creditId: string): Promise<string | null>
+  /** A negative balance transaction naming the credit, and answers its ID. */
+  applyCredit(credit: {
+    readonly customerId: string
+    readonly creditId: string
+    readonly cents: number
+  }): Promise<string>
+}
+
+/** A referral credit that has come due, as a pass of the sweep works on it. */
+export interface DueReferralCredit {
+  readonly id: string
+  readonly referralId: string
+  readonly state: 'held' | 'applying'
+  /** Null where that church has since been deleted. */
+  readonly invitingChurch: MinistryId | null
+  readonly invitingChurchName: string | null
+  readonly invitedChurch: MinistryId
+  readonly invitedChurchName: string
+  readonly chargeId: string | null
+  readonly paidAt: Date
+  readonly amountCents: number | null
+}
+
+/**
+ * The record of referral credits, on the trusted connection, because a credit spans two
+ * churches and neither may read it.
+ */
+export interface ReferralCreditRecords {
+  /** The referral of a church that was invited and has not earned its inviter a credit. */
+  referralYetToEarn(invitedChurch: MinistryId): Promise<string | null>
+  /** Written once per referral, with the "Paying" event. Answers whether this was the one. */
+  earn(credit: {
+    readonly referralId: string
+    readonly invoiceId: string
+    readonly chargeId: string | null
+    readonly paidAt: Date
+    readonly heldUntil: Date
+    readonly at: Date
+  }): Promise<boolean>
+  /** The credit still held that this charge paid for, or null. */
+  heldForCharge(chargeId: string): Promise<string | null>
+  /** Those whose hold is over and nobody is working on, oldest first. */
+  due(at: Date, limit: number): Promise<readonly DueReferralCredit[]>
+  /** Takes the credit for this attempt. False where another pass has it. */
+  lease(creditId: string, at: Date, heldFor: number): Promise<boolean>
+  cancel(creditId: string, because: ReferralCreditCancelled, at: Date): Promise<void>
+  sendToReview(creditId: string, because: ReferralCreditReview, at: Date): Promise<void>
+  /** Commits the decision and its amount, before Stripe is called. */
+  decideToApply(creditId: string, cents: number): Promise<void>
+  /** Written with the "Credit applied" event, once. */
+  markApplied(creditId: string, balanceTransactionId: string, at: Date): Promise<void>
+  /** Every email address on the accounts of a church's Admins. */
+  adminEmails(church: MinistryId): Promise<readonly string[]>
+}
+
+/** Replaces a church's referral code, for the Refer page's "Get a new link". */
+export interface ReferralLinks {
+  /** Retires the church's live code and answers the new one. */
+  getANewCode(church: MinistryId, at: Date): Promise<string>
+}
+
+/** The Refer page, which holds the code and nothing the code ever brought. */
+export interface ReferPage {
+  readonly code: string
+  readonly followUpCount: number
+}
+
+export interface ReferReader {
+  readReferPage(): Promise<AdminPage<ReferPage>>
+}
+
+/** A credit James settles by hand (Exponential launch, ticket 32). */
+export interface ReferralCreditForReview {
+  readonly creditId: string
+  readonly referralId: string
+  readonly because: ReferralCreditReview
+  readonly invitingChurchName: string
+  readonly invitedChurchName: string
+  readonly invitingCustomerId: string | null
+  readonly invitedCustomerId: string | null
+  readonly paidAt: Date
 }
 
 /** A trial just opened, and the secret the Payment Element confirms its setup intent with. */

@@ -17,8 +17,6 @@ import { matching, termsOf, type DirectoryGroup, type DirectoryRow } from './mat
  * goes nowhere. This is the rule `./top-nav-menus` holds for the header, and how a later
  * ticket adds its page:
  *
- * - **Refer a church (ticket 32)** sets `REFER_A_CHURCH.href` for the header's button,
- *   and this list reads the same line, so there is nothing to change here.
  * - **Billing (ticket 33)** sets `href` on its entry below, to its section of Settings.
  * - **Anything added to the Help menu** (Restart onboarding, What's new, Office hours,
  *   Contact support, Setup videos, Blog) is listed the moment `helpMenuFor` gives it an

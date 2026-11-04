@@ -74,6 +74,11 @@ import {
   type PostgresSharedNumbers,
 } from '~/platform/supabase/shared-numbers'
 import { createPostgresChurchSignups, type PostgresChurchSignups } from '~/platform/supabase/church-signups'
+import { supabaseReferReader } from '~/platform/supabase/refer-reader'
+import {
+  createPostgresReferralCredits,
+  type PostgresReferralCredits,
+} from '~/platform/supabase/referral-credits'
 import { createPostgresReferrals, type PostgresReferrals } from '~/platform/supabase/referrals'
 import {
   createPostgresOver200FollowUps,
@@ -89,6 +94,7 @@ import {
 } from '~/platform/supabase/support-submissions'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import { createStripeBilling, stripeClient } from '~/platform/stripe/billing'
+import { createStripeCredits } from '~/platform/stripe/credits'
 import { createStripeTrials } from '~/platform/stripe/trials'
 import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
 import { createCommandService, type CommandService } from './command-service'
@@ -107,6 +113,12 @@ import {
   type StripeEventWork,
 } from './stripe-events'
 import type { Invitations, TrialWork } from './open-trial'
+import {
+  creditOnStripeEvent,
+  sweepReferralCredits,
+  type ReferralCreditSweep,
+  type ReferralCreditWork,
+} from './referral-credits'
 import { watchOver200Churches, type Over200WatchOutcome } from './over-200-watch'
 import { createEmailSupportAlerts } from './support-alerts'
 import { createForgotPassword, type ForgotPassword } from './forgot-password'
@@ -115,6 +127,8 @@ import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-bal
 import type {
   ChurchSignups,
   ReferralCodes,
+  ReferralLinks,
+  ReferReader,
   Accounts,
   BillingRecords,
   CareNeededReader,
@@ -615,13 +629,34 @@ const stripeEventWork = (): StripeEventWork => ({
   trials: createStripeTrials(),
   alerts: getSupportAlerts(),
   clock: systemClock,
+  creditOnEvent: (entry, church, customerId) =>
+    creditOnStripeEvent(referralCreditWork(), entry, church, customerId),
 })
+
+let referralCredits: PostgresReferralCredits | undefined
+const referralCreditWork = (): ReferralCreditWork => {
+  if (!referralCredits) referralCredits = createPostgresReferralCredits(commandDatabaseUrl())
+  return {
+    credits: referralCredits,
+    billing: billing().records,
+    stripe: createStripeCredits(),
+    alerts: getSupportAlerts(),
+    clock: systemClock,
+  }
+}
+
+/** One pass over the referral credits whose hold is over (ticket 32). */
+export const sweepTheReferralCredits = (): Promise<ReferralCreditSweep> =>
+  sweepReferralCredits(referralCreditWork())
 
 let referrals: PostgresReferrals | undefined
 const theReferrals = (): PostgresReferrals => {
   if (!referrals) referrals = createPostgresReferrals(commandDatabaseUrl())
   return referrals
 }
+
+/** "Get a new link" on the Refer page (ticket 32). */
+export const getReferralLinks = (): ReferralLinks => theReferrals()
 
 /** Whether a code in a referral link is live, for the page that shows the banner (ticket 20). */
 export const getReferralCodes = (): ReferralCodes => theReferrals()
@@ -741,6 +776,7 @@ export const closeCommandService = async (): Promise<void> => {
   const shared = sharedNumbers
   const balanceFalls = twilioBalanceFalls
   const followUps = over200FollowUps
+  const referralCreditRows = referralCredits
   const signupRows = churchSignups
   const capHolds = dailyCapHolds
   const limit = signInLimit
@@ -760,6 +796,7 @@ export const closeCommandService = async (): Promise<void> => {
   sharedNumbers = undefined
   twilioBalanceFalls = undefined
   over200FollowUps = undefined
+  referralCredits = undefined
   churchSignups = undefined
   dailyCapHolds = undefined
   signInLimit = undefined
@@ -775,6 +812,7 @@ export const closeCommandService = async (): Promise<void> => {
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
   emailSender = undefined
+  await referralCreditRows?.close()
   await signupRows?.close()
   await store?.close()
   await reader?.close()
@@ -803,6 +841,9 @@ export const getRosterReader = (): RosterReader => createSupabaseRosterReader(sy
  * list it is, and the page never has to.
  */
 export const getIntakeFormsReader = (): IntakeFormsReader => supabaseIntakeFormsReader
+
+/** The Refer page reads through the signed-in Admin's session (ticket 32). */
+export const getReferReader = (): ReferReader => supabaseReferReader
 
 /**
  * The settings surface reads through the signed-in Admin's session, so

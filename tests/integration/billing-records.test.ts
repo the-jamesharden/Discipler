@@ -111,6 +111,7 @@ describe('Billing records and the Stripe webhook', () => {
         told.push(alert)
       },
       async textingGateUnread() {},
+      async referralCreditForReview() {},
     }
     work = {
       inbox: billing.inbox,
@@ -120,6 +121,7 @@ describe('Billing records and the Stripe webhook', () => {
       trials: {} as StripeTrials,
       alerts,
       clock,
+      creditOnEvent: async () => undefined,
     }
 
     // A church of its own per test: a customer can be stored once and history can

@@ -1,7 +1,8 @@
 import pg from 'pg'
 import { readReferralCode } from '~/domain/referrals'
 import type { Invitations } from '~/service/open-trial'
-import type { ReferralCodes } from '~/service/ports'
+import type { MinistryId } from '~/domain/ids'
+import type { ReferralCodes, ReferralLinks } from '~/service/ports'
 
 /**
  * Whether a code is live and whether a church was invited (Exponential launch, ticket
@@ -11,7 +12,7 @@ import type { ReferralCodes } from '~/service/ports'
  * `isLive` asks one indexed question whichever way it answers, so a live code and an
  * unknown or retired one take the same time and say nothing but the answer.
  */
-export interface PostgresReferrals extends ReferralCodes, Invitations {
+export interface PostgresReferrals extends ReferralCodes, Invitations, ReferralLinks {
   close(): Promise<void>
 }
 
@@ -29,6 +30,33 @@ export const createPostgresReferrals = (connectionString: string): PostgresRefer
     async wasInvited(church) {
       const { rows } = await pool.query(`select 1 from referral where invited_church = $1`, [church])
       return rows.length > 0
+    },
+
+    // As the church, so a code it can name is only ever its own (ticket 32).
+    async getANewCode(church: MinistryId, at: Date) {
+      const client = await pool.connect()
+      let connectionIsSuspect: Error | undefined
+      try {
+        await client.query('begin')
+        await client.query('set local role discipler_command')
+        await client.query(`select set_config('discipler.ministry_id', $1, true)`, [church])
+        const { rows } = await client.query<{ code: string }>(
+          `select app.get_a_new_referral_code($1) as code`,
+          [at],
+        )
+        await client.query('commit')
+        return rows[0]!.code
+      } catch (error) {
+        try {
+          await client.query('rollback')
+        } catch (rollbackError) {
+          connectionIsSuspect =
+            rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError))
+        }
+        throw error
+      } finally {
+        client.release(connectionIsSuspect)
+      }
     },
 
     close: () => pool.end(),
