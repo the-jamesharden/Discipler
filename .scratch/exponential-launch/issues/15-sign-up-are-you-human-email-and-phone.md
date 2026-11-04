@@ -77,7 +77,7 @@ It stays off on production until James says the privacy policy and terms are liv
 - **Going through page one again** is `/signup?again=1`, because page one otherwise sends somebody with an attempt on to the page they stand on.
 - **What was typed does not cross page one.** James removed the `sessionStorage` copy at the merge on 2026-11-03, because it left a phone number in a tab on a device that may be handed back at a booth.
   After "Use a different email" or a lapsed pass the person types them again, and a failed send still restores the address through `triedEmail`.
-  The alternatives were putting a phone in the address, or having the new attempt read the old row.
+  The other ways to carry them, putting a phone in the address or having the new attempt read the old row, had been turned down already.
 - **Refusals are sentences under the field, not the browser's bubbles** (`noValidate`), so the page speaks in one voice.
 - **A double click sends one email:** the second is answered "too soon", which goes on to the code page.
 - **The widget is let out into the card's padding** so its fixed 300 pixels fit a 360-pixel phone, and is the compact one where even that is too narrow.

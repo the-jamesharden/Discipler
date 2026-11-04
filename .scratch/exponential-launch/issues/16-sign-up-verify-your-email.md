@@ -17,7 +17,7 @@
 - "We sent a 6-digit code to **{email}**. Please enter it below. It works for 10 minutes."
 - One box for the 6-digit code, labelled "Your code", accepting a pasted code, and a "Continue" button.
 - "Send a new code in 0:42" counts down, and turns into a "Send a new code" link after 60 seconds.
-- "Use a different email" goes back to page two, through page one, with what was typed still there.
+- "Use a different email" goes back to page two, through page one, where the email and phone are typed again (James, 2026-11-03; ticket 15's decisions).
 - Wrong, expired and too-many-tries each get a plain, friendly message.
 - "Can't find it? Please check your spam or promotions folder. The email comes from notify.trydiscipler.com."
 

@@ -87,7 +87,7 @@ Sign-up stays shut until `SIGN_UP_OPEN=true`, which waits for ticket 17, because
 From the deploy, the texting gate checks every text and the over-200 watch runs on the tick.
 What they left for a human is in `docs/open-questions.md`.
 
-- New environment variable: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`; the Turnstile keys now guard the signed-out support form too.
+- New environment variables: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `SETUP_METER_ON`, which stays unset on production until tickets 27 and 28 ship; the Turnstile keys now guard the signed-out support form too.
 - `npm run stripe:catalog` creates the Stripe product, prices and coupons, once per account, staging's sandbox first.
 - Operator-only tables added: `over_200_follow_up`, `payment_fingerprint_grant`, `signed_out_support_submission`.
 

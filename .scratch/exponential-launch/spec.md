@@ -255,6 +255,7 @@ Texts over it fail with Twilio error 30023 until midnight Pacific.
   5. First Intake received.
   6. First relationship created.
   7. First relationship accepted.
+- The bar stays off on production, with `SETUP_METER_ON` unset, until tickets 27 and 28 ship, because steps 2 and 3 cannot be done until then (James, 2026-11-03).
 - Nothing about ratings, meetings or Follow-Up earns progress.
 - At 100% a badge animation plays once for each Admin, and then the bar goes away.
   The badge is a green seal with a sprout and gold rays, with no word on it, over "{Ministry} is up and running" and a "Thank you!" button (mock-up 3).

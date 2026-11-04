@@ -49,7 +49,7 @@ Whichever of 27 and 28 ships second sets `SETUP_METER_ON=true` on production, or
 
 ### From building ticket 30 (2026-11-03)
 
-The welcome window's office hours line reads `NEXT_OFFICE_HOURS` through `upcomingOfficeHours`, and leaves out its Next where there is no date.
+The welcome window's office hours line reads `NEXT_OFFICE_HOURS` through `upcomingOfficeHours`, and `speakWithTheTeamLine` in `app/help/office-hours.ts` words it, leaving out its Next where there is no date.
 
 ### From building ticket 26 (2026-11-03)
 
