@@ -8,7 +8,7 @@
 
 **Blocked by:** 12, 16
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## The page
 
@@ -126,3 +126,74 @@ The older line here calling it "the verified phone" was wrong: the spec has Veri
 
 1. Decided 2026-10-29 (Q82): a church that leaves at the payment step is kept with no subscription, and is returned there at its next sign-in (ticket 18).
 2. Decided 2026-11-04: the "already has a Discipler account" sentence goes as a draft James approves at review, because it is a sentence inside an approved screen.
+
+## Comments
+
+### 2026-11-04: built on `wave4/17`, not merged
+
+**What was built.**
+"Set up your account" replaces the stopping point, in the mock-up's words, with the church-plant block left out and its place marked in `app/signup/account/form.tsx`.
+`POST /signup/open-church` runs the opening in `src/service/opening-a-church.ts`, under an advisory lock keyed to the attempt.
+`openSignedUpChurch` in `src/platform/supabase/provisioning.ts` makes the account with its email, then in one transaction spends the attempt and writes the church, `church_signup`, the consent and the terms event.
+The Admin is signed in, the attempt's cookie goes, and support@ is told once.
+Two migrations: `20261104103100_the_admins_own_consent.sql` and `20261104103101_what_a_sign_up_chose.sql`.
+
+**How it was checked.**
+`tests/integration/setting-up-your-account.test.ts` runs the real routes, tables and Supabase Auth, with fakes for Cloudflare and Resend at their ports, and covers the acceptance lines but the last.
+The last was a real look: a production build in headless Chrome at 390 pixels, beside the mock-up, with a local stand-in for Cloudflare's siteverify and no Resend key.
+There the button turned off at the first of two clicks, a common password came back refused with everything but the password kept, the second press landed on `/signup/payment` signed in, with one church, its row and the attempt spent, and a taken phone got the draft sentence with both links.
+No horizontal scroll in any state, and a long address stops short of "Locked".
+`/signup/payment` is a 404 until ticket 18.
+
+The full locked suite passed: 323 files with none skipped, and 5173 tests with 1 skipped, the older `it.skip` at `tests/integration/invitation-over-http.test.ts:421`.
+The new suite passed 54 of 54 three times running, and the type check is clean.
+There is no `npm run lint` in this repository, nor any lint config, so nothing was linted.
+
+**A bug only the browser found.**
+`maxAge: 0` on the attempt's cookie passed in process and failed in a real server, because Next reads a route's cookies back and writes them again when `next/headers` also set one, and that drops a zero.
+It left a live empty cookie, so it now clears by a date in the past, and the test replays that step.
+
+**The consent finding.**
+Every `current_consent(..., 'sms')` path in `effect-store.ts` goes through `relationship_member`, `suggestion_inputs` needs an Intake row, and `reject_unready_leader` and `fulfilmentDecision` guard pairing.
+So no path reaches an Admin with no Intake, no gate on the source was added, and tests prove the rhythm, both pairing roles and Suggested Pairs.
+
+**Where the ticket was wrong.**
+It puts Atlantic Time (Puerto Rico) under United States; the approved mock-up has it under Other, and I followed the mock-up.
+James may want it moved: it is one line in `app/timezones.ts`.
+
+**Decisions on gaps, each with its alternative.**
+
+- Pressing "Email me a code" again with the same phone keeps the first press; the alternative was to move it on each press.
+- The migration deletes attempts already naming a phone, rather than guess a consent time; the alternative was to backfill from `code_sent_at`, which each send replaces.
+- The lock is a transaction lock on its own `pg.Client`, so it works through the pooler and cannot starve the pool; the alternative was a session lock on a pooled client.
+- The form is read before the token, so a refused form spends no token; the alternative was the token first, which would make a typo cost a Turnstile pass.
+- An empty timezone from a hand-made request is refused, though the field says optional; the alternative was to default to Eastern.
+- An unknown `heardFrom` reads as no answer; the alternative was to refuse it.
+- `EXPO26` preselects Conferences even after the offer ends, and wins over `ref`; the alternative was to preselect only while it runs.
+- A failed sign-in after the church opened answers `/login`; the alternative was a refusal, which would say something failed when the church exists.
+- `signup.not_verified` goes to page one with `again`, and shows no sentence; the alternative was to write one.
+- The terms event is `ministry.terms_accepted`, with `TERMS_VERSION` as the effective date, which a test reads from `docs/legal/terms-of-service.md`; the alternative was a version separate from that date.
+- The Terms and Privacy links open a new tab, so the typed form survives; the alternative was the same tab, which loses it.
+- The locked email has right padding and an ellipsis, a small addition to the mock-up, because a long address ran under "Locked".
+- A refusal clears the password only when the password was the reason; the ticket's sentence reads that way, and the alternative was to clear it on every refusal.
+- `.env.example` now says sign-up stays shut until ticket 18, since a church opened here has nowhere to pay.
+
+**Draft words for James**, also in `docs/open-questions.md` under *sign-up's numbers and wording*:
+
+- "That phone number or email already has a Discipler account. Sign in, or start again with a different one."
+- "Please enter your church or organization's name.", "Please enter your full name.", "Please choose your timezone.", "Please choose monthly or yearly.", "Please agree to the Terms of Service and Privacy Policy."
+- "We couldn't set up your account just now. Please try again in a minute."
+- The `newSignUp` email to support@, in `tellSupport`.
+
+**What the next tickets build on.**
+
+- **18:** read `church_signup` as `discipler_command`.
+  `billing_cycle` has no update grant, so add one if the payment page lets it change.
+  Its policies are church-scoped, so the reminder needs its own way to find rows across churches.
+  `carried_code` is what `/signup/payment/open` checks.
+- **19:** the slot is marked in `form.tsx`.
+  Join its required fields to `canStartFreeTrial` in `app/signup/flow.ts` and `readAccountForm` in `src/domain/sign-up-account.ts`, and add the block's CSS (`hr.sep`, `.plant-q`, `.yesno`, `.plant-app` in the mock-up's `screen.css`).
+- **20:** `ref` is carried in the address and preselects Another ministry, but is not posted or stored, so post it and record it inside the opening's transaction.
+  `tellSupport` says only Exponential or None until then, and `accountPrices('referral')` already draws the plain prices.
+- **21:** `auth.users.email` is lower case and confirmed, and a test proves signing in with it works underneath.
+  `changePassword` still reads the phone.

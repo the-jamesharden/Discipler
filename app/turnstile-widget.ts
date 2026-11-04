@@ -42,6 +42,8 @@ export interface TurnstileWidgetOptions {
   readonly theme?: 'light'
   readonly size?: 'normal' | 'compact'
   readonly retry?: 'never'
+  /** `execute` draws it and waits, so a token is made only when the page asks for one. */
+  readonly execution?: 'execute'
   readonly callback: (token: string) => void
   readonly 'expired-callback'?: () => void
   /** Returning true tells Turnstile the page has handled the error itself. */
@@ -52,6 +54,7 @@ export interface TurnstileWidgetOptions {
 
 export interface TurnstileWidget {
   render(host: HTMLElement, options: TurnstileWidgetOptions): string | undefined
+  execute(widget: string): void
   remove(widget: string): void
 }
 

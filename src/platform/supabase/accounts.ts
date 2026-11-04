@@ -1,14 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 import { newPasswordRefusal } from '~/domain/accounts'
+import { emailKeyOf } from '~/domain/sign-up-attempt'
 import type { Accounts } from '~/service/ports'
 import { serviceRoleClient, supabaseCredentials } from './credentials'
 
 /**
- * Where an account comes into being: a phone identity with a password, and no
- * email, for every user alike. Two things reach it -- a Leader accepting an
- * Invitation Link, who has no session at all, and the provisioning of a Ministry's
- * first Admin -- so it is the only place that needs the key that can create a
- * user, and it does nothing else with it.
+ * Where an account comes into being: a phone identity with a password, for every user
+ * alike, and an email only for an Admin who proved one at sign-up. Two things reach it
+ * -- a Leader accepting an Invitation Link, who has no session at all, and the
+ * provisioning of a Ministry's first Admin -- so it is the only place that needs the
+ * key that can create a user, and it does nothing else with it.
  *
  * The port it satisfies is declared in `src/service/ports.ts`, and the password
  * rule and refusal codes in `src/domain/accounts.ts`, so a page can render a
@@ -53,16 +54,18 @@ const setPassword = async (userId: string, password: string): Promise<void> => {
 }
 
 export const supabaseAccounts: Accounts = {
-  async create(phone, password) {
+  async create(phone, password, email) {
     if (!phone) return { refusal: 'account.no_number_on_file' }
     const refused = newPasswordRefusal(password)
     if (refused) return { refusal: refused }
 
     const admin = serviceRoleClient()
 
-    // A phone identity and nothing else. No email is set, because email is not a
-    // credential here and an address on the account would be a second door onto it
-    // that nothing in the product opens.
+    // A phone identity, and an address only where sign-up proved one with a code
+    // (Exponential launch, ticket 17). Lower case, because that is how Supabase Auth
+    // keeps it and how `emailHasAccount` asks for it. Every other account has none:
+    // for a Leader or a Setup Link's Admin nothing has proven an address, and one on
+    // the account would be a second door onto it.
     //
     // At acceptance the number is the one on file, never one the Leader typed: the
     // invitation page displays it and refuses it as input, so a forwarded link
@@ -71,6 +74,7 @@ export const supabaseAccounts: Accounts = {
       phone,
       password,
       phone_confirm: true,
+      ...(email ? { email: emailKeyOf(email), email_confirm: true } : {}),
     })
 
     if (error) {
@@ -78,7 +82,7 @@ export const supabaseAccounts: Accounts = {
       // signups being switched off as well, and answering either of those with
       // "there is already an account for this number, go and sign in" is advice
       // that is false, impossible to follow, and swallows the real fault.
-      if (error.code === 'phone_exists' || error.code === 'user_already_exists') {
+      if (error.code === 'phone_exists' || error.code === 'email_exists' || error.code === 'user_already_exists') {
         return { refusal: 'account.already_exists' }
       }
       throw error

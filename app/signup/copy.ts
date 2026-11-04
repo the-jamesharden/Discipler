@@ -1,8 +1,9 @@
-import { EMAIL_CODE } from '~/domain/launch-terms'
+import { EMAIL_CODE, EXPONENTIAL_OFFER, YEARLY_DISCOUNT_PERCENT } from '~/domain/launch-terms'
+import { startingPrice, trialDaysOf, type TrialOffer } from '~/domain/offers'
 import type { SignUpRefusal } from '~/service/sign-up'
 
 /**
- * What sign-up's first three steps say in words (Exponential launch, ticket 11). The
+ * What sign-up says in words (Exponential launch, ticket 11). The
  * service refuses in codes and this owns the sentences, in the voice of the mock-up's
  * code page. The wrong-code line is the mock-up's own; the rest are drafted with the
  * routes, for tickets 15 and 16 to show or reword when James reviews those pages.
@@ -67,20 +68,96 @@ export const CODE_PAGE = {
 
 /**
  * Drafted, for James: the mock-up draws neither a failed check nor a dropped connection
- * nor a second code being sent, and the stopping point below stands only until ticket
- * 17 replaces it.
+ * nor a second code being sent.
  */
 export const TRY_AGAIN = 'Try again'
 export const COULD_NOT_REACH = "We couldn't reach Discipler just now. Please check your connection and try again."
 export const newCodeSent = (email: string) => `We sent a new code to ${email}.`
 
-export const STOPPING_POINT = {
+/** The words of mock-up 1's `s4-account.html`, which James approved. */
+export const ACCOUNT_PAGE = {
   title: 'Set up your account',
   step: 'Step 2 of 3',
   stepName: 'Your account',
-  confirmedBefore: 'Your email is confirmed: ',
-  confirmedAfter: '.',
-  notOpenYet: "The next step, setting up your account, isn't open yet.",
+  requiredNote: 'indicates required information',
+  optional: '(optional)',
+  churchName: 'Church or organization name',
+  fullName: 'Full name',
+  heardAboutUs: 'Where did you hear about us?',
+  chooseOne: 'Choose one',
+  loginEmail: 'Login email',
+  password: (shortest: number) => `Choose a password (minimum ${shortest} characters)`,
+  passwordHint: (shortest: number) => `Use at least ${shortest} characters.`,
+  timezone: 'Timezone',
+  timezoneHint: 'We picked this from your device. Check-ins go out in this timezone.',
+  howToPay: 'How would you like to pay?',
+  monthly: 'Monthly',
+  yearly: 'Yearly',
+  save: `Save ${YEARLY_DISCOUNT_PERCENT}%`,
+  agreeBefore: 'I agree to the ',
+  terms: 'Terms of Service',
+  agreeBetween: ' and ',
+  privacy: 'Privacy Policy',
+  agreeAfter: '.',
+  submit: 'Start free trial',
+} as const
+
+/** What the page says about money, which is the one place sign-up says anything. */
+export interface AccountPrices {
+  readonly month: string
+  readonly year: string
+  readonly underTheButton: string
+}
+
+/** Dollars, with cents only where there are some. */
+const dollarsAsWritten = (cents: number): string =>
+  cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`
+
+const NEXT_YOU_ADD = "Next, you'll add a card or bank account. You won't be charged today."
+
+/**
+ * The monthly or yearly choice and the line under the button. A referral reads as no
+ * offer here, because the free month it brings comes off a bill and not off the days.
+ */
+export const accountPrices = (offer: TrialOffer): AccountPrices => {
+  const month = `${dollarsAsWritten(startingPrice('month').cents)} a month`
+  const year = `${dollarsAsWritten(startingPrice('year').cents)} a year`
+  if (offer !== 'exponential') {
+    return { month, year, underTheButton: `${trialDaysOf(offer)} days free. ${NEXT_YOU_ADD}` }
+  }
+  const off = `${EXPONENTIAL_OFFER.discountPercent}% off your first year`
+  return {
+    month: `${month}, ${off}`,
+    year: `${year}, ${off}`,
+    underTheButton: `${trialDaysOf(offer)} days free with the Exponential special offer. ${NEXT_YOU_ADD}`,
+  }
+}
+
+/**
+ * Drafted, for James, as a sentence inside an approved screen (ticket 17; the spec,
+ * decided in triage 2026-11-04). In pieces, because two of them are links.
+ */
+export const ALREADY_HAS_AN_ACCOUNT = {
+  before: 'That phone number or email already has a Discipler account. ',
+  signIn: 'Sign in',
+  between: ', or ',
+  startAgain: 'start again',
+  after: ' with a different one.',
+} as const
+
+export const ALREADY_HAS_AN_ACCOUNT_SENTENCE = Object.values(ALREADY_HAS_AN_ACCOUNT).join('')
+
+/** Drafted, for James: the mock-up draws no refusal on this page but a disabled button. */
+export const OPENING_REFUSALS = {
+  'signup.church_name_needed': "Please enter your church or organization's name.",
+  'signup.full_name_needed': 'Please enter your full name.',
+  'signup.bad_timezone': 'Please choose your timezone.',
+  'signup.bad_cycle': 'Please choose monthly or yearly.',
+  'signup.terms_needed': 'Please agree to the Terms of Service and Privacy Policy.',
+  'signup.not_human': REFUSALS['signup.not_human'],
+  'signup.not_verified': REFUSALS['signup.human_check_needed'],
+  'signup.not_opened': "We couldn't set up your account just now. Please try again in a minute.",
+  'account.already_exists': ALREADY_HAS_AN_ACCOUNT_SENTENCE,
 } as const
 
 /** The sentence for a refusal. A wrong code says how many tries are left. */

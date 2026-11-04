@@ -635,6 +635,15 @@ Raised on 2026-11-03 by the Exponential launch, ticket 11.
 The spec gives none of these, so the build chose: 5 emails per address and 30 per network each hour, a human check lasting 30 minutes, a proven address lasting 60, and one human pass per address.
 The two emails, `codeEmail` and `signUpAttemptNotice` in `src/domain/sign-up-attempt.ts`, and the refusal sentences in `app/signup/copy.ts` are drafts.
 A phone outside the US is refused at sign-up (`signup.phone_not_us`), so a Canadian Admin, like SAU BCM's, could not sign up.
+
+Added on 2026-11-04 by ticket 17, all drafts inside the approved "Set up your account" screen, in `app/signup/copy.ts`:
+
+- A phone or email with an account: "That phone number or email already has a Discipler account. Sign in, or start again with a different one."
+- A church name, a full name, a timezone, the monthly or yearly choice or the terms refused by the server, which the button normally prevents: "Please enter your church or organization's name.", "Please enter your full name.", "Please choose your timezone.", "Please choose monthly or yearly.", "Please agree to the Terms of Service and Privacy Policy."
+- Something failing that the person cannot fix: "We couldn't set up your account just now. Please try again in a minute."
+- The email to support@ when a church signs up, `tellSupport` in `src/service/opening-a-church.ts`, which nobody outside the team reads.
+- A password refused here uses the wording every other password form already uses.
+
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
 
 ## Open: the check-in words' refusals and `Messages read as`

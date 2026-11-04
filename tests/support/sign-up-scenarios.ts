@@ -534,7 +534,7 @@ export const describeSignUpScenarios = (makeBacking: () => Promise<SignUpScenari
 
       const ready = await h.signUp.readyToOpen({ attempt: token, humanToken: GOOD_TOKEN })
       expect(ready).toEqual({
-        ready: { pendingSignupId: expect.any(String), email: address, phone: US_PHONE },
+        ready: { pendingSignupId: expect.any(String), email: address, phone: US_PHONE, agreedAt: expect.any(Date) },
       })
     })
 
@@ -559,6 +559,56 @@ export const describeSignUpScenarios = (makeBacking: () => Promise<SignUpScenari
       expect(await h.signUp.standing(token)).toEqual({ step: 'human_check' })
       expect(await h.signUp.readyToOpen({ attempt: token, humanToken: GOOD_TOKEN })).toEqual({
         refusal: 'signup.not_verified',
+      })
+    })
+  })
+
+  describe('the time of the consent', () => {
+    const OTHER_PHONE = '+12055550101'
+
+    const agreedAtOf = async (token: Awaited<ReturnType<typeof h.attempt>>) =>
+      (await backing.store.read(token))?.agreedAt
+
+    it('is when "Email me a code" was pressed, and a resend keeps it', async () => {
+      const pressed = h.clock.now()
+      const { token, address } = await h.attemptWithCode()
+      expect(await agreedAtOf(token)).toEqual(pressed)
+
+      h.clock.advanceBy(seconds(EMAIL_CODE.resendAfterSeconds))
+      expect(await h.signUp.resendCode({ attempt: token, network: aNetworkAddress() })).toHaveProperty('sent', address)
+
+      expect((await backing.store.read(token))?.codeSentAt).toEqual(h.clock.now())
+      expect(await agreedAtOf(token)).toEqual(pressed)
+    })
+
+    it('stays when it is pressed again with the same phone', async () => {
+      const pressed = h.clock.now()
+      const { token, address } = await h.attemptWithCode()
+
+      h.clock.advanceBy(seconds(EMAIL_CODE.resendAfterSeconds))
+      await h.signUp.sendCode({ attempt: token, email: address, phone: US_PHONE, network: aNetworkAddress() })
+
+      expect(await agreedAtOf(token)).toEqual(pressed)
+    })
+
+    it('moves when it is pressed again with a different phone, since the consent is for that number', async () => {
+      const { token, address } = await h.attemptWithCode()
+
+      h.clock.advanceBy(seconds(EMAIL_CODE.resendAfterSeconds))
+      const pressedAgain = h.clock.now()
+      await h.signUp.sendCode({ attempt: token, email: address, phone: OTHER_PHONE, network: aNetworkAddress() })
+
+      expect(await agreedAtOf(token)).toEqual(pressedAgain)
+    })
+
+    it('is what `readyToOpen` hands on, with the phone it was for', async () => {
+      const pressed = h.clock.now()
+      const { token, code } = await h.attemptWithCode()
+      h.clock.advanceBy(minutes(3))
+      await h.signUp.confirmCode({ attempt: token, typed: code })
+
+      expect(await h.signUp.readyToOpen({ attempt: token, humanToken: GOOD_TOKEN })).toMatchObject({
+        ready: { phone: US_PHONE, agreedAt: pressed },
       })
     })
   })

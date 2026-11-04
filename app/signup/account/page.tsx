@@ -1,33 +1,52 @@
+import { SHORTEST_PASSWORD } from '~/domain/accounts'
+import { offerFor } from '~/domain/offers'
+import { HEARD_ABOUT_US, heardFromCarried } from '~/domain/sign-up-account'
+import { HUMAN_CHECK_ACTIONS } from '~/domain/sign-up-attempt'
 import { Centred } from '../../shell'
-import { CREATE_AN_ACCOUNT, STOPPING_POINT } from '../copy'
-import { carriedFrom } from '../flow'
+import { ACCOUNT_PAGE, accountPrices, CREATE_AN_ACCOUNT } from '../copy'
+import { carriedFrom, carriedValue } from '../flow'
 import { SignUpProgress, type SearchParams } from '../parts'
 import { standingOnPage, titleWhileOpen } from '../standing'
+import { AccountForm } from './form'
 
 export const dynamic = 'force-dynamic'
 
-export const generateMetadata = titleWhileOpen(STOPPING_POINT.title)
+export const generateMetadata = titleWhileOpen(ACCOUNT_PAGE.title)
 
 /**
- * Where sign-up stops until ticket 17 replaces this page with "Set up your account"
- * (Exponential launch, ticket 16). The email is proven and nothing else has happened:
- * no account, no church, no consent, and the attempt lapses by itself.
+ * "Set up your account" (Exponential launch, ticket 17; mock-up 1's `s4-account.html`):
+ * the one place sign-up names a price, and what opens the church.
  *
- * Production never shows it, because `SIGN_UP_OPEN` stays off there until ticket 17
- * and the legal pages are live; it is what staging shows in the meantime.
+ * The login email is the attempt's, from here on the server, so the page shows it and
+ * the form does not send it. What the address carries decides only what this page says
+ * and what it preselects; the payment step checks the code again when it is used.
  */
 export default async function SetUpYourAccountPage({ searchParams }: { searchParams: SearchParams }) {
-  const standing = await standingOnPage('account', carriedFrom(await searchParams))
+  const params = await searchParams
+  const carried = carriedFrom(params)
+  const standing = await standingOnPage('account', carried)
+
+  const code = carriedValue(params.code)
+  const { offer } = offerFor({ code: code ?? '', invited: false, at: new Date() })
 
   return (
     <Centred subtitle={CREATE_AN_ACCOUNT} botanical>
-      <SignUpProgress step={STOPPING_POINT.step} name={STOPPING_POINT.stepName} percent={66} />
-      <div className="sent-to">
-        {STOPPING_POINT.confirmedBefore}
-        <strong>{standing.email}</strong>
-        {STOPPING_POINT.confirmedAfter}
-      </div>
-      <p className="subtle">{STOPPING_POINT.notOpenYet}</p>
+      <SignUpProgress step={ACCOUNT_PAGE.step} name={ACCOUNT_PAGE.stepName} percent={66} />
+      <h2 className="req-heading">{ACCOUNT_PAGE.title}</h2>
+      <p className="req-note">
+        <span className="req">*</span> {ACCOUNT_PAGE.requiredNote}
+      </p>
+      <AccountForm
+        email={standing.email}
+        heardChoices={HEARD_ABOUT_US}
+        heardFromLink={heardFromCarried({ code, ref: carriedValue(params.ref) })}
+        shortestPassword={SHORTEST_PASSWORD}
+        prices={accountPrices(offer)}
+        siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || null}
+        action={HUMAN_CHECK_ACTIONS.openChurch}
+        code={code}
+        carried={carried}
+      />
     </Centred>
   )
 }

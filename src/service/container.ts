@@ -52,6 +52,7 @@ import {
   createPostgresPendingSignups,
   type PostgresPendingSignups,
 } from '~/platform/supabase/pending-signups'
+import { openSignedUpChurch } from '~/platform/supabase/provisioning'
 import { createTwilioVerifier } from '~/platform/twilio/phone-verifier'
 import {
   createPostgresPhoneChecks,
@@ -90,6 +91,7 @@ import { createDailyCap, type DailyCap } from './daily-cap'
 import { createEmailSender } from './email-sender'
 import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import { createPhoneCheck, type PhoneCheck } from './phone-check'
+import { createOpeningAChurch, type OpeningAChurch } from './opening-a-church'
 import { createSignUp, type SignUp } from './sign-up'
 import { watchSharedNumberCapacity } from './shared-number-capacity'
 import {
@@ -193,6 +195,7 @@ let over200FollowUps: PostgresOver200FollowUps | undefined
 let dailyCapHolds: PostgresDailyCapHolds | undefined
 let pendingSignups: PostgresPendingSignups | undefined
 let signUp: SignUp | undefined
+let openingAChurch: OpeningAChurch | undefined
 let postgresBilling: PostgresBilling | undefined
 
 export const getCommandService = (): CommandService => {
@@ -435,6 +438,21 @@ export const getSignUp = (): SignUp => {
   return signUp
 }
 
+/** **Start free trial** on "Set up your account" (Exponential launch, ticket 17). */
+export const getOpeningAChurch = (): OpeningAChurch => {
+  if (!openingAChurch) {
+    const signingUp = getSignUp()
+    openingAChurch = createOpeningAChurch({
+      signUp: signingUp,
+      signUps: pendingSignups!,
+      openChurch: openSignedUpChurch,
+      sender: getEmailSender(),
+      clock: systemClock,
+    })
+  }
+  return openingAChurch
+}
+
 /**
  * The Help menu's form (Exponential launch, ticket 25). The store is on the trusted
  * connection, and drops into `discipler_command` for a church's own write, because
@@ -666,6 +684,7 @@ export const closeCommandService = async (): Promise<void> => {
   signInLimit = undefined
   pendingSignups = undefined
   signUp = undefined
+  openingAChurch = undefined
   postgresBilling = undefined
   supportSubmissions = undefined
   supportForm = undefined

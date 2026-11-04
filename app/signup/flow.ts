@@ -8,7 +8,7 @@ import type { SignUpStanding } from '~/domain/sign-up-attempt'
  *
  * Each step has its own address, because a reload, the back button and a tab left open
  * all have to land on the right page: the attempt's standing decides the page, and the
- * address only asks. Ticket 17 fills `/signup/account`.
+ * address only asks.
  */
 
 export type SignUpStep = SignUpStanding['step']
@@ -23,7 +23,7 @@ const PATHS: Record<SignUpStep, string> = {
 /**
  * What the address carries through the flow, in the address and never a cookie (ticket
  * 15): `code` is the mock-up's `/signup?code=EXPO26`, and `ref` is what `/r/<code>`
- * redirects with. Nothing here reads them; tickets 17 and 20 do, from the address of
+ * redirects with. Nothing here acts on them; tickets 17 and 20 do, from the address of
  * the page they are on.
  */
 const CARRIED_NAMES = ['code', 'ref'] as const
@@ -31,13 +31,18 @@ const CARRIED_NAMES = ['code', 'ref'] as const
 /** Anything else cannot be a code, and is not repeated back into a link. */
 const CAN_BE_CARRIED = /^[A-Za-z0-9_-]{1,64}$/
 
+/** One carried value, or null when it is missing or cannot be a code. */
+export const carriedValue = (given: string | string[] | undefined): string | null => {
+  const value = Array.isArray(given) ? given[0] : given
+  return value && CAN_BE_CARRIED.test(value) ? value : null
+}
+
 /** The query an address carries on, such as `code=EXPO26`, or nothing. */
 export const carriedFrom = (params: Record<string, string | string[] | undefined>): string => {
   const carried = new URLSearchParams()
   for (const name of CARRIED_NAMES) {
-    const given = params[name]
-    const value = Array.isArray(given) ? given[0] : given
-    if (value && CAN_BE_CARRIED.test(value)) carried.set(name, value)
+    const value = carriedValue(params[name])
+    if (value) carried.set(name, value)
   }
   return carried.toString()
 }
@@ -87,6 +92,33 @@ export const stepAfterCodeRefusal = (refusal: string | null): NextStep | null =>
       return null
   }
 }
+
+/**
+ * The refusals to "Start free trial" that mean another page. An attempt with no live
+ * proof is page one, whatever was typed here, and it cannot keep it.
+ */
+export const stepAfterOpenRefusal = (refusal: string | null): NextStep | null =>
+  refusal === 'signup.not_verified' ? { step: 'human_check', again: true } : null
+
+/**
+ * Whether **Start free trial** is on (ticket 17): every required field holds a real
+ * entry. It is a courtesy, and `readAccountForm` is the rule, so a name of nothing but
+ * spaces and a password that is merely common are for the server to say. The shortest
+ * password is handed in because the list that lives beside it has no place in a browser.
+ */
+export const canStartFreeTrial = (
+  fields: {
+    readonly churchName: string
+    readonly fullName: string
+    readonly password: string
+    readonly agreedToTerms: boolean
+  },
+  shortestPassword: number,
+): boolean =>
+  fields.churchName.trim() !== '' &&
+  fields.fullName.trim() !== '' &&
+  fields.password.length >= shortestPassword &&
+  fields.agreedToTerms
 
 /**
  * What the code box holds, from whatever was typed or pasted: "482 913", "482-913" or

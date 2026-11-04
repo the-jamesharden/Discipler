@@ -831,6 +831,22 @@ input.code-input { font-size: 1.6rem; letter-spacing: 0.5em; text-align: center;
 .row-links { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; font-size: 0.84rem; margin-top: 1rem; }
 .muted-link { color: var(--text-light); }
 button.link-button, button.link-button:hover { display: inline; width: auto; padding: 0; background: none; border: none; color: var(--primary); font-size: inherit; font-weight: 400; line-height: inherit; text-decoration: underline; }
+/* "Set up your account" (ticket 17). */
+h2.req-heading { margin-bottom: 1.1rem; }
+.req-note { font-size: 0.8rem; color: var(--text-light); margin: -1rem 0 1.25rem; }
+.opt-tag { font-weight: 500; color: var(--text-light); }
+.locked-wrap { position: relative; }
+.locked-wrap::after { content: 'Locked'; position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-light); pointer-events: none; }
+/* The padding keeps a long address from running under "Locked" on a phone. */
+input.locked, input.locked[readonly] { background: #efebe4; color: var(--text-light); border-style: dashed; cursor: not-allowed; padding-right: 4.2rem; text-overflow: ellipsis; }
+.save { display: inline-block; margin-left: 0.4rem; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(201, 168, 106, 0.2); color: var(--amber-ink); border-radius: 999px; padding: 0.05rem 0.5rem; vertical-align: 0.1em; }
+.choices.account-cycle { margin-bottom: 0.4rem; }
+.check.account-terms { margin-top: 0.4rem; }
+button.full.account-start { margin-top: 0.8rem; }
+.under-button { font-size: 0.8rem; color: var(--text-light); text-align: center; margin-top: 0.6rem; line-height: 1.45; }
+/* Holds nothing until Cloudflare needs somebody to press something. */
+.opening-check { display: flex; justify-content: center; margin: 0 -0.75rem; }
+.opening-check:empty { display: none; }
 /* The Turnstile widget is 300px wide and cannot shrink, wider than a 360px phone's
    card leaves it, so it is let out into the card's padding. Its height is held so the
    card does not jump when it arrives. */

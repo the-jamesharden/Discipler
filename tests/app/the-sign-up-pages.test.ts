@@ -3,16 +3,21 @@ import { fileURLToPath } from 'node:url'
 import type { ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SHORTEST_PASSWORD } from '~/domain/accounts'
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '~/domain/consent'
 import { EMAIL_CODE } from '~/domain/launch-terms'
 import { HUMAN_PASS_LIFETIME_MINUTES } from '~/domain/sign-up-attempt'
+import { isKnownTimezone } from '~/domain/week'
 import type { SignUp } from '~/service/sign-up'
 import { createInMemoryPendingSignups } from '../support/pending-signups-in-memory'
 import { aNetworkAddress, anAddress, buildHarness, codeIn, notThe } from '../support/sign-up-scenarios'
 import AccountPage, { generateMetadata as accountTitle } from '../../app/signup/account/page'
 import CodePage, { generateMetadata as codeTitle } from '../../app/signup/code/page'
-import { CREATE_AN_ACCOUNT, TEXTING_FINE_PRINT } from '../../app/signup/copy'
+import { ALREADY_HAS_AN_ACCOUNT_SENTENCE, CREATE_AN_ACCOUNT, TEXTING_FINE_PRINT } from '../../app/signup/copy'
 import EmailPage, { generateMetadata as emailTitle } from '../../app/signup/email/page'
+import { canStartFreeTrial, stepAfterOpenRefusal } from '../../app/signup/flow'
 import HumanCheckPage, { generateMetadata as humanCheckTitle } from '../../app/signup/page'
+import { SIGN_UP_TIMEZONE_BEFORE_ASKING, signUpTimezones } from '../../app/timezones'
 
 /**
  * Sign-up's pages (Exponential launch, tickets 15 and 16), rendered as the server
@@ -207,7 +212,10 @@ describe('every page', () => {
     expect(await htmlOf(page)).toContain('<p class="sub">Create an account</p>')
   })
 
-  it.each(standing)('%s shows no dollar amount', async (_path, arrive, page) => {
+  // "Set up your account" is the one place a price appears, and is tested below.
+  const beforeThePrice = standing.filter(([path]) => path !== '/signup/account')
+
+  it.each(beforeThePrice)('%s shows no dollar amount', async (_path, arrive, page) => {
     await arrive()
 
     expect(wordsOf(await htmlOf(page))).not.toContain('$')
@@ -350,15 +358,219 @@ describe('the code, page three', () => {
   })
 })
 
-describe('after the email is verified, the stopping point until ticket 17', () => {
-  it('says the email is confirmed and offers nothing that goes nowhere', async () => {
+describe('"Set up your account"', () => {
+  const NEXT = "Next, you'll add a card or bank account. You won't be charged today."
+
+  /** Whichever option is drawn selected, by the words a person reads. */
+  const selectedIn = (html: string, select: string): string | null => {
+    const inSelect = new RegExp(`<select[^>]*id="${select}"[^>]*>(.*?)</select>`, 's').exec(html)?.[1] ?? ''
+    return /<option[^>]* selected=""[^>]*>([^<]*)</.exec(inSelect)?.[1]?.replace(/&#x27;/g, "'") ?? null
+  }
+
+  it('asks in the mock-up\'s order, in the mock-up\'s words, with the attempt\'s address', async () => {
     const { address } = await atAccount()
     const html = await htmlOf(AccountPage)
+    const words = wordsOf(html)
 
-    expect(wordsOf(html)).toContain(`Your email is confirmed: ${address} .`)
-    expect(wordsOf(html)).toContain('Step 2 of 3 Your account')
-    expect(html).not.toContain('<a ')
-    expect(html).not.toContain('<button')
+    expect(html).toContain('<h2 class="req-heading">Set up your account</h2>')
+    expect(words).toContain('Step 2 of 3 Your account')
+    expect(words).toContain('* indicates required information')
+
+    const labels = [
+      'Church or organization name *',
+      'Full name *',
+      'Where did you hear about us? (optional)',
+      'Login email',
+      'Choose a password (minimum 8 characters) *',
+      'Use at least 8 characters.',
+      'Timezone (optional)',
+      'We picked this from your device. Check-ins go out in this timezone.',
+      'How would you like to pay? *',
+      'Monthly',
+      'Yearly Save 20%',
+      // `wordsOf` leaves a space where a tag was, so the links' edges show here.
+      'I agree to the Terms of Service and Privacy Policy . *',
+      'Start free trial',
+    ]
+    const places = labels.map((label) => words.indexOf(label))
+    expect(places.every((place) => place >= 0), JSON.stringify(labels.filter((label) => !words.includes(label)))).toBe(true)
+    expect(places).toEqual([...places].sort((a, b) => a - b))
+
+    const email = /<input[^>]*id="loginEmail"[^>]*>/.exec(html)![0]
+    expect(email).toContain(`value="${address}"`)
+    expect(email).toContain('readOnly=""')
+    expect(email).toContain('class="locked"')
+    expect(email, 'the attempt holds the address, so the form must not send one').not.toContain('name=')
+  })
+
+  it('offers where they heard about us with no help line, and nothing chosen', async () => {
+    await atAccount()
+    const html = await htmlOf(AccountPage)
+    const select = /<select[^>]*id="heardFrom"[^>]*>(.*?)<\/select>/s.exec(html)![1]!
+
+    expect(wordsOf(select)).toBe('Choose one Instagram Online (Google) A friend Another ministry Conferences Other media')
+    expect(selectedIn(html, 'heardFrom')).toBe('Choose one')
+    expect(html).not.toContain('Help us')
+  })
+
+  it('preselects Conferences for EXPO26, and Another ministry for a referral', async () => {
+    await atAccount()
+
+    expect(selectedIn(await htmlOf(AccountPage, { code: 'EXPO26' }), 'heardFrom')).toBe('Conferences')
+    expect(selectedIn(await htmlOf(AccountPage, { ref: 'k7m2qp9x' }), 'heardFrom')).toBe('Another ministry')
+    expect(selectedIn(await htmlOf(AccountPage, { code: 'EXPO26', ref: 'k7m2qp9x' }), 'heardFrom')).toBe('Conferences')
+    expect(selectedIn(await htmlOf(AccountPage, { code: 'NOTACODE' }), 'heardFrom')).toBe('Choose one')
+  })
+
+  it('draws the timezones as the mock-up does, with Eastern Time showing before the device is asked', async () => {
+    await atAccount()
+    const html = await htmlOf(AccountPage)
+    const select = /<select[^>]*id="timezone"[^>]*>(.*?)<\/select>/s.exec(html)![1]!
+
+    expect([...select.matchAll(/<optgroup label="([^"]*)"/g)].map((match) => match[1])).toEqual(['United States', 'Other'])
+    expect(wordsOf(select)).toBe(
+      'Eastern Time (New York) Central Time (Chicago) Mountain Time (Denver) Mountain Time, no daylight saving (Phoenix) ' +
+        'Pacific Time (Los Angeles) Alaska Time (Anchorage) Hawaii Time (Honolulu) ' +
+        'Atlantic Time (Puerto Rico) Toronto London',
+    )
+    expect(selectedIn(html, 'timezone')).toBe('Eastern Time (New York)')
+  })
+
+  describe('the one place a price appears', () => {
+    const WHILE_THE_OFFER_RUNS = new Date('2026-11-04T12:00:00Z')
+    const AFTER_THE_OFFER = new Date('2026-12-12T12:00:00Z')
+
+    /** The page's own clock, and none of the attempt's. */
+    const pageOn = async (day: Date, params: Params) => {
+      await atAccount()
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(day)
+      try {
+        return wordsOf(await htmlOf(AccountPage, params))
+      } finally {
+        vi.useRealTimers()
+      }
+    }
+
+    const NO_OFFER = {
+      month: 'Monthly $97 a month',
+      year: 'Yearly Save 20% $931.20 a year',
+      under: `30 days free. ${NEXT}`,
+    }
+
+    it('holds the special offer for EXPO26, still valid', async () => {
+      const words = await pageOn(WHILE_THE_OFFER_RUNS, { code: 'EXPO26' })
+
+      expect(words).toContain('Monthly $97 a month, 20% off your first year')
+      expect(words).toContain('Yearly Save 20% $931.20 a year, 20% off your first year')
+      expect(words).toContain(`Start free trial 60 days free with the Exponential special offer. ${NEXT}`)
+    })
+
+    it.each([
+      ['no code', WHILE_THE_OFFER_RUNS, {}],
+      ['EXPO26 after it ended', AFTER_THE_OFFER, { code: 'EXPO26' }],
+      ['a code that means nothing', WHILE_THE_OFFER_RUNS, { code: 'NOTACODE' }],
+      ['a referral', WHILE_THE_OFFER_RUNS, { ref: 'k7m2qp9x' }],
+    ] as const)('holds the plain price for %s', async (_arrived, day, params) => {
+      const words = await pageOn(day, params)
+
+      expect(words).toContain(NO_OFFER.month)
+      expect(words).toContain(NO_OFFER.year)
+      expect(words).toContain(`Start free trial ${NO_OFFER.under}`)
+      expect(words).not.toContain('off your first year')
+      expect(words).not.toContain('special offer')
+    })
+
+    it('is read from the launch terms, never typed', () => {
+      const source = readFileSync(fileURLToPath(new URL('../../app/signup/copy.ts', import.meta.url)), 'utf8')
+      expect(source).not.toMatch(/\$97|931\.20|60 days|30 days|20%/)
+    })
+
+    it('starts on Monthly', async () => {
+      await atAccount()
+      const html = await htmlOf(AccountPage)
+
+      expect(/<input[^>]*value="month"[^>]*>/.exec(html)![0]).toContain('checked=""')
+      expect(/<input[^>]*value="year"[^>]*>/.exec(html)![0]).not.toContain('checked=""')
+    })
+  })
+
+  it('links the two agreements, in a new tab, and leaves the box unticked', async () => {
+    await atAccount()
+    const html = await htmlOf(AccountPage)
+
+    expect(html).toContain(`<a href="${TERMS_OF_SERVICE_URL}" target="_blank" rel="noopener noreferrer">Terms of Service</a>`)
+    expect(html).toContain(`<a href="${PRIVACY_POLICY_URL}" target="_blank" rel="noopener noreferrer">Privacy Policy</a>`)
+    expect(/<input[^>]*name="agreedToTerms"[^>]*>/.exec(html)![0]).not.toContain('checked=""')
+  })
+
+  it('starts with the button off, and holds nothing that belongs to a later ticket', async () => {
+    await atAccount()
+    const html = await htmlOf(AccountPage)
+    const words = wordsOf(html)
+
+    expect(/<button[^>]*type="submit"[^>]*>/.exec(html)![0]).toContain('disabled=""')
+    expect(words).not.toContain('church plant')
+    expect(words).not.toContain('know we joined')
+    expect(words).not.toContain("isn't open yet")
+  })
+
+  describe('whether the button is on', () => {
+    const filled = { churchName: 'Grace Church', fullName: 'Dan Whitfield', password: 'grace shepherds 1', agreedToTerms: true }
+
+    it('is on when every required field holds a real entry', () => {
+      expect(canStartFreeTrial(filled, SHORTEST_PASSWORD)).toBe(true)
+    })
+
+    it.each([
+      ['no church name', { churchName: '' }],
+      ['a church name of nothing but spaces', { churchName: '   ' }],
+      ['no full name', { fullName: '' }],
+      ['a full name of nothing but spaces', { fullName: ' \t ' }],
+      ['no password', { password: '' }],
+      ['a short password', { password: 'x'.repeat(SHORTEST_PASSWORD - 1) }],
+      ['the box unticked', { agreedToTerms: false }],
+    ])('is off with %s', (_why, change) => {
+      expect(canStartFreeTrial({ ...filled, ...change }, SHORTEST_PASSWORD)).toBe(false)
+    })
+
+    it('takes a password of exactly the shortest length, spaces and all', () => {
+      expect(canStartFreeTrial({ ...filled, password: ' '.repeat(SHORTEST_PASSWORD) }, SHORTEST_PASSWORD)).toBe(true)
+    })
+  })
+
+  describe('the timezone choices', () => {
+    it('adds the device\'s zone to Other when it is on neither list', () => {
+      const groups = signUpTimezones('Asia/Kolkata')
+      expect(groups.at(-1)!.zones.at(-1)).toEqual({ value: 'Asia/Kolkata', label: 'Asia/Kolkata' })
+      expect(signUpTimezones('America/Indiana/Indianapolis').at(-1)!.zones.at(-1)!.value).toBe('America/Indiana/Indianapolis')
+    })
+
+    it('adds nothing for a zone already offered, or for none', () => {
+      const plain = signUpTimezones(null)
+      expect(signUpTimezones('America/Chicago')).toEqual(plain)
+      expect(signUpTimezones('Europe/London')).toEqual(plain)
+    })
+
+    it('offers only zones the server reads, and Eastern before the device is asked', () => {
+      const zones = signUpTimezones(null).flatMap((group) => group.zones.map((zone) => zone.value))
+      expect(zones.every(isKnownTimezone)).toBe(true)
+      expect(zones[0]).toBe(SIGN_UP_TIMEZONE_BEFORE_ASKING)
+    })
+  })
+
+  describe('reading a refused answer', () => {
+    it('sends a lapsed proof to page one', () => {
+      expect(stepAfterOpenRefusal('signup.not_verified')).toEqual({ step: 'human_check', again: true })
+      expect(stepAfterOpenRefusal('account.already_exists')).toBeNull()
+      expect(stepAfterOpenRefusal(null)).toBeNull()
+    })
+
+    it('words the taken account as the draft says', () => {
+      expect(ALREADY_HAS_AN_ACCOUNT_SENTENCE).toBe(
+        'That phone number or email already has a Discipler account. Sign in, or start again with a different one.',
+      )
+    })
   })
 })
 

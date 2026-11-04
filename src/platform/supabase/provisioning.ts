@@ -1,24 +1,28 @@
 import pg from 'pg'
 import type { AccountCreationRefusal } from '~/domain/accounts'
+import { SIGN_UP_CONSENT_VERSION, TERMS_VERSION } from '~/domain/consent'
+import type { EmailAddress } from '~/domain/email'
 import { MinistrySetupRefused } from '~/domain/errors'
 import type { MinistrySetupToken } from '~/domain/ministry-setup'
+import type { BillingCycle } from '~/domain/offers'
 import { asPhoneNumber } from '~/domain/roster'
+import type { HeardFrom } from '~/domain/sign-up-account'
 import { isKnownTimezone } from '~/domain/week'
+import type { ChurchOpener } from '~/service/opening-a-church'
 import { supabaseAccounts } from './accounts'
 import { commandDatabaseUrl } from './credentials'
+import { spendPendingSignup } from './pending-signups'
 
 /**
  * How a Ministry and its first Admin come into existence.
  *
- * There is no surface for this and there is not meant to be one: a Ministry is
- * created by whoever runs Discipler, not by anybody signing up. It is product code
- * rather than a script's private business because two decisions live here that
- * nothing else in the product could hold.
+ * It is product code rather than a script's private business because the decisions
+ * that follow live here, and nothing else in the product could hold them.
  *
- * The first is the credential. The Admin gets a phone identity with a password and
- * no email, the same mint a Leader gets at Acceptance, because the credential is
- * the same for every user -- see
- * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
+ * The first is the credential. The Admin gets a phone identity with a password, the
+ * same mint a Leader gets at Acceptance, because the credential is the same for every
+ * user -- see `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`. An Admin
+ * who signed up also has the address they proved.
  *
  * The second is the link. The Admin is given a Person row in their own Ministry
  * with `person.user_id` set, so they are a Person like everybody else and one human
@@ -36,12 +40,13 @@ import { commandDatabaseUrl } from './credentials'
  * Ministry to scope a command to until the row it would be scoped to exists.
  * `docs/adr/0019-a-ministry-opens-from-a-link.md` records the decision.
  *
- * Two things reach this. The Ministry Setup Link, which is how a real Ministry is
- * opened: the operator mints the link and the Admin spends it here, typing their
- * own password. And the seed script and the test fixture, which have no link and
- * open Ministries directly. The link is spent inside the same transaction that
- * creates the Ministry, so a link is never spent on a Ministry that was not made
- * and a Ministry is never made on a link that stays live.
+ * Three things reach this. Self sign-up, where a church opens itself and spends its
+ * proven attempt here (Exponential launch, ticket 17). The Ministry Setup Link, for a
+ * church James chooses to comp: the operator mints the link and the Admin spends it
+ * here, typing their own password. And the seed script and the test fixture, which
+ * have neither and open Ministries directly. What opens a Ministry is spent inside the
+ * same transaction that creates it, so neither is ever spent on a Ministry that was
+ * not made, and a Ministry is never made on either while it stays live.
  */
 
 export interface NewMinistry {
@@ -68,6 +73,8 @@ export interface NewMinistry {
    * Self sign-up leaves it off.
    */
   readonly billedOutsideStripe?: boolean
+  /** What a church signing itself up brings with it. Only self sign-up has one. */
+  readonly signedUp?: SignedUpChurch
   /**
    * When the Ministry opens: the moment its first event occurred and the moment
    * the link, if there is one, is spent. The caller's clock and never the
@@ -86,6 +93,20 @@ export interface NewAdmin {
    */
   readonly phone: string
   readonly password: string
+  /** The address a sign-up proved with a code. Every other Admin has none. */
+  readonly email?: EmailAddress
+}
+
+/** What "Set up your account" adds to a Ministry's opening (ticket 17). */
+export interface SignedUpChurch {
+  /** The attempt it spends, in the same transaction. */
+  readonly pendingSignupId: string
+  /** When they pressed "Email me a code" for this phone, which is their consent's time. */
+  readonly agreedAt: Date
+  readonly cycle: BillingCycle
+  /** As the address carried it, whether or not it applied, or null for none. */
+  readonly carriedCode: string | null
+  readonly heardFrom: HeardFrom | null
 }
 
 export interface ProvisionedMinistry {
@@ -127,6 +148,18 @@ export class MinistryNotProvisioned extends Error {
   }
 }
 
+/**
+ * The attempt turned out to be spent inside the transaction, so nothing was opened and
+ * the account is taken back. Under the lock `PendingSignups.opening` holds this should
+ * not happen; it is what stands behind that lock if it ever does.
+ */
+export class SignUpAttemptAlreadySpent extends Error {
+  constructor() {
+    super('This sign-up attempt has already opened a church.')
+    this.name = 'SignUpAttemptAlreadySpent'
+  }
+}
+
 export const provisionMinistry = async (
   ministry: NewMinistry,
 ): Promise<ProvisionedMinistry> => {
@@ -154,8 +187,8 @@ export const provisionMinistry = async (
   // somebody in, a password too short to be worth having -- and a Ministry created
   // ahead of it would be a Ministry nobody can sign in to.
   //
-  // The same mint Acceptance uses, so "a phone identity, no email" is decided once.
-  const account = await supabaseAccounts.create(phone, ministry.admin.password)
+  // The same mint Acceptance uses, so what an account is made of is decided once.
+  const account = await supabaseAccounts.create(phone, ministry.admin.password, ministry.admin.email)
   if ('refusal' in account) throw new MinistryNotProvisioned(account.refusal, account.refusal)
 
   /**
@@ -178,6 +211,11 @@ export const provisionMinistry = async (
 
   try {
     await client.query('begin')
+
+    // First, so an attempt that has already opened a church goes no further.
+    if (ministry.signedUp && !(await spendPendingSignup(client, ministry.signedUp.pendingSignupId, at))) {
+      throw new SignUpAttemptAlreadySpent()
+    }
 
     // The short name is not named here. The database gives it, from the name, in
     // the same statement, because only it can see which names every other
@@ -250,6 +288,35 @@ export const provisionMinistry = async (
       }
     }
 
+    if (ministry.signedUp) {
+      const { agreedAt, cycle, carriedCode, heardFrom } = ministry.signedUp
+
+      await client.query(
+        `insert into church_signup (ministry_id, billing_cycle, carried_code, heard_from)
+         values ($1, $2, $3, $4)`,
+        [ministryId, cycle, carriedCode, heardFrom],
+      )
+
+      // `sms`, because the outbound trigger asks `app.current_consent(person, 'sms')`
+      // before the test check-in, and that function ignores the source. It stops short
+      // of the Check-In Rhythm because being in a relationship takes an Intake, whose own
+      // decision comes later and wins. It is not an Intake: `participation_status` still
+      // reads this Admin as having none. `docs/consent-language.md`.
+      await client.query(
+        `insert into consent_record
+           (ministry_id, person_id, consent, granted, version, source, decided_at)
+         values ($1, $2, 'sms', true, $3, 'ministry_setup', $4)`,
+        [ministryId, person.rows[0]!.id, SIGN_UP_CONSENT_VERSION, agreedAt],
+      )
+
+      await client.query(
+        `insert into ministry_event
+           (ministry_id, occurred_at, type, subject_type, subject_id, payload)
+         values ($1, $2, 'ministry.terms_accepted', 'ministry', $1, $3)`,
+        [ministryId, at, JSON.stringify({ termsVersion: TERMS_VERSION, adminPersonId: person.rows[0]!.id })],
+      )
+    }
+
     await client.query('commit')
 
     return {
@@ -280,7 +347,7 @@ export const provisionMinistry = async (
 
     // A link's refusal is an answer for the page, not a fault for an operator, and
     // it travels as itself once the account is taken back.
-    if (error instanceof MinistrySetupRefused) throw error
+    if (error instanceof MinistrySetupRefused || error instanceof SignUpAttemptAlreadySpent) throw error
     throw new MinistryNotProvisioned(failure)
   } finally {
     await client.end()
@@ -289,3 +356,31 @@ export const provisionMinistry = async (
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
+
+/**
+ * `provisionMinistry` as "Set up your account" asks for it, with its throws turned into
+ * answers (Exponential launch, ticket 17). A fault still throws, and `reason`, which is
+ * prose for an operator and can hold a phone, is never read here.
+ */
+export const openSignedUpChurch: ChurchOpener = async (church) => {
+  try {
+    const provisioned = await provisionMinistry({
+      name: church.churchName,
+      timezone: church.timezone,
+      at: church.at,
+      admin: church.admin,
+      signedUp: {
+        pendingSignupId: church.pendingSignupId,
+        agreedAt: church.agreedAt,
+        cycle: church.cycle,
+        carriedCode: church.carriedCode,
+        heardFrom: church.heardFrom,
+      },
+    })
+    return { ministryId: provisioned.ministryId }
+  } catch (error) {
+    if (error instanceof SignUpAttemptAlreadySpent) return { alreadyOpened: true }
+    if (error instanceof MinistryNotProvisioned && error.refusal) return { refusal: error.refusal }
+    throw error
+  }
+}

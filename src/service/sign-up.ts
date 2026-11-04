@@ -118,6 +118,8 @@ export interface ProvenSignUp {
   readonly pendingSignupId: string
   readonly email: EmailAddress
   readonly phone: PhoneNumber
+  /** When "Email me a code" was pressed for this phone: the time of the consent. */
+  readonly agreedAt: Date
 }
 
 export interface SignUp {
@@ -328,7 +330,14 @@ export const createSignUp = ({
       if (!(await humanCheck.verify(humanToken, HUMAN_CHECK_ACTIONS.openChurch))) {
         return { refusal: 'signup.not_human' }
       }
-      return { ready: { pendingSignupId: pending.id, email: standing.email, phone: standing.phone } }
+      return {
+        ready: {
+          pendingSignupId: pending.id,
+          email: standing.email,
+          phone: standing.phone,
+          agreedAt: pending.agreedAt!,
+        },
+      }
     },
   }
 }

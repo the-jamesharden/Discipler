@@ -852,10 +852,14 @@ export interface Accounts {
   /**
    * The number is the one on file, never one that was typed -- a forwarded link
    * must not be able to re-point an account at somebody else's phone.
+   *
+   * `email` is for a church's Admin at sign-up, whose address has been proven by a
+   * code. Everybody else's account has none.
    */
   create(
     phone: string | null,
     password: string,
+    email?: EmailAddress,
   ): Promise<{ readonly userId: string } | { readonly refusal: AccountCreationRefusal }>
   /**
    * Undoes a `create` whose acceptance did not land.
@@ -2199,6 +2203,12 @@ export interface PendingSignups {
   trying<T>(attempt: SignUpAttemptToken, work: (unit: PendingSignupTrying) => Promise<T>): Promise<T>
   /** The email did not go: no live code and no wait is left behind. */
   codeNotSent(attempt: SignUpAttemptToken): Promise<void>
+  /**
+   * Runs `work` while nothing else is opening a church on this attempt, so the second
+   * of a double click waits for the first and then finds the attempt spent. Holds no
+   * lock on the attempt's row, which the opening itself has to spend.
+   */
+  opening<T>(attempt: SignUpAttemptToken, work: () => Promise<T>): Promise<T>
 }
 
 export interface PendingSignupSending {
