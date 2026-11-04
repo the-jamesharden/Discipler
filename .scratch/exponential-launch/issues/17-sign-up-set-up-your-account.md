@@ -8,7 +8,7 @@
 
 **Blocked by:** 12, 16
 
-**Status:** shipped
+**Status:** ready-for-human
 
 ## The page
 

@@ -51,6 +51,8 @@
 
 - Sent to the church's Admins 7 days before a trial ends, through ticket 10's sender; Stripe sends its own reminder too.
 - As drawn and approved: subject "Your free trial ends {date}", heading "Your free trial ends in a week", the charge with the card and amount, an "Open Billing" button, signed James Harden, Founder and CEO.
+- An approved church plant is not about to be charged, so this email must not tell it that it is: read `church_plant_application.decision` before sending it (ticket 19's comments).
+  Whether such a church gets no email or a differently worded one was not drawn, and is James's to choose.
 
 ## Acceptance
 
