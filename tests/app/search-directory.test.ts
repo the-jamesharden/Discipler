@@ -54,6 +54,7 @@ describe('with nothing typed', () => {
     expect(directory[1]!.rows.map((each) => each.label)).toEqual([
       'Settings',
       'Intake forms',
+      'Refer a church',
       'Change your password',
     ])
     expect(directory[2]!.rows.map((each) => each.label)).toContain('Help center')
