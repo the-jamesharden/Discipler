@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SHORTEST_PASSWORD } from '~/domain/accounts'
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '~/domain/consent'
 import { EMAIL_CODE } from '~/domain/launch-terms'
-import { HUMAN_PASS_LIFETIME_MINUTES } from '~/domain/sign-up-attempt'
+import { HUMAN_PASS_LIFETIME_MINUTES, type SignUpAttemptToken } from '~/domain/sign-up-attempt'
 import { isKnownTimezone } from '~/domain/week'
 import type { SignUp } from '~/service/sign-up'
 import { createInMemoryPendingSignups } from '../support/pending-signups-in-memory'
@@ -29,11 +29,21 @@ import { SIGN_UP_TIMEZONE_BEFORE_ASKING, signUpTimezones } from '../../app/timez
 let current: SignUp | null = null
 let cookie: string | undefined
 
+let session: { status: string; admin?: { ministryId: string } } = { status: 'signed-out' }
+let churchesThatSignedUp: readonly string[] = []
+
 vi.mock('~/service/container', () => ({
   getSignUp: () => {
     if (!current) throw new Error('A sign-up page reached the service while it should have been shut.')
     return current
   },
+  getChurchSignups: () => ({
+    of: async (church: string) => (churchesThatSignedUp.includes(church) ? { cycle: 'month' } : null),
+  }),
+}))
+
+vi.mock('~/platform/supabase/current-admin', () => ({
+  resolveAdmin: async () => session,
 }))
 
 vi.mock('next/headers', () => ({
@@ -85,12 +95,16 @@ const wordsOf = (html: string): string =>
 
 const US_PHONE = '+12055550100'
 
+let backing: ReturnType<typeof createInMemoryPendingSignups>
 let h: ReturnType<typeof buildHarness>
 
 beforeEach(() => {
-  h = buildHarness(createInMemoryPendingSignups())
+  backing = createInMemoryPendingSignups()
+  h = buildHarness(backing)
   current = h.signUp
   cookie = undefined
+  session = { status: 'signed-out' }
+  churchesThatSignedUp = []
   vi.stubEnv('SIGN_UP_OPEN', 'true')
   vi.stubEnv('NEXT_PUBLIC_TURNSTILE_SITE_KEY', 'a-site-key')
 })
@@ -132,6 +146,63 @@ describe('while sign-up is shut', () => {
 
     for (const [, page] of PAGES) expect(await open(page)).toEqual({ notFound: true })
     expect(await open(HumanCheckPage, { again: '1' })).toEqual({ notFound: true })
+  })
+})
+
+describe('an Admin who has already opened their church (ticket 18)', () => {
+  const GRACE = 'church-grace'
+
+  const aSpentAttempt = async () => {
+    const { token } = await atAccount()
+    backing.spend(token as SignUpAttemptToken, h.clock.now())
+  }
+
+  it.each(PAGES)('goes from %s to / with the spent attempt still in the cookie', async (_path, page) => {
+    await aSpentAttempt()
+    session = { status: 'admin', admin: { ministryId: 'some-church' } }
+
+    expect(await open(page)).toEqual({ redirect: '/' })
+  })
+
+  it.each(PAGES)('goes from %s to / with the cookie gone, as the back button finds it', async (_path, page) => {
+    churchesThatSignedUp = [GRACE]
+    session = { status: 'admin', admin: { ministryId: GRACE } }
+
+    expect(await open(page)).toEqual({ redirect: '/' })
+  })
+
+  it('leaves the same spent attempt alone for somebody signed out, who may be starting again', async () => {
+    await aSpentAttempt()
+
+    expect(await open(EmailPage)).toEqual({ redirect: '/signup' })
+    expect(await open(HumanCheckPage)).toHaveProperty('html')
+  })
+
+  it('leaves an Admin of a church with no sign-up behind it to start one', async () => {
+    session = { status: 'admin', admin: { ministryId: 'an-older-church' } }
+
+    expect(await open(HumanCheckPage)).toHaveProperty('html')
+  })
+
+  it('leaves a Leader to start one', async () => {
+    session = { status: 'not-an-admin' }
+
+    expect(await open(HumanCheckPage)).toHaveProperty('html')
+  })
+
+  it('does not stand in the way of somebody part-way through an attempt of their own', async () => {
+    await atCode()
+    churchesThatSignedUp = [GRACE]
+    session = { status: 'admin', admin: { ministryId: GRACE } }
+
+    expect(await open(CodePage)).toHaveProperty('html')
+  })
+
+  it('leaves "start again" going to page one, which is asking on purpose', async () => {
+    churchesThatSignedUp = [GRACE]
+    session = { status: 'admin', admin: { ministryId: GRACE } }
+
+    expect(await open(HumanCheckPage, { again: '1' })).toHaveProperty('html')
   })
 })
 

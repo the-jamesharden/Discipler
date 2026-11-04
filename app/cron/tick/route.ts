@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { MinistryId } from '~/domain/ids'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import type { SettledPairings } from '~/service/command-service'
+import type { PaymentReminderOutcome } from '~/service/payment-reminder-watch'
 import type { StripeEventSweep } from '~/service/stripe-events'
 import type { SupportSweep } from '~/service/support-form'
 import {
@@ -14,6 +15,7 @@ import {
   sweepUnsavedUploads,
   tellSupportTheTextingGateIsUnread,
   watchTheOver200Churches,
+  watchThePaymentReminders,
   watchTheSharedNumbers,
   watchTheTwilioBalance,
 } from '~/service/container'
@@ -206,6 +208,17 @@ export async function GET(request: NextRequest) {
     supportSubmissions = 'failed'
   }
 
+  // Then the one reminder to a church that left the payment step (Exponential launch,
+  // ticket 18). Caught on its own, and logged by name alone: nothing it found is lost,
+  // and the next pass that day asks again.
+  let paymentReminders: PaymentReminderOutcome | 'shut' | 'failed'
+  try {
+    paymentReminders = await watchThePaymentReminders()
+  } catch (error) {
+    console.error(`Watching the payment reminders failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    paymentReminders = 'failed'
+  }
+
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries
   // a non-2xx, and retrying the whole run to recover one Ministry would re-drain
   // every other one -- the outcomes say what happened instead, per Ministry, where
@@ -231,6 +244,7 @@ export async function GET(request: NextRequest) {
     stripeEvents,
     over200,
     supportSubmissions,
+    paymentReminders,
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,
       error: one.error,

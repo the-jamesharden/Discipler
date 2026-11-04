@@ -9,10 +9,10 @@ import { resendCredentials, type ResendCredentials } from './credentials'
  *
  * No SDK, as with Twilio: the whole of the API used here is one JSON POST.
  *
- * **Plain text only.** There is no HTML part, so nothing an email carries can be
- * read as markup, and an email client shows exactly the characters the domain
- * escaped. Where the email goes, its reply-to and its key were all decided when
- * the envelope was opened; this file adds the From address, and on staging sends
+ * **Plain text, always.** An HTML part goes beside it only when the domain composed
+ * one (`emailHtml`), which escaped every value in it, so nothing an email carries can
+ * be read as markup. Where the email goes, its reply-to and its key were all decided
+ * when the envelope was opened; this file adds the From address, and on staging sends
  * it to the one staging address instead (see `credentials.ts`).
  *
  * Nothing here logs an email's subject or text: a sign-up code is in one.
@@ -59,6 +59,7 @@ export const createResendTransport = (
         reply_to: envelope.replyTo,
         subject: envelope.subject,
         text: envelope.text,
+        ...(envelope.html === null ? {} : { html: envelope.html }),
       }),
     })
 

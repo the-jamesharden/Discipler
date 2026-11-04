@@ -109,5 +109,7 @@ export const createInMemoryPendingSignups = () => {
     giveAccount: async (email: string) => {
       accounts.add(email.toLowerCase())
     },
+    /** What opening the church does to the attempt, in a transaction this fake has no part in. */
+    spend: (attempt: SignUpAttemptToken, at: Date) => change(attempt, { spentAt: at }),
   }
 }

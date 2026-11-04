@@ -663,6 +663,15 @@ Added on 2026-11-04 by ticket 21, two checks only production can answer, neither
 - Email sign-in needs Supabase's email provider left on. If it is off on production, every email sign-in reads "That email or phone and password did not match.", with nothing logged.
 - Any account already on production that holds an email can now sign in with it, proven or not. Every account Discipler makes without sign-up holds none, so the count of `auth.users` with an email should be zero until sign-up opens.
 
+Added on 2026-11-04 by ticket 18, all drafts inside the approved payment and reminder screens, in `app/signup/payment/copy.ts`:
+
+- While the webhook is on its way: "Finishing setup...", then "This is taking longer than usual." and the link "Go to Overview".
+- A method that left the page and came back failed: "That didn't go through, and nothing was saved. Please try again."
+- A card or bank that said no shows Stripe's own sentence, and anything else that failed: "We couldn't save that just now. Please try again, or use another card or bank account."
+- The route's refusal with something to retry has the button "Try again".
+- The page behind "Don't send me reminders": the sentence "Press the button and we won't remind you about finishing your account.", the button "Don't send me reminders", and then "You won't get another reminder."
+- The reminder has an HTML part beside its plain text, because the approved screen has a Start button, and every other email is plain text only.
+
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
 
 ## Open: the check-in words' refusals and `Messages read as`

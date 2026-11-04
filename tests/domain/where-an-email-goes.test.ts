@@ -58,7 +58,7 @@ describe('the routing', () => {
     ['emailCode'],
     ['signUpAttemptNotice'],
     ['passwordReset'],
-    ['checkoutReminder'],
+    ['paymentReminder'],
     ['trialEnding'],
     ['churchPlantDecision'],
   ] as const)('sends %s to the Admin it is addressed to', (kind) => {
@@ -73,7 +73,6 @@ describe('the routing', () => {
       [
         'billingEventRefused',
         'bugReport',
-        'checkoutReminder',
         'churchPlantApplication',
         'churchPlantDecision',
         'dailyCapReached',
@@ -83,6 +82,7 @@ describe('the routing', () => {
         'newSignUp',
         'numbersNearCapacity',
         'over200FollowUp',
+        'paymentReminder',
         'passwordReset',
         'signUpAttemptNotice',
         'supportRequest',

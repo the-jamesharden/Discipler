@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   emailBody,
   EmailField,
+  emailHtml,
   emailSubject,
+  openEnvelope,
   UnescapedEmailField,
   type EmailAddress,
 } from '~/domain/email'
@@ -12,7 +14,7 @@ import {
  * carries passed through `EmailField` on the way in (Exponential launch, ticket
  * 10). What is proved here is the escaping and the refusal: a value that was not
  * escaped cannot become part of a subject or a body, at compile time or at run
- * time.
+ * time. An email with an approved design also has an HTML part, under the same rule.
  */
 
 describe('escaping one line', () => {
@@ -123,5 +125,38 @@ describe('composing', () => {
     const typed = EmailField.quoted('first\nsecond')
 
     expect(() => emailSubject`Bug: ${typed}`).toThrow(UnescapedEmailField)
+  })
+})
+
+describe('an HTML part', () => {
+  it('reaches the markup only as text, wherever the value lands', () => {
+    const church = EmailField.line(`Grace"><script>alert('x')</script>`)
+    const link = EmailField.link(new URL('https://app.trydiscipler.com/signup?a=1&b="2"'))
+
+    expect(emailHtml`<a href="${link}">${church}</a>`.text).toBe(
+      '<a href="https://app.trydiscipler.com/signup?a=1&amp;b=%222%22">' +
+        'Grace&quot;&gt;&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;</a>',
+    )
+  })
+
+  it('refuses a value that was not escaped, and a quoted one', () => {
+    expect(() =>
+      // @ts-expect-error -- a plain string is not an escaped field.
+      emailHtml`<p>${'<b>raw</b>'}</p>`,
+    ).toThrow(UnescapedEmailField)
+    expect(() => emailHtml`<p>${EmailField.quoted('typed')}</p>`).toThrow(UnescapedEmailField)
+  })
+
+  it('cannot be passed off as one by something only shaped like it', () => {
+    expect(() =>
+      openEnvelope({
+        kind: 'deliverabilityCheck',
+        subject: emailSubject`Subject`,
+        body: emailBody`Body`,
+        // @ts-expect-error -- only `emailHtml` makes one.
+        html: { text: '<b>raw</b>' },
+        once: 'x',
+      }),
+    ).toThrow(UnescapedEmailField)
   })
 })

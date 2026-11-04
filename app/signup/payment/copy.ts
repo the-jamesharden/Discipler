@@ -33,3 +33,33 @@ const CODE_REFUSALS: Record<CodeRefusal, string> = {
 }
 
 export const codeRefusalMessage = (refusal: CodeRefusal): string => CODE_REFUSALS[refusal]
+
+/** The words of mock-up 1's `s5-checkout.html`, which James approved, and his drafts beside them. */
+export const PAYMENT_PAGE = {
+  title: 'Add a card or bank account',
+  step: 'Step 3 of 3',
+  stepName: 'Payment',
+  notCharged: "You won't be charged today.",
+  or: 'or',
+  secured: 'Secured by Stripe',
+  submit: 'Start my free trial',
+  underTheButton: 'You can change or cancel any time in Settings, Billing.',
+  // Drafts inside the approved screen, for James at review (ticket 18).
+  finishing: 'Finishing setup...',
+  takingLonger: 'This is taking longer than usual.',
+  goToOverview: 'Go to Overview',
+  didNotGoThrough: "That didn't go through, and nothing was saved. Please try again.",
+  couldNotSave: "We couldn't save that just now. Please try again, or use another card or bank account.",
+  tryAgain: 'Try again',
+} as const
+
+export const trialLine = (endsOn: string): string =>
+  `${PAYMENT_PAGE.notCharged} Your free trial ends on ${endsOn}, and we'll email you a week before.`
+
+/** The drafts on the page behind "Don't send me reminders", which James approves at review. */
+export const REMINDERS_OFF_PAGE = {
+  title: "Don't send me reminders",
+  asking: "Press the button and we won't remind you about finishing your account.",
+  press: "Don't send me reminders",
+  done: "You won't get another reminder.",
+} as const

@@ -47,6 +47,8 @@ import { createTwilioBalanceReader } from '~/platform/twilio/account-balance'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { createResendTransport } from '~/platform/resend/email-transport'
 import { createTurnstile } from '~/platform/cloudflare/turnstile'
+import { remindersOffToken } from '~/platform/reminder-link'
+import { signUpIsOpen } from '~/platform/sign-up-switch'
 import { createSignUpCodeKeeper } from '~/platform/sign-up-code-keeper'
 import {
   createPostgresPendingSignups,
@@ -70,6 +72,7 @@ import {
   createPostgresSharedNumbers,
   type PostgresSharedNumbers,
 } from '~/platform/supabase/shared-numbers'
+import { createPostgresChurchSignups, type PostgresChurchSignups } from '~/platform/supabase/church-signups'
 import {
   createPostgresOver200FollowUps,
   type PostgresOver200FollowUps,
@@ -92,6 +95,7 @@ import { createEmailSender } from './email-sender'
 import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import { createPhoneCheck, type PhoneCheck } from './phone-check'
 import { createOpeningAChurch, type OpeningAChurch } from './opening-a-church'
+import { watchPaymentReminders, type PaymentReminderOutcome } from './payment-reminder-watch'
 import { createSignUp, type SignUp } from './sign-up'
 import { watchSharedNumberCapacity } from './shared-number-capacity'
 import {
@@ -106,6 +110,7 @@ import { createEmailSupportAlerts } from './support-alerts'
 import { createSupportForm, type SupportForm, type SupportSweep } from './support-form'
 import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
 import type {
+  ChurchSignups,
   Accounts,
   BillingRecords,
   CareNeededReader,
@@ -192,6 +197,7 @@ let phoneCheck: PhoneCheck | undefined
 let sharedNumbers: PostgresSharedNumbers | undefined
 let twilioBalanceFalls: PostgresTwilioBalanceFalls | undefined
 let over200FollowUps: PostgresOver200FollowUps | undefined
+let churchSignups: PostgresChurchSignups | undefined
 let dailyCapHolds: PostgresDailyCapHolds | undefined
 let pendingSignups: PostgresPendingSignups | undefined
 let signUp: SignUp | undefined
@@ -454,6 +460,40 @@ export const getOpeningAChurch = (): OpeningAChurch => {
 }
 
 /**
+ * What a self-signed-up church chose (Exponential launch, tickets 17 and 18), on the
+ * trusted connection, because the reminder's read spans churches and somebody pressing
+ * "Don't send me reminders" has no session. A church's own row is written as that church.
+ */
+export const getChurchSignups = (): ChurchSignups => {
+  if (!churchSignups) churchSignups = createPostgresChurchSignups(commandDatabaseUrl())
+  return churchSignups
+}
+
+/**
+ * One pass of the payment reminder (Exponential launch, ticket 18). While sign-up is
+ * shut, "Start" would open a page that sends nobody to the payment step, so nothing is
+ * read and the tick's response says so. Throws when the churches could not be read, and
+ * the tick catches it.
+ */
+export const watchThePaymentReminders = async (): Promise<PaymentReminderOutcome | 'shut'> => {
+  if (!signUpIsOpen(process.env)) return 'shut'
+  return watchPaymentReminders({
+    signups: getChurchSignups(),
+    sender: getEmailSender(),
+    clock: systemClock,
+    links: {
+      start: () => new URL('/', appBaseUrl()),
+      logo: () => new URL('/discipler-logo.png', appBaseUrl()),
+      stop: (church) => {
+        const stop = new URL('/signup/reminders-off', appBaseUrl())
+        stop.searchParams.set('t', remindersOffToken(church))
+        return stop
+      },
+    },
+  })
+}
+
+/**
  * The Help menu's form (Exponential launch, ticket 25). The store is on the trusted
  * connection, and drops into `discipler_command` for a church's own write, because
  * somebody signed out has no session to write with. Turnstile's secret is read per use.
@@ -663,6 +703,7 @@ export const closeCommandService = async (): Promise<void> => {
   const shared = sharedNumbers
   const balanceFalls = twilioBalanceFalls
   const followUps = over200FollowUps
+  const signupRows = churchSignups
   const capHolds = dailyCapHolds
   const limit = signInLimit
   const signUps = pendingSignups
@@ -680,6 +721,7 @@ export const closeCommandService = async (): Promise<void> => {
   sharedNumbers = undefined
   twilioBalanceFalls = undefined
   over200FollowUps = undefined
+  churchSignups = undefined
   dailyCapHolds = undefined
   signInLimit = undefined
   pendingSignups = undefined
@@ -692,6 +734,7 @@ export const closeCommandService = async (): Promise<void> => {
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
   emailSender = undefined
+  await signupRows?.close()
   await store?.close()
   await reader?.close()
   await invitations?.close()

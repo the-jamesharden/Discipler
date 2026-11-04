@@ -28,6 +28,8 @@
     "stripe:catalog": "vite-node -c vitest.config.ts scripts/stripe-catalog.ts"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^7.0.1",
+    "@stripe/stripe-js": "^10.2.1",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
     "markdown-it": "15.0.3",

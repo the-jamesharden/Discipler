@@ -1841,6 +1841,44 @@ export interface Over200Church {
   readonly followedUp: readonly CalendarMonth[]
 }
 
+/** What a self-signed-up church chose on "Set up your account" (ticket 17), and where it stands. */
+export interface ChurchSignup {
+  readonly cycle: BillingCycle
+  /** As the address carried it. The payment step checks it again when it is used. */
+  readonly carriedCode: string | null
+  readonly timeZone: string
+  /** A Subscription of its own has been confirmed at some time, so it is past this step for good. */
+  readonly began: boolean
+  readonly remindersOff: boolean
+}
+
+/** A church that may be owed its one reminder: opened lately, not begun, not told, not opted out. */
+export interface PaymentReminderCandidate {
+  readonly church: MinistryId
+  readonly churchName: string
+  readonly timeZone: string
+  readonly carriedCode: string | null
+  readonly openedAt: Date
+  /** The address on the Admin's account. */
+  readonly to: EmailAddress
+  readonly fullName: string
+}
+
+/**
+ * The row a church that signed itself up has, and no other church does (Exponential
+ * launch, tickets 17 and 18). It decides who the payment step is for and who gets its
+ * reminder, from what is stored and never from what a browser said.
+ */
+export interface ChurchSignups {
+  /** The church's row, or null: it did not sign itself up. */
+  of(church: MinistryId): Promise<ChurchSignup | null>
+  /** Who to consider for the reminder, across every church, among those opened since then. */
+  remindersToConsider(openedSince: Date): Promise<readonly PaymentReminderCandidate[]>
+  recordReminderSent(church: MinistryId, at: Date): Promise<void>
+  /** Keeps the first time, so pressing it twice says what was already so. */
+  turnRemindersOff(church: MinistryId, at: Date): Promise<void>
+}
+
 /**
  * What the over-200 watch reads and remembers. A tick has no memory of its own, so the
  * row per church per month is what makes the email go once; everything the question
