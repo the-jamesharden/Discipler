@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import type { ReactElement } from 'react'
+import { createElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SHORTEST_PASSWORD } from '~/domain/accounts'
@@ -12,6 +12,7 @@ import type { SignUp } from '~/service/sign-up'
 import { createInMemoryPendingSignups } from '../support/pending-signups-in-memory'
 import { aNetworkAddress, anAddress, buildHarness, codeIn, notThe } from '../support/sign-up-scenarios'
 import AccountPage, { generateMetadata as accountTitle } from '../../app/signup/account/page'
+import { PlantQuestions } from '../../app/signup/account/plant-questions'
 import CodePage, { generateMetadata as codeTitle } from '../../app/signup/code/page'
 import { ALREADY_HAS_AN_ACCOUNT_SENTENCE, CREATE_AN_ACCOUNT, TEXTING_FINE_PRINT } from '../../app/signup/copy'
 import EmailPage, { generateMetadata as emailTitle } from '../../app/signup/email/page'
@@ -385,6 +386,9 @@ describe('"Set up your account"', () => {
       'Use at least 8 characters.',
       'Timezone (optional)',
       'We picked this from your device. Check-ins go out in this timezone.',
+      'Is your church a church plant? (optional)',
+      'Church plants that launched in the last 3 years, or are launching in the next 12 months, can apply for a year of Discipler free.',
+      'Yes, we are',
       'How would you like to pay? *',
       'Monthly',
       'Yearly Save 20%',
@@ -510,9 +514,75 @@ describe('"Set up your account"', () => {
     const words = wordsOf(html)
 
     expect(/<button[^>]*type="submit"[^>]*>/.exec(html)![0]).toContain('disabled=""')
-    expect(words).not.toContain('church plant')
     expect(words).not.toContain('know we joined')
     expect(words).not.toContain("isn't open yet")
+  })
+
+  describe('the church-plant questions', () => {
+    const answers = {
+      launchDate: 'September 2025',
+      sendingChurch: 'First Baptist',
+      averageAttendance: '120',
+      leadPastor: 'Dan Whitfield',
+      anythingElse: '',
+    }
+    const silently = () => {}
+    const drawn = (isPlant: boolean) =>
+      renderToStaticMarkup(
+        createElement(PlantQuestions, {
+          isPlant,
+          onIsPlant: silently,
+          answers,
+          onAnswer: {
+            launchDate: silently,
+            sendingChurch: silently,
+            averageAttendance: silently,
+            leadPastor: silently,
+            anythingElse: silently,
+          },
+          refusedField: null,
+          refusalFor: () => null,
+          describedBy: () => undefined,
+        }),
+      )
+
+    it('preselects No, and draws no application behind it', async () => {
+      await atAccount()
+      const html = await htmlOf(AccountPage)
+
+      expect(/<input[^>]*value="no"[^>]*>/.exec(html)![0]).toContain('checked=""')
+      expect(/<input[^>]*value="yes"[^>]*>/.exec(html)![0]).not.toContain('checked')
+      expect(html).not.toContain('plant-app')
+      expect(wordsOf(html)).not.toContain('Lead pastor')
+    })
+
+    it('opens the application behind Yes, in the mock-up\'s order and words', () => {
+      const html = drawn(true)
+      const words = wordsOf(html)
+
+      const labels = [
+        'Launch date, or planned launch date *',
+        'Sending or partner church *',
+        'Average weekly attendance *',
+        'Lead pastor *',
+        "Anything else you'd like us to know? (optional)",
+        'James or Lerone will follow up by email. Your trial starts either way, and your free year begins once your application is approved.',
+      ]
+      const places = labels.map((label) => words.indexOf(label))
+      expect(places.every((place) => place >= 0), JSON.stringify(labels.filter((label) => !words.includes(label)))).toBe(true)
+      expect(places).toEqual([...places].sort((a, b) => a - b))
+
+      expect(html).toContain('placeholder="For example, September 2025"')
+      expect(html).toContain('inputMode="numeric"')
+    })
+
+    it('sits between the timezone and how to pay', async () => {
+      await atAccount()
+      const words = wordsOf(await htmlOf(AccountPage))
+
+      expect(words.indexOf('Check-ins go out in this timezone.')).toBeLessThan(words.indexOf('Is your church a church plant?'))
+      expect(words.indexOf('Is your church a church plant?')).toBeLessThan(words.indexOf('How would you like to pay?'))
+    })
   })
 
   describe('whether the button is on', () => {
@@ -532,6 +602,28 @@ describe('"Set up your account"', () => {
       ['the box unticked', { agreedToTerms: false }],
     ])('is off with %s', (_why, change) => {
       expect(canStartFreeTrial({ ...filled, ...change }, SHORTEST_PASSWORD)).toBe(false)
+    })
+
+    describe('while "Yes, we are" is chosen', () => {
+      const plant = {
+        launchDate: 'September 2025',
+        sendingChurch: 'First Baptist',
+        averageAttendance: '120',
+        leadPastor: 'Dan Whitfield',
+      }
+
+      it('is on with all four answers', () => {
+        expect(canStartFreeTrial({ ...filled, plant }, SHORTEST_PASSWORD)).toBe(true)
+      })
+
+      it.each(['launchDate', 'sendingChurch', 'averageAttendance', 'leadPastor'])('is off with %s empty or only spaces', (answer) => {
+        expect(canStartFreeTrial({ ...filled, plant: { ...plant, [answer]: '' } }, SHORTEST_PASSWORD)).toBe(false)
+        expect(canStartFreeTrial({ ...filled, plant: { ...plant, [answer]: '  ' } }, SHORTEST_PASSWORD)).toBe(false)
+      })
+
+      it('asks for none of them behind No', () => {
+        expect(canStartFreeTrial({ ...filled, plant: null }, SHORTEST_PASSWORD)).toBe(true)
+      })
     })
 
     it('takes a password of exactly the shortest length, spaces and all', () => {

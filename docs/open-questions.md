@@ -644,6 +644,20 @@ Added on 2026-11-04 by ticket 17, all drafts inside the approved "Set up your ac
 - The email to support@ when a church signs up, `tellSupport` in `src/service/opening-a-church.ts`, which nobody outside the team reads.
 - A password refused here uses the wording every other password form already uses.
 
+Added on 2026-11-04 by ticket 19, the emails for James to word and the sentences inside the approved screen:
+
+- The church-plant application to james@ and lerone@, `tellTheFounders` in `src/service/opening-a-church.ts`.
+  Subject: "Church plant application from {church}".
+  Body: "{church} applied for the church plant year when it signed up.", then the answers each on a line under the page's own labels, then "Login email: {address}", "Anything else they'd like us to know:" with their words quoted, then "Its ordinary trial starts either way. Approve or decline it with the church-plant command, using this ID:" and the ID.
+- Approval to the church, during its trial, in `src/service/church-plant-decisions.ts`.
+  Subject: "Your church plant application".
+  Body: "Good news: {church}'s church plant application is approved. Your free year of Discipler begins when your free trial ends. You won't be charged during it. When the free year ends, billing carries on as you chose when you signed up. If you have any questions, just reply to this email."
+- Approval to the church, after its trial, with the same subject.
+  Body: "Good news: {church}'s church plant application is approved. Your free year of Discipler begins at your next bill, on {date}. You won't be charged during it, and anything you've already paid stays as it is. When the free year ends, billing carries on as you chose when you signed up. If you have any questions, just reply to this email."
+- Decline to the church, sent only with `--email`, with the same subject.
+  Body: "Thank you for telling us about {church}. We aren't able to offer your church the free year for church plants. Your subscription carries on just as it is. If you have any questions, or something has changed, just reply to this email."
+- An answer refused by the server, which the button normally prevents: "Please enter your launch date, or planned launch date.", "Please enter your sending or partner church.", "Please enter your average weekly attendance.", "Please enter your lead pastor's name.", and, only for a hand-made request, "One of your church plant answers is too long. Please shorten it."
+
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
 
 ## Open: the check-in words' refusals and `Messages read as`

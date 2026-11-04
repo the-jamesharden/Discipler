@@ -112,13 +112,21 @@ export const canStartFreeTrial = (
     readonly fullName: string
     readonly password: string
     readonly agreedToTerms: boolean
+    /** The application's four required answers while "Yes, we are" is chosen (ticket 19). */
+    readonly plant?: {
+      readonly launchDate: string
+      readonly sendingChurch: string
+      readonly averageAttendance: string
+      readonly leadPastor: string
+    } | null
   },
   shortestPassword: number,
 ): boolean =>
   fields.churchName.trim() !== '' &&
   fields.fullName.trim() !== '' &&
   fields.password.length >= shortestPassword &&
-  fields.agreedToTerms
+  fields.agreedToTerms &&
+  Object.values(fields.plant ?? {}).every((answer) => answer.trim() !== '')
 
 /**
  * What the code box holds, from whatever was typed or pasted: "482 913", "482-913" or

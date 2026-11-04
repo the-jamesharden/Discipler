@@ -1,4 +1,5 @@
 import type { AccountCreationRefusal, NewPasswordRefusal } from '~/domain/accounts'
+import type { PlantAnswers } from '~/domain/church-plant'
 import type { Clock } from '~/domain/clock'
 import { EmailField, emailBody, emailSubject, type EmailAddress } from '~/domain/email'
 import { offerFor, type BillingCycle } from '~/domain/offers'
@@ -79,11 +80,13 @@ export interface ChurchToOpen {
   readonly cycle: BillingCycle
   readonly carriedCode: string | null
   readonly heardFrom: HeardFrom | null
+  /** Its church-plant application, written in the same transaction, if it made one. */
+  readonly plant?: PlantAnswers | null
 }
 
 /** The church and everything that goes with it, in one transaction, or why not. */
 export type ChurchOpener = (church: ChurchToOpen) => Promise<
-  | { readonly ministryId: string }
+  | { readonly ministryId: string; readonly plantApplicationId?: string | null }
   | { readonly alreadyOpened: true }
   | { readonly refusal: AccountCreationRefusal }
 >
@@ -132,6 +135,45 @@ It has not added a card or bank account yet, and cannot text until it does.`,
     }
   }
 
+  /**
+   * After the commit, with no approve link: whoever can read that inbox must not be able
+   * to approve a plant (ticket 19). A failure here never undoes the church, and the
+   * operator's `list` still shows the application, so none is lost to a failed email. The
+   * address is on it because James or Lerone follow up by email, and every reply to an
+   * email Discipler sends goes to support@.
+   */
+  const tellTheFounders = async (
+    applicationId: string,
+    churchName: string,
+    email: EmailAddress,
+    plant: PlantAnswers,
+  ): Promise<void> => {
+    const name = EmailField.line(churchName)
+    const line = (answer: string) => EmailField.line(answer)
+    try {
+      await sender.send({
+        kind: 'churchPlantApplication',
+        subject: emailSubject`Church plant application from ${name}`,
+        body: emailBody`${name} applied for the church plant year when it signed up.
+
+Launch date, or planned launch date: ${line(plant.launchDate)}
+Sending or partner church: ${line(plant.sendingChurch)}
+Average weekly attendance: ${line(plant.averageAttendance)}
+Lead pastor: ${line(plant.leadPastor)}
+Login email: ${EmailField.address(email)}
+
+Anything else they'd like us to know:
+${EmailField.quoted(plant.anythingElse ?? '(Nothing.)')}
+
+Its ordinary trial starts either way. Approve or decline it with the church-plant command, using this ID:
+${line(applicationId)}`,
+        once: applicationId,
+      })
+    } catch (error) {
+      console.error(`The church plant application email ${applicationId} did not go: ${whyNotSent(error)}`)
+    }
+  }
+
   return {
     async open({ attempt, humanToken, carriedCode, ...fields }) {
       const token = readAttemptToken(attempt)
@@ -163,6 +205,7 @@ It has not added a card or bank account yet, and cannot text until it does.`,
             cycle: form.cycle,
             carriedCode,
             heardFrom: form.heardFrom,
+            plant: form.plant,
           })
         } catch (error) {
           console.error(
@@ -174,6 +217,9 @@ It has not added a card or bank account yet, and cannot text until it does.`,
         if ('refusal' in opened) return { refusal: openingRefusalOf(opened.refusal) }
 
         await tellSupport(opened.ministryId, form.churchName, form.heardFrom, carriedCode, at)
+        if (form.plant && opened.plantApplicationId) {
+          await tellTheFounders(opened.plantApplicationId, form.churchName, ready.email, form.plant)
+        }
 
         return { opened: { ministryId: opened.ministryId, phone: ready.phone, password: form.password } }
       })

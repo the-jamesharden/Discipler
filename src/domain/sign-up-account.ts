@@ -3,6 +3,12 @@ import { isBillingCycle, type BillingCycle } from './offers'
 import { newPasswordRefusal, type NewPasswordRefusal } from './accounts'
 import { readWording } from './wording'
 import { EXPONENTIAL_OFFER } from './launch-terms'
+import {
+  readPlantApplication,
+  type PlantAnswers,
+  type PlantFormFields,
+  type PlantFormRefusal,
+} from './church-plant'
 
 /**
  * What "Set up your account" asks and how its answers are read (Exponential launch,
@@ -47,6 +53,7 @@ export type AccountFormRefusal =
   | 'signup.church_name_needed'
   | 'signup.full_name_needed'
   | 'signup.bad_timezone'
+  | PlantFormRefusal
   | 'signup.bad_cycle'
   | 'signup.terms_needed'
 
@@ -56,6 +63,8 @@ export interface AccountFormFields {
   readonly heardFrom: string
   readonly password: string
   readonly timezone: string
+  /** Ticket 19's questions. Left out, or anything but "Yes, we are", is not applying. */
+  readonly plant?: PlantFormFields
   readonly cycle: string
   readonly agreedToTerms: boolean
 }
@@ -66,6 +75,8 @@ export interface AccountForm {
   readonly heardFrom: HeardFrom | null
   readonly password: string
   readonly timezone: string
+  /** The church-plant application, or null for a church that did not apply. */
+  readonly plant: PlantAnswers | null
   readonly cycle: BillingCycle
 }
 
@@ -90,6 +101,10 @@ export const readAccountForm = (
 
   const timezone = fields.timezone.trim()
   if (!timezone || !isKnownTimezone(timezone)) return { refusal: 'signup.bad_timezone' }
+
+  const application = readPlantApplication(fields.plant)
+  if ('refusal' in application) return application
+
   if (!isBillingCycle(fields.cycle)) return { refusal: 'signup.bad_cycle' }
   if (!fields.agreedToTerms) return { refusal: 'signup.terms_needed' }
 
@@ -100,6 +115,7 @@ export const readAccountForm = (
       heardFrom: isHeardFrom(fields.heardFrom) ? fields.heardFrom : null,
       password: fields.password,
       timezone,
+      plant: application.plant,
       cycle: fields.cycle,
     },
   }

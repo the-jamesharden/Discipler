@@ -102,6 +102,21 @@ export const ACCOUNT_PAGE = {
   submit: 'Start free trial',
 } as const
 
+/** The church-plant questions on that page (ticket 19), in the mock-up's words. */
+export const PLANT_QUESTIONS = {
+  question: 'Is your church a church plant?',
+  lead: 'Church plants that launched in the last 3 years, or are launching in the next 12 months, can apply for a year of Discipler free.',
+  yes: 'Yes, we are',
+  no: 'No',
+  launchDate: 'Launch date, or planned launch date',
+  launchDateExample: 'For example, September 2025',
+  sendingChurch: 'Sending or partner church',
+  averageAttendance: 'Average weekly attendance',
+  leadPastor: 'Lead pastor',
+  anythingElse: "Anything else you'd like us to know?",
+  followUp: 'James or Lerone will follow up by email. Your trial starts either way, and your free year begins once your application is approved.',
+} as const
+
 /** What the page says about money, which is the one place sign-up says anything. */
 export interface AccountPrices {
   readonly month: string
@@ -152,6 +167,11 @@ export const OPENING_REFUSALS = {
   'signup.church_name_needed': "Please enter your church or organization's name.",
   'signup.full_name_needed': 'Please enter your full name.',
   'signup.bad_timezone': 'Please choose your timezone.',
+  'signup.plant_launch_date_needed': 'Please enter your launch date, or planned launch date.',
+  'signup.plant_sending_church_needed': 'Please enter your sending or partner church.',
+  'signup.plant_attendance_needed': 'Please enter your average weekly attendance.',
+  'signup.plant_lead_pastor_needed': "Please enter your lead pastor's name.",
+  'signup.plant_answer_too_long': 'One of your church plant answers is too long. Please shorten it.',
   'signup.bad_cycle': 'Please choose monthly or yearly.',
   'signup.terms_needed': 'Please agree to the Terms of Service and Privacy Policy.',
   'signup.not_human': REFUSALS['signup.not_human'],

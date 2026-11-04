@@ -840,6 +840,12 @@ h2.req-heading { margin-bottom: 1.1rem; }
 /* The padding keeps a long address from running under "Locked" on a phone. */
 input.locked, input.locked[readonly] { background: #efebe4; color: var(--text-light); border-style: dashed; cursor: not-allowed; padding-right: 4.2rem; text-overflow: ellipsis; }
 .save { display: inline-block; margin-left: 0.4rem; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(201, 168, 106, 0.2); color: var(--amber-ink); border-radius: 999px; padding: 0.05rem 0.5rem; vertical-align: 0.1em; }
+/* The church-plant questions (ticket 19), in the mock-up's measures. */
+hr.sep { border: 0; border-top: 1px solid var(--border); margin: 1.2rem 0 1rem; }
+.plant-q { margin-top: 0.2rem; }
+.plant-q .plant-lead { margin: 0 0 0.6rem; }
+.yesno { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin: 0.5rem 0 0.6rem; }
+.plant-app { background: rgba(45, 80, 22, 0.03); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1rem 0.6rem; margin-top: 0.4rem; }
 .choices.account-cycle { margin-bottom: 0.4rem; }
 .check.account-terms { margin-top: 0.4rem; }
 button.full.account-start { margin-top: 0.8rem; }

@@ -1266,6 +1266,9 @@ There are three offers:
   A yearly church gets one month at the rate it pays off its first bill, rather than a free year.
 - **A church plant** gets a free year after its trial, once James or Lerone approves its application by operator command.
   A plant that came through `EXPO26` gets its free days, then the free year, then the Exponential year.
+  Approved after its trial has ended, its free year starts at its next bill, and a bill already paid stays paid; any refund is James's by hand.
+  One card or bank account has one plant year, and a method with no fingerprint, such as Stripe Link, cannot be checked and is approved.
+  A decision stands: the command will not approve what it declined, or decline what it approved.
 
 Offers do not otherwise combine: a referral month gives way to the Exponential special offer and to a church plant's year, whichever applies, because each saves the church more.
 Each church can use each offer once.

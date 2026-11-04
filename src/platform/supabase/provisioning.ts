@@ -1,5 +1,6 @@
 import pg from 'pg'
 import type { AccountCreationRefusal } from '~/domain/accounts'
+import type { PlantAnswers } from '~/domain/church-plant'
 import { SIGN_UP_CONSENT_VERSION, TERMS_VERSION } from '~/domain/consent'
 import type { EmailAddress } from '~/domain/email'
 import { MinistrySetupRefused } from '~/domain/errors'
@@ -107,6 +108,8 @@ export interface SignedUpChurch {
   /** As the address carried it, whether or not it applied, or null for none. */
   readonly carriedCode: string | null
   readonly heardFrom: HeardFrom | null
+  /** Its church-plant application, if it made one (ticket 19). */
+  readonly plant?: PlantAnswers | null
 }
 
 export interface ProvisionedMinistry {
@@ -121,6 +124,8 @@ export interface ProvisionedMinistry {
    * readable links are built from (Pastor feedback, ticket 04).
    */
   readonly shortName: string
+  /** The church-plant application opened with it, or null for none. */
+  readonly plantApplicationId: string | null
 }
 
 /**
@@ -288,8 +293,10 @@ export const provisionMinistry = async (
       }
     }
 
+    let plantApplicationId: string | null = null
+
     if (ministry.signedUp) {
-      const { agreedAt, cycle, carriedCode, heardFrom } = ministry.signedUp
+      const { agreedAt, cycle, carriedCode, heardFrom, plant } = ministry.signedUp
 
       await client.query(
         `insert into church_signup (ministry_id, billing_cycle, carried_code, heard_from)
@@ -315,6 +322,27 @@ export const provisionMinistry = async (
          values ($1, $2, 'ministry.terms_accepted', 'ministry', $1, $3)`,
         [ministryId, at, JSON.stringify({ termsVersion: TERMS_VERSION, adminPersonId: person.rows[0]!.id })],
       )
+
+      // Here, so a church is never opened with its application lost: ticket 19. The email
+      // about it goes after the commit, and is not what keeps it.
+      if (plant) {
+        const application = await client.query<{ id: string }>(
+          `insert into church_plant_application
+             (ministry_id, launch_date, sending_church, average_attendance, lead_pastor, anything_else, applied_at)
+           values ($1, $2, $3, $4, $5, $6, $7)
+           returning id`,
+          [
+            ministryId,
+            plant.launchDate,
+            plant.sendingChurch,
+            plant.averageAttendance,
+            plant.leadPastor,
+            plant.anythingElse,
+            at,
+          ],
+        )
+        plantApplicationId = application.rows[0]!.id
+      }
     }
 
     await client.query('commit')
@@ -325,6 +353,7 @@ export const provisionMinistry = async (
       adminPersonId: person.rows[0]!.id,
       adminPhone: phone,
       shortName,
+      plantApplicationId,
     }
   } catch (error) {
     await client.query('rollback').catch(() => undefined)
@@ -375,9 +404,10 @@ export const openSignedUpChurch: ChurchOpener = async (church) => {
         cycle: church.cycle,
         carriedCode: church.carriedCode,
         heardFrom: church.heardFrom,
+        plant: church.plant ?? null,
       },
     })
-    return { ministryId: provisioned.ministryId }
+    return { ministryId: provisioned.ministryId, plantApplicationId: provisioned.plantApplicationId }
   } catch (error) {
     if (error instanceof SignUpAttemptAlreadySpent) return { alreadyOpened: true }
     if (error instanceof MinistryNotProvisioned && error.refusal) return { refusal: error.refusal }

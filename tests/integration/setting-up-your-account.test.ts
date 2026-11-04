@@ -994,6 +994,154 @@ describe('telling support@', { timeout: 60_000 }, () => {
   })
 })
 
+describe('a church-plant application', { timeout: 60_000 }, () => {
+  const YES = {
+    plant: 'yes',
+    plantLaunchDate: 'September 2025',
+    plantSendingChurch: 'First Baptist',
+    plantAverageAttendance: '120',
+    plantLeadPastor: 'Dan Whitfield',
+    plantAnythingElse: 'We meet in a school.\nFirst service in May.',
+  }
+
+  const applicationOf = async (ministryId: string) => {
+    const { rows } = await pool.query(`select * from church_plant_application where ministry_id = $1`, [ministryId])
+    return rows
+  }
+  const applicationEmails = () => h.email.delivered.filter((envelope) => envelope.kind === 'churchPlantApplication')
+
+  it('keeps the answers and the time, with no decision, and the church opens as usual', async () => {
+    const { church, answer } = await openedChurch(YES)
+
+    expect(answer.body).toEqual({ next: '/signup/payment' })
+    const rows = await applicationOf(church.id)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      launch_date: 'September 2025',
+      sending_church: 'First Baptist',
+      average_attendance: '120',
+      lead_pastor: 'Dan Whitfield',
+      anything_else: 'We meet in a school.\nFirst service in May.',
+      decision: null,
+      decided_at: null,
+    })
+    expect(rows[0].applied_at).toBeInstanceOf(Date)
+
+    const billing = await pool.query(`select billed_outside_stripe from ministry_billing where ministry_id = $1`, [church.id])
+    expect(billing.rows[0].billed_outside_stripe).toBe(false)
+  })
+
+  it('writes nothing and sends nothing for No, whatever was typed before they changed their mind', async () => {
+    const { church } = await openedChurch({ ...YES, plant: 'no' })
+
+    expect(await applicationOf(church.id)).toEqual([])
+    expect(applicationEmails()).toEqual([])
+  })
+
+  it('takes a lead pastor who is not the person signing up', async () => {
+    const { church } = await openedChurch({ ...YES, fullName: 'Dan Whitfield', plantLeadPastor: 'Ruth Okafor' })
+
+    expect((await applicationOf(church.id))[0].lead_pastor).toBe('Ruth Okafor')
+  })
+
+  it('emails the founders the answers, the church, the address and the ID, and no link', async () => {
+    const { church, name, email: address } = await openedChurch(YES)
+
+    const [application] = await applicationOf(church.id)
+    expect(applicationEmails()).toHaveLength(1)
+    const [email] = applicationEmails()
+    expect(email!.to).toEqual(['james@trydiscipler.com', 'lerone@trydiscipler.com'])
+    expect(email!.subject).toContain(name)
+    for (const expected of [
+      name,
+      'Launch date, or planned launch date: September 2025',
+      'Sending or partner church: First Baptist',
+      'Average weekly attendance: 120',
+      'Lead pastor: Dan Whitfield',
+      `Login email: ${address}`,
+      '> We meet in a school.',
+      '> First service in May.',
+      application.id,
+    ]) {
+      expect(email!.text).toContain(expected)
+    }
+    expect(email!.text).not.toMatch(/https?:|www\.|\/approve/i)
+  })
+
+  it('still tells support@ once, as for any church', async () => {
+    await openedChurch(YES)
+
+    expect(h.email.delivered.filter((envelope) => envelope.kind === 'newSignUp')).toHaveLength(1)
+  })
+
+  it('refuses Yes with a required answer missing, opens nothing and spends nothing', async () => {
+    const attempt = await aProvenAttempt()
+    const form = theForm({ ...YES, plantSendingChurch: '   ' })
+
+    const answer = await answerTo(attempt.attempt, form)
+
+    expect(answer.status).toBe(422)
+    expect(answer.body).toEqual({
+      refusal: 'signup.plant_sending_church_needed',
+      message: 'Please enter your sending or partner church.',
+    })
+    expect(await churchNamed(form.churchName)).toEqual([])
+    expect((await attemptRow(attempt.email)).spent_at).toBeNull()
+  })
+
+  it('never undoes the church when the email fails, logs it by name, and keeps the application', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const attempt = await aProvenAttempt()
+    h.email.failWith(Object.assign(new Error('Resend said something about First Baptist'), { name: 'ResendDown' }))
+    const form = theForm(YES)
+
+    const answer = await answerTo(attempt.attempt, form)
+
+    expect(answer.body).toEqual({ next: '/signup/payment' })
+    const [church] = await churchNamed(form.churchName)
+    expect(await applicationOf(church!.id)).toHaveLength(1)
+    expect(logged.mock.calls.join(' ')).toContain('ResendDown')
+    expect(logged.mock.calls.join(' ')).not.toContain('First Baptist')
+  })
+
+  it('goes with the church: a transaction that fails leaves neither', async () => {
+    const attempt = await aProvenAttempt()
+    // Longer than the column holds, past what the form reads, so only the database refuses.
+    const opener: ChurchOpener = (church) =>
+      openSignedUpChurch({
+        ...church,
+        plant: { ...church.plant!, sendingChurch: 'x'.repeat(201) },
+      })
+    currentOpening = openingWith(opener)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const form = theForm(YES)
+
+    const answer = await answerTo(attempt.attempt, form)
+
+    expect(answer.body).toMatchObject({ refusal: 'signup.not_opened' })
+    expect(await churchNamed(form.churchName)).toEqual([])
+    expect((await attemptRow(attempt.email)).spent_at).toBeNull()
+    expect(await accountsOnPhone(attempt.phone)).toEqual([])
+    expect(applicationEmails()).toEqual([])
+  })
+
+  it('cannot be read by a browser, signed in or not', async () => {
+    const { church, phone } = await openedChurch(YES)
+    const { apiUrl, anonKey } = localSupabase()
+    const browser = createClient(apiUrl, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
+
+    const signedOut = await browser.from('church_plant_application').select('*').eq('ministry_id', church.id)
+    expect(signedOut.data).toBeNull()
+    expect(signedOut.error?.code).toBe('42501')
+
+    const { error } = await browser.auth.signInWithPassword({ phone, password: PASSWORD })
+    expect(error).toBeNull()
+    const signedIn = await browser.from('church_plant_application').select('*').eq('ministry_id', church.id)
+    expect(signedIn.data).toBeNull()
+    expect(signedIn.error?.code).toBe('42501')
+  })
+})
+
 describe('the lock itself', { timeout: 30_000 }, () => {
   it('holds a second opening on one attempt until the first is done, and no other attempt', async () => {
     const first = await aProvenAttempt()
