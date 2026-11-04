@@ -193,6 +193,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
       twilioBalance: string
       stripeEvents: { failed: number } | 'failed'
       over200: string
+      paymentReminders: { sent: number; failed: number } | 'shut' | 'failed'
       supportSubmissions: { deleted: number } | 'failed'
       errors: { ministryId: string; error: string }[]
     }
@@ -212,6 +213,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     // watch reads nothing (Exponential launch, ticket 14). Reported and not `failed`,
     // and it proves too that the question never reached the real Stripe from here.
     expect(outcome.over200).toBe('no_prices')
+    // Sign-up is shut on this server, and a church that cannot reach the payment step
+    // is not reminded of it (Exponential launch, ticket 18).
+    expect(outcome.paymentReminders).toBe('shut')
     // And the support form's submissions: the old one is gone and the young one is not.
     expect(outcome.supportSubmissions).not.toBe('failed')
     const { rows: kept } = await pool.query<{ id: string }>(

@@ -144,6 +144,8 @@ export interface SignUp {
   }): Promise<CodeConfirming>
   /** Which page this visitor belongs on, and what it needs to show. */
   standing(attempt: string | null | undefined): Promise<SignUpStanding>
+  /** Whether this attempt has opened its church, which `standing` reads as no attempt at all. */
+  attemptIsSpent(attempt: string | null | undefined): Promise<boolean>
   /**
    * For ticket 17, before it opens a church: the proven address and the phone, after
    * a second Turnstile token from "Set up your account" has passed. The token is not
@@ -319,6 +321,12 @@ export const createSignUp = ({
     async standing(attempt) {
       const token = readAttemptToken(attempt)
       return standingOf(token && (await signUps.read(token)), clock.now())
+    },
+
+    async attemptIsSpent(attempt) {
+      const token = readAttemptToken(attempt)
+      const pending = token && (await signUps.read(token))
+      return Boolean(pending && pending.spentAt)
     },
 
     async readyToOpen({ attempt, humanToken }) {

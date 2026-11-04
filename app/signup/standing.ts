@@ -3,7 +3,8 @@ import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 import type { SignUpStanding } from '~/domain/sign-up-attempt'
 import { signUpIsOpen } from '~/platform/sign-up-switch'
-import { getSignUp } from '~/service/container'
+import { resolveAdmin } from '~/platform/supabase/current-admin'
+import { getChurchSignups, getSignUp } from '~/service/container'
 import { SIGN_UP_ATTEMPT_COOKIE } from './attempt-cookie'
 import { signUpHref, type SignUpStep } from './flow'
 
@@ -26,6 +27,19 @@ export const titleWhileOpen = (title: string) => (): Metadata =>
   signUpIsOpen(process.env) ? { title } : {}
 
 /**
+ * Whether this is an Admin who has already opened their church and come back to sign-up:
+ * by the back button, with the attempt's cookie gone once it was spent, or by a tab
+ * still holding a spent one (Exponential launch, ticket 18). They have nothing to do
+ * here, and `/` knows where they belong. Anyone else is starting a sign-up of their own.
+ */
+const hasAlreadyOpenedAChurch = async (attempt: string | undefined): Promise<boolean> => {
+  const resolution = await resolveAdmin()
+  if (resolution.status !== 'admin') return false
+  if (await getSignUp().attemptIsSpent(attempt)) return true
+  return (await getChurchSignups().of(resolution.admin.ministryId)) !== null
+}
+
+/**
  * The attempt's standing, if this is the page it belongs on, and otherwise a redirect
  * to the page it does. A reload, the back button and an old tab all land right this
  * way, and nobody reaches the code page without an email having gone.
@@ -38,6 +52,7 @@ export const standingOnPage = async <Step extends SignUpStep>(
 
   const attempt = (await cookies()).get(SIGN_UP_ATTEMPT_COOKIE)?.value
   const standing = await getSignUp().standing(attempt)
+  if (standing.step === 'human_check' && (await hasAlreadyOpenedAChurch(attempt))) redirect('/')
   if (standing.step !== page) redirect(signUpHref(standing.step, carried))
   return standing as Extract<SignUpStanding, { step: Step }>
 }

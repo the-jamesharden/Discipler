@@ -844,6 +844,19 @@ input.locked, input.locked[readonly] { background: #efebe4; color: var(--text-li
 .check.account-terms { margin-top: 0.4rem; }
 button.full.account-start { margin-top: 0.8rem; }
 .under-button { font-size: 0.8rem; color: var(--text-light); text-align: center; margin-top: 0.6rem; line-height: 1.45; }
+/* The payment step (ticket 18): Stripe's Elements inside Discipler's card. */
+h2.payment-heading { margin-bottom: 0.4rem; }
+.hint.payment-lead { margin: 0 0 1.1rem; font-size: 0.88rem; }
+.payment-notice, .payment-error { margin: 0 0 0.9rem; font-size: 0.84rem; }
+.stripe-el { border: 1px solid var(--border); border-radius: 8px; padding: 1rem; background: #fff; margin-bottom: 1rem; }
+.stripe-el-opening { min-height: 16rem; }
+.stripe-el .wallets { margin-bottom: 0.9rem; }
+.stripe-el .wallets-none { visibility: hidden; height: 0; overflow: hidden; margin: 0; }
+.stripe-el .or { display: flex; align-items: center; gap: 0.6rem; color: #888; font-size: 0.78rem; margin: 0 0 0.8rem; }
+.stripe-el .or::before, .stripe-el .or::after { content: ''; flex: 1; height: 1px; background: #e6e6e6; }
+.stripe-el .by { font-size: 0.7rem; color: #999; margin-top: 0.8rem; text-align: right; }
+.reminders-off-said { font-size: 0.95rem; line-height: 1.5; margin: 1rem 0 1.1rem; }
+.reminders-off-said:last-child { margin-bottom: 0; }
 /* Holds nothing until Cloudflare needs somebody to press something. */
 .opening-check { display: flex; justify-content: center; margin: 0 -0.75rem; }
 .opening-check:empty { display: none; }

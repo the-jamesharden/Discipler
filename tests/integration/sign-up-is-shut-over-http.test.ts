@@ -26,7 +26,7 @@ describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the swit
     expect(response.headers.getSetCookie().filter((cookie) => cookie.includes('signup'))).toEqual([])
   })
 
-  it.each(['/signup', '/signup?code=EXPO26', '/signup?again=1', '/signup/email', '/signup/code', '/signup/account'])(
+  it.each(['/signup', '/signup?code=EXPO26', '/signup?again=1', '/signup/email', '/signup/code', '/signup/account', '/signup/payment', '/signup/payment?redirect_status=succeeded'])(
     'answers 404 at the page %s, and the page says nothing about sign-up',
     async (path) => {
       const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual' })
@@ -41,9 +41,37 @@ describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the swit
         'Set up your account',
         'challenges.cloudflare.com',
         'Email me a code',
+        'Add a card or bank account',
+        'js.stripe.com',
       ]) {
         expect(html).not.toContain(giveaway)
       }
     },
   )
+
+  it('answers 404 at the small read the payment step asks', async () => {
+    const response = await fetch(`${baseUrl}/signup/payment/access`, { redirect: 'manual' })
+
+    expect(response.status).toBe(404)
+  })
+
+  // Not behind the switch, because an email already sent has promised it. A link that is
+  // not signed is still nothing at all, and says nothing about sign-up.
+  it.each(['/signup/reminders-off', '/signup/reminders-off?t=nonsense'])('answers 404 at %s', async (path) => {
+    const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual' })
+
+    expect(response.status).toBe(404)
+    expect(await response.text()).not.toContain('send me reminders')
+  })
+
+  it('stops nothing for a token that is not signed', async () => {
+    const response = await fetch(`${baseUrl}/signup/reminders-off/stop`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ t: `${crypto.randomUUID()}.${'0'.repeat(64)}` }),
+    })
+
+    expect(response.status).toBe(404)
+  })
 })
