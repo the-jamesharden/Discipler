@@ -677,6 +677,21 @@ Added on 2026-11-04 by ticket 20, drafts inside the approved email and phone pag
 - A code in the address that nobody recognizes says the sentence mock-up 6 draws for a typed one: "We don't recognize that code, but your free trial still applies."
 - The email to support@, `tellSupport` in `src/service/opening-a-church.ts`, says "Offer: The first paid month free, invited by another church" for a church that came through a live referral link.
 
+Added on 2026-11-04 by ticket 22, drafts inside the approved forgot-password pages, in `app/login/forgot/copy.ts` and `app/login/forgot/[token]/copy.ts`:
+
+- An entry that is not an address: "That doesn't look like an email address. Please check it and try again."
+- A human check that did not pass: "We couldn't confirm you're a real person. Please try again."
+- A browser running no script, since Cloudflare needs one: "This page needs JavaScript. Please turn it on, or write to support@trydiscipler.com and we'll help."
+- A password that could not be set, with the link still live: "We couldn't save your new password just now. Please try again in a minute."
+- A refused password uses the wording every other password form already uses.
+- The reset email has an HTML part beside its plain text, because the approved screen has a button, as the payment reminder does.
+
+Also from ticket 22, three things to check on production before anybody relies on it:
+
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`, or every press of "Send me the link" reads as not a real person.
+- `RESEND_API_KEY` and `RESEND_EMAIL_DOMAIN`, or the page says "Email sent." and the only sign that nothing went is `A reset email for link ... did not go` in the log.
+- The link shows on the sign-in page whether or not sign-up is open, so until sign-up opens it answers "Email sent." to everybody and sends nobody anything, because nobody's account holds an address yet.
+
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
 
 ## Open: the check-in words' refusals and `Messages read as`

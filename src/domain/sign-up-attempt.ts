@@ -52,6 +52,8 @@ export const HUMAN_CHECK_ACTIONS = {
   openChurch: 'signup_open',
   /** The support form, for somebody who is not signed in (ticket 25). */
   contactSupport: 'support_contact',
+  /** "Send me the link", for a forgotten password (ticket 22). */
+  forgotPassword: 'forgot_password',
 } as const
 
 export type HumanCheckAction = (typeof HUMAN_CHECK_ACTIONS)[keyof typeof HUMAN_CHECK_ACTIONS]

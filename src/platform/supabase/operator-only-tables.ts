@@ -47,4 +47,7 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   'signed_out_support_submission',
   // Which church invited which, which neither church may read (Exponential launch, ticket 20).
   'referral',
+  // "Forgot your password?": the links and the caps on asking for one (Exponential launch, ticket 22).
+  'password_reset_link',
+  'password_reset_request',
 ]

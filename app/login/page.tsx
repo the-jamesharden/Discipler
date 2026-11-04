@@ -70,7 +70,9 @@ export default async function LoginPage({
             required
             autoComplete="current-password"
           />
-          {/* "Forgot your password?" goes here, as a `.hint`, with ticket 22. */}
+          <p className="hint">
+            <a href="/login/forgot">Forgot your password?</a>
+          </p>
         </div>
 
         <button type="submit" className="full sec">
