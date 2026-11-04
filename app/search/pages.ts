@@ -92,6 +92,7 @@ export const DIRECTORY_PAGES: readonly DirectoryPage[] = [
   {
     heading: HEADINGS.settings,
     label: CHANGE_YOUR_PASSWORD,
+    also: WHERE.account,
     href: '/account',
     where: WHERE.account,
     icon: 'key',

@@ -72,10 +72,13 @@ The answer for the seeded church of 9 people, 2 relationships and 2 Materials wa
 
 Each is in `DIRECTORY_PAGES` (`app/search/pages.ts`) already, and nothing is listed while its address is null.
 
-- **Refer a church (32):** sets `REFER_A_CHURCH.href` in `app/top-nav-menus.ts`, the line that also draws the header's button. Nothing to change in search.
-- **Restart onboarding (27), What's new and Office hours (30), Contact support (25), Setup videos, Blog:** listed under Help the moment `HELP_MENU` gives them an address. Nothing to change in search.
+- **Refer a church (32):** sets `REFER_A_CHURCH.href` in `app/top-nav-menus.ts`, the line that also draws the header's button.
+  Nothing to change in search.
+- **Restart onboarding (27), What's new and Office hours (30), Contact support (25), Setup videos, Blog:** listed under Help the moment `HELP_MENU` gives them an address.
+  Nothing to change in search.
 - **Billing (33):** sets `href` on its entry to its section of Settings, and adds that section's name to `SETTINGS_SECTIONS` in `app/search/copy.ts` if it should be said under Settings.
-- **Ask Discipler (31):** the entry needs an address. If the circle opens with no address of its own, that ticket decides between giving it one and removing the entry.
+- **Ask Discipler (31):** the entry needs an address.
+  If the circle opens with no address of its own, that ticket decides between giving it one and removing the entry.
 - **A new tab** joins `ADMIN_TABS` and is listed with it; any other new page is one more entry in its place.
 
 `tests/app/search-directory.test.ts` fails if an entry's address is not a route the app has.

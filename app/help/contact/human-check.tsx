@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { loadTurnstile, widgetSizeFor } from '../../turnstile-widget'
 
 /**
  * Cloudflare Turnstile on the page, the other half of `src/platform/cloudflare/turnstile.ts`
@@ -12,26 +13,6 @@ import { useEffect, useRef } from 'react'
  * script loads, which misses a page reached by a client navigation. It shows nothing
  * unless it needs somebody to press something.
  */
-
-const SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
-
-let loading: Promise<void> | undefined
-
-const loadTurnstile = (): Promise<void> => {
-  loading ??= new Promise((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = SCRIPT
-    script.async = true
-    script.onload = () => resolve()
-    script.onerror = () => {
-      // So the next page to ask tries again.
-      loading = undefined
-      reject(new Error('Turnstile did not load'))
-    }
-    document.head.append(script)
-  })
-  return loading
-}
 
 export const HumanCheck = ({
   siteKey,
@@ -56,6 +37,9 @@ export const HumanCheck = ({
           sitekey: siteKey,
           action,
           appearance: 'interaction-only',
+          // Discipler is light only, and left to itself the widget follows the device's dark mode.
+          theme: 'light',
+          size: widgetSizeFor(box.current),
           callback: onToken,
           'expired-callback': () => onToken(''),
           'error-callback': () => onToken(''),
@@ -71,5 +55,5 @@ export const HumanCheck = ({
     }
   }, [siteKey, action, onToken])
 
-  return <div className="human-check" ref={box} />
+  return <div className="contact-human-check" ref={box} />
 }

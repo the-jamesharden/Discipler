@@ -53,6 +53,13 @@ A page function returns rows; every rule that turns rows into what a page shows 
 The cost is that a tab which shows only the badge still reads the whole history, and the history is unbounded.
 The document size is measured in the edge log after the deploy; a page document over 256 KB is answered by bounding the history to the window the derivation needs, never by a count computed in SQL.
 
+The setup meter is the one exception, recorded here so it stays the only one.
+`app.setup_meter_of` answers each of its seven steps in SQL, with an `exists` probe for each, on every Admin page.
+Deriving them in the domain would put the church's whole history into every Admin page's document, for a bar most churches finish with, and that history is the unbounded thing this decision is careful about.
+The probes count nothing and turn no rows into what a page shows: each returns whether a fact is stored, and the domain still derives the percentage, the next step and what the bar draws from those answers.
+It is `security definer` for its own stated reason, that as the invoker a second Admin's Roster row would read as somebody who is not an Admin, and it answers only for a church the session administers.
+The cost is that what each step reads lives in a migration, so changing a step is a migration and not a domain change.
+
 A page function names the functions it composes at runtime, and Postgres records no dependency for a name in a body.
 A later migration that drops or re-signatures `roster` applies cleanly, and `roster_page` fails at its first call; a `language sql` body is checked when it is created and never again, so it breaks the same way.
 The guard is one loop that finds every page function by its name, executes each as a signed-in Admin inside a transaction it rolls back, and insists on `admin` from each, because a function returns the verdict alone to anybody else and a statement that is not reached is not parsed (`src/platform/supabase/every-page-function-answers.ts`).

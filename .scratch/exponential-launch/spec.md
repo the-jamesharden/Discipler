@@ -383,7 +383,7 @@ Texts over it fail with Twilio error 30023 until midnight Pacific.
 
 ### The required protections (Q23)
 
-1. Card and bank details are typed only on Stripe's pages, and Discipler stores only Stripe's IDs, the card brand and the last four digits.
+1. Card and bank details are typed only on Stripe's pages, and Discipler stores only Stripe's IDs, the card brand, the last four digits and Stripe's fingerprint of the card or bank account, which Q57 needs to know a method has had its free month and which cannot be turned back into a number.
 2. The Stripe webhook verifies the signature on the raw body, refuses everything when the secret is unset, refuses events from the wrong mode, records each event once by its ID, and always re-reads the subscription from Stripe instead of trusting event order.
 3. Billing rows are written under `discipler_command` scoped to one church, found through a narrow definer function from the stored Stripe customer, never with `service_role`.
 4. The server decides which church is paying and never takes a church ID from the browser; the "payment complete" page unlocks nothing.

@@ -48,7 +48,8 @@ It stays off on production until James says the privacy policy and terms are liv
 
 ## For James
 
-1. Approve mock-up 1 before this is built. Done.
+1. Approve mock-up 1 before this is built.
+   Done.
 
 ## Comments
 
@@ -65,18 +66,21 @@ It stays off on production until James says the privacy policy and terms are liv
 
 - **The spec and this ticket disagree on when consent is recorded.** The spec says continuing records it; this ticket and ticket 17 say opening the church does.
   `consent_record` belongs to a Person in a Ministry, and neither exists on page two, so the spec's sentence cannot be built as written without a new table.
-  Nothing is texted before the church opens, so no text goes out without the record, and this ticket stands. The spec's sentence should be reworded when this ticket is merged.
+  Nothing is texted before the church opens, so no text goes out without the record, and this ticket stands.
+  The spec's sentence should be reworded when this ticket is merged.
   Ticket 17 should decide whether the record's time is the opening or the press of "Email me a code", because the row keeps only the latest send.
 - **The tab's title exists only while sign-up is open.** A fixed `metadata` put "Start your free trial" in the head of the shut 404, which the over-HTTP test caught.
 - **Carried names:** `code`, as the mock-up's `/signup?code=EXPO26` draws it, and `ref` for what `/r/<code>` redirects with, which no document names; ticket 20 may rename it in `app/signup/flow.ts`.
-  A value is carried only if it could be a code (`[A-Za-z0-9_-]`, up to 64 characters), so nothing a stranger puts in a link is repeated back. The alternative was carrying any value and leaving it to ticket 20.
+  A value is carried only if it could be a code (`[A-Za-z0-9_-]`, up to 64 characters), so nothing a stranger puts in a link is repeated back.
+  The alternative was carrying any value and leaving it to ticket 20.
 - **Going through page one again** is `/signup?again=1`, because page one otherwise sends somebody with an attempt on to the page they stand on.
 - **What was typed crosses page one in `sessionStorage`** and is forgotten once the address is proven, so a phone handed back at a booth keeps nothing after its tab closes.
   The alternatives were putting a phone in the address, or having the new attempt read the old row.
 - **Refusals are sentences under the field, not the browser's bubbles** (`noValidate`), so the page speaks in one voice.
 - **A double click sends one email:** the second is answered "too soon", which goes on to the code page.
 - **The widget is let out into the card's padding** so its fixed 300 pixels fit a 360-pixel phone, and is the compact one where even that is too narrow.
-- **A failed check offers "Try again", which reloads**, because a reload also helps when Cloudflare's script never arrived. It uses Turnstile's `retry: never`, so the words and the widget do not disagree.
+- **A failed check offers "Try again", which reloads**, because a reload also helps when Cloudflare's script never arrived.
+  It uses Turnstile's `retry: never`, so the words and the widget do not disagree.
 - **A refusal takes the widget's place**, because the widget's own "Success!" above "We couldn't confirm you're a real person" contradicts it, as a token Cloudflare passed and the server refused would show.
 - **The widget is always light**, because Discipler is, and left to itself it follows the device's dark mode.
 - **Cloudflare's dummy site key was used for the browser check**, with `siteverify` and Resend answered inside the local server, so neither vendor was called with anything real.

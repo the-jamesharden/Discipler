@@ -142,6 +142,11 @@ const aFakeStripe = (clock: { now(): Date }) => {
   }
 }
 
+// What self sign-up makes. The shared fixture's default is a church billed by hand, which
+// this page refuses, and these tests are about the church that has to pay.
+const aChurchThatSignedItselfUp = (name: string) =>
+  createMinistryWithAdmin(name, undefined, { billedOutsideStripe: false })
+
 // Longer than the default: each test here opens a church or two, signs in and walks a
 // whole sign-up, and under a shared lock's load that has run past five seconds. A test
 // that times out goes on running, against the next test's fake, and fails that one too.
@@ -189,7 +194,7 @@ describe('Opening a trial', { timeout: 30_000 }, () => {
     vi.stubEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'pk_test_not_a_real_key')
 
     // One of its own per test: a customer can be stored once and history never cleared.
-    grace = await createMinistryWithAdmin('Grace Church')
+    grace = await aChurchThatSignedItselfUp('Grace Church')
     asAdminOf(grace)
   })
 
@@ -370,7 +375,7 @@ describe('Opening a trial', { timeout: 30_000 }, () => {
 
   describe('nothing about a church comes from the browser', () => {
     it('ignores a church, a customer, a price and free days in the form', async () => {
-      const other = await createMinistryWithAdmin('Another Church')
+      const other = await aChurchThatSignedItselfUp('Another Church')
 
       await opened({
         cycle: 'month',
@@ -786,7 +791,7 @@ describe('Opening a trial', { timeout: 30_000 }, () => {
 
       it('is refused one on a card that had one, in another church', async () => {
         const fingerprint = `fp_${unique()}`
-        const other = await createMinistryWithAdmin('Another Church')
+        const other = await aChurchThatSignedItselfUp('Another Church')
         invited.add(grace.id).add(other.id)
 
         await confirmed(grace, { cycle: 'month' }, fingerprint)
@@ -803,7 +808,7 @@ describe('Opening a trial', { timeout: 30_000 }, () => {
 
       it('is refused one on a bank account or card that had one, however it was opened', async () => {
         const fingerprint = `fp_${unique()}`
-        const other = await createMinistryWithAdmin('Yearly Church')
+        const other = await aChurchThatSignedItselfUp('Yearly Church')
         invited.add(grace.id).add(other.id)
 
         await confirmed(grace, { cycle: 'month' }, fingerprint)
@@ -822,7 +827,7 @@ describe('Opening a trial', { timeout: 30_000 }, () => {
 
       it('leaves EXPO26 alone on a card that had a first free month', async () => {
         const fingerprint = `fp_${unique()}`
-        const other = await createMinistryWithAdmin('Another Church')
+        const other = await aChurchThatSignedItselfUp('Another Church')
         invited.add(grace.id)
 
         await confirmed(grace, { cycle: 'month' }, fingerprint)
@@ -841,7 +846,7 @@ describe('Opening a trial', { timeout: 30_000 }, () => {
 
     it('gives a second plant year to nobody', async () => {
       const print = `fp_${unique()}`
-      const other = await createMinistryWithAdmin('Another Plant')
+      const other = await aChurchThatSignedItselfUp('Another Plant')
 
       expect(await claim(grace, print, 'plant_year')).toBe(true)
       expect(await claim(other, print, 'plant_year')).toBe(false)
@@ -856,7 +861,7 @@ describe('Opening a trial', { timeout: 30_000 }, () => {
 
     it('keeps a first free month and a plant year apart', async () => {
       const print = `fp_${unique()}`
-      const other = await createMinistryWithAdmin('Another Plant')
+      const other = await aChurchThatSignedItselfUp('Another Plant')
 
       expect(await claim(grace, print, 'first_free_month')).toBe(true)
       expect(await claim(other, print, 'plant_year')).toBe(true)
@@ -864,7 +869,7 @@ describe('Opening a trial', { timeout: 30_000 }, () => {
 
     it('holds with two churches claiming one card at once', async () => {
       const print = `fp_${unique()}`
-      const other = await createMinistryWithAdmin('Another Plant')
+      const other = await aChurchThatSignedItselfUp('Another Plant')
 
       const answers = await Promise.all([
         claim(grace, print, 'first_free_month'),

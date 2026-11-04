@@ -295,6 +295,7 @@ describe.skipIf(skipUnlessAppIsRunning)('search', () => {
         'people',
         'relationships',
         'session',
+        'setup',
         'timezone',
         'user_id',
       ])

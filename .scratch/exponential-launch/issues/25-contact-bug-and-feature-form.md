@@ -132,3 +132,12 @@ In the one run that tracked the page across both kinds, it came on 3 of 20 visit
 In a paired run of 40 visits each, the build as committed had 2, both on `/roster`, and the build without `FromThisPageLink` had none.
 That points at the link without proving it, because the two runs were not under equal load and 2 in 40 is few.
 What mismatched was never captured, which needs a dev server under the shared lock.
+On 2026-11-03, on the combined wave 3 branch, it did not come back in 275 visits: 125 on a dev server and 150 on a production build, across `/roster`, `/help/contact`, the Overview, Settings and Help, with the browser's CPU throttled sixfold, and the production run with 16 busy processes beside it.
+So what mismatched is still not captured and the cause is still not found, and the machine's load in that run reached about 23 where the sightings were at about 50.
+It stays in `docs/open-questions.md`.
+
+**At merge: one Turnstile loader.**
+The support form's box has its own class, `contact-human-check`, because its rules on `.human-check` collapsed ticket 15's box, so the widget always measured as compact there.
+Both checks now load the script through `loadTurnstile` and pick the widget's size through `widgetSizeFor`, in `app/turnstile-widget.ts`, so a client navigation between them cannot load it twice, and the support form's widget is light like the sign-up page's.
+Sign-up gave up `next/script` for this.
+Seen in headless Chrome at 1440, 390 and 320 wide with Cloudflare's test key: one script, no sideways scrolling, and the compact widget only at 320.

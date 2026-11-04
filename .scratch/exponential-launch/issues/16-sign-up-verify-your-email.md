@@ -37,7 +37,8 @@ It never shows on production while `SIGN_UP_OPEN` is off, and is what staging sh
 
 ## For James
 
-1. Approve the page in mock-up 1. Done.
+1. Approve the page in mock-up 1.
+   Done.
 2. Approve the wording of the two emails and the refusal sentences, which are still ticket 11's drafts.
 
 ## Comments
@@ -51,7 +52,9 @@ It never shows on production while `SIGN_UP_OPEN` is off, and is what staging sh
 
 - **The box has no `maxLength`.** It would cut a pasted "482 913" to "482 91" before the page saw it, so the page keeps the first six digits of whatever arrives.
 - **"Continue" stays on after the tries run out.** Pressing it says again that the code has stopped working, and the alternative was a greyed button with its reason elsewhere on the page.
-- **Too many tries still waits out the 60 seconds**, because the service counts that wait for every send. The alternative was letting a dead code skip it, which ticket 11's caps did not plan for.
+- **Too many tries still waits out the 60 seconds**, because the service counts that wait for every send.
+  The alternative was letting a dead code skip it, which ticket 11's caps did not plan for.
 - **A new code empties the box and says so**, in a drafted line, "We sent a new code to {email}.", because the mock-up does not draw that moment.
-- **The box has the focus on arriving**, so a code can be pasted at once. The mock-up cannot show this either way.
+- **The box has the focus on arriving**, so a code can be pasted at once.
+  The mock-up cannot show this either way.
 - **The stopping point's words are drafts** that live only until ticket 17 replaces the page.

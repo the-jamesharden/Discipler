@@ -150,6 +150,7 @@ describe('typing', () => {
     expect(labels('pairing')).toEqual(['Pairing'])
     expect(labels('check-in')).toEqual(['Check-Ins', 'Check-in'])
     expect(labels('password')).toEqual(['Change your password'])
+    expect(labels('account')).toEqual(['Change your password'])
   })
 
   it('lists a Help page once, even when the Help menu offers it too', () => {
