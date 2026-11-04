@@ -171,7 +171,7 @@ The marketing site gets a "Start your ministry" button.
 
 ### Decided in the mock-up 5 review (2026-10-31)
 
-- The Refer page is, in order: the title with "Know a church that would love Discipler? Share your link.", a large green offer, "Give a month free. Get a month free." over "Their first paid month is free, and when they pay their first bill, you get a month free too.", the three steps, and the Your link card.
+- The Refer page is, in order: the title with "Know a church that would love Discipler? Share your link.", a large green offer, "Give a month free. Get a month free." over "Their first paid month is free, and after their first paid bill, you get a month free too.", the three steps, and the Your link card.
 - The Your link card has the link, one Copy button and, under it, "Copy puts a short note and your link on your clipboard, ready to paste into a text or email."
   Copy copies the note and the link together and reads "Copied" for a moment.
   The approved note: "Hi! At {church} we use Discipler to keep our discipleship relationships meeting week to week, and I think your church would love it. Sign up with our link and your first paid month is free: {link}"

@@ -93,13 +93,53 @@ export const emailDomainOf = (address: string): string | null => {
   return domain === '' ? null : domain
 }
 
-const domainsOf = (emails: readonly string[]): ReadonlySet<string> =>
-  new Set(emails.flatMap((email) => emailDomainOf(email) ?? []))
+/**
+ * Mail anybody can sign up for, or gets from their internet provider. Two churches on
+ * one of these are no more likely to be one church than any other two (James, 2026-11-04).
+ */
+const PUBLIC_EMAIL_DOMAINS: ReadonlySet<string> = new Set([
+  'aol.com',
+  'att.net',
+  'bellsouth.net',
+  'charter.net',
+  'comcast.net',
+  'cox.net',
+  'earthlink.net',
+  'fastmail.com',
+  'gmail.com',
+  'gmx.com',
+  'googlemail.com',
+  'hey.com',
+  'hotmail.com',
+  'icloud.com',
+  'live.com',
+  'mac.com',
+  'mail.com',
+  'me.com',
+  'msn.com',
+  'outlook.com',
+  'pm.me',
+  'proton.me',
+  'protonmail.com',
+  'sbcglobal.net',
+  'verizon.net',
+  'yahoo.com',
+  'ymail.com',
+  'zoho.com',
+])
+
+const ownDomainsOf = (emails: readonly string[]): ReadonlySet<string> =>
+  new Set(
+    emails.flatMap((email) => {
+      const domain = emailDomainOf(email)
+      return domain && !PUBLIC_EMAIL_DOMAINS.has(domain) ? [domain] : []
+    }),
+  )
 
 /**
- * Whether the two churches look like one, in which case James decides. Any shared domain
- * counts, a shared `gmail.com` too: the spec says "an email domain", and a credit in
- * review is only delayed, where a credit wrongly given has left the building.
+ * Whether the two churches look like one, in which case James decides. A domain of their
+ * own counts, and a public one like `gmail.com` does not. The same customer or the same
+ * card still catches somebody with two free addresses.
  */
 export const whyTheyLookLikeOne = (
   inviting: ChurchLikeness,
@@ -107,8 +147,8 @@ export const whyTheyLookLikeOne = (
 ): ReferralCreditReview | null => {
   if (inviting.customerId !== null && inviting.customerId === invited.customerId) return 'same_customer'
   if (inviting.fingerprints.some((print) => invited.fingerprints.includes(print))) return 'shared_payment'
-  const theirs = domainsOf(invited.emails)
-  if ([...domainsOf(inviting.emails)].some((domain) => theirs.has(domain))) return 'shared_email_domain'
+  const theirs = ownDomainsOf(invited.emails)
+  if ([...ownDomainsOf(inviting.emails)].some((domain) => theirs.has(domain))) return 'shared_email_domain'
   return null
 }
 

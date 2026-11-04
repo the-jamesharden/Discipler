@@ -10,7 +10,7 @@ This is how to tell them.
    It copies a short note with your church's link, ready to paste into a text or an email.
 2. The church you invite signs up through your link.
    Their first paid month is free.
-3. When they pay their first bill, your church gets a month free too, applied to your bill automatically.
+3. After their first paid bill, your church gets a month free too, applied to your bill automatically.
 
 Your month free waits {{referralCreditHeld}} after their first payment, and is taken back if that payment is refunded.
 It shows on Billing when it is applied.

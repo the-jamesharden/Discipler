@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { referralLinkCopied } from '~/domain/referrals'
 import { CopyPages, Tick } from '../icons'
 import { REFER, referralNote } from './copy'
 
@@ -57,7 +58,7 @@ export const YourLink = ({
   }, [])
 
   const copy = async () => {
-    const words = referralNote(church, link)
+    const words = referralNote(church, referralLinkCopied(link))
     const went = await navigator.clipboard
       ?.writeText(words)
       .then(() => true)

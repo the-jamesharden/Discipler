@@ -4,6 +4,7 @@ import Stripe from 'stripe'
 import { describe, expect, it } from 'vitest'
 import { REFERRAL_CREDIT_HELD_DAYS, TRIAL_DAYS } from '~/domain/launch-terms'
 import { openEnvelope, type Email } from '~/domain/email'
+import { referralLinkCopied } from '~/domain/referrals'
 import { createStripeCredits } from '~/platform/stripe/credits'
 import { createEmailSupportAlerts } from '~/service/support-alerts'
 import { REFER, referralNote } from '../../app/refer/copy'
@@ -14,15 +15,21 @@ import { REFER, referralNote } from '../../app/refer/copy'
  * leaves this process.
  */
 
+describe('the link Copy copies', () => {
+  it('has its scheme, so that a text app makes it a link', () => {
+    expect(referralLinkCopied('app.trydiscipler.com/r/ABC')).toBe('https://app.trydiscipler.com/r/ABC')
+  })
+})
+
 describe('the words', () => {
   it('are James\'s, as drawn', () => {
     expect(REFER.lede).toBe('Know a church that would love Discipler? Share your link.')
     expect(REFER.offer).toEqual(['Give a month free.', 'Get a month free.'])
-    expect(REFER.offerLine).toBe('Their first paid month is free, and when they pay their first bill, you get a month free too.')
+    expect(REFER.offerLine).toBe('Their first paid month is free, and after their first paid bill, you get a month free too.')
     expect(REFER.steps).toEqual([
       'Send your link to another church, by text or email.',
       'They sign up, get 30 days free, then their first paid month free.',
-      '30 days after they pay their first bill, a month free is taken off your next bill.',
+      '30 days after their first paid bill, a month free is taken off your next bill.',
     ])
     expect(REFER.copySays).toBe('Copy puts a short note and your link on your clipboard, ready to paste into a text or email.')
     expect(REFER.newLink).toBe('Get a new link')

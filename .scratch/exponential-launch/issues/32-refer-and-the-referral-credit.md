@@ -110,3 +110,12 @@ They are also in `docs/open-questions.md` under *sign-up's numbers and wording*.
 - `StripeEventWork.creditOnEvent` and `SupportAlerts.referralCreditForReview` are required by their ports.
 - Any migration replacing `app.short_name_is_reserved` keeps `r` and `refer`.
 - The restricted Stripe key needs Invoices and Charges read, and Customers write covering balance transactions.
+
+### Changed after James read this (2026-11-04)
+
+James said yes to all three of these on 2026-11-04, and the notes above are older where they differ.
+
+- **The words.** The page now says "after their first paid bill" and "30 days after their first paid bill", because an invited church's first paid month is a $0 invoice and the credit is earned on the first bill with money in it.
+- **A shared email domain.** A public domain such as `gmail.com` no longer sends a credit to review, from the list in `src/domain/referral-credit.ts`. A domain of the church's own still does, and so does a shared customer or card.
+- **Settling a review.** `npm run referral-review -- list` shows what is waiting, and `settle <credit id> credited|not-credited` marks one done, keeping why it went to review. It changes Discipler's record only: any credit is still given in Stripe by hand. The review email names the command.
+- **The copied link.** Copy now puts `https://` in the note, and the page still shows the shorter link.

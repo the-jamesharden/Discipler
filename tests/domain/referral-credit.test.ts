@@ -100,6 +100,20 @@ describe('whether two churches look like one', () => {
     expect(whyTheyLookLikeOne(one, { ...other, emails: ['x@second.example', 'Y@FIRST.example'] })).toBe('shared_email_domain')
   })
 
+  it.each(['gmail.com', 'GMAIL.com', 'yahoo.com', 'comcast.net'])('is no for a shared public domain, %s', (domain) => {
+    const inviting = { ...one, emails: [`first@${domain}`] }
+    const invited = { ...other, emails: [`second@${domain}`] }
+
+    expect(whyTheyLookLikeOne(inviting, invited)).toBeNull()
+  })
+
+  it('still says yes for a shared card on two public addresses', () => {
+    const inviting = { ...one, emails: ['first@gmail.com'] }
+    const invited = { ...other, emails: ['second@gmail.com'], fingerprints: ['fp_a'] }
+
+    expect(whyTheyLookLikeOne(inviting, invited)).toBe('shared_payment')
+  })
+
   it('takes two churches with no customer as nothing shared', () => {
     expect(whyTheyLookLikeOne({ ...one, customerId: null }, { ...other, customerId: null })).toBeNull()
   })

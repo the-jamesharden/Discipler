@@ -697,7 +697,7 @@ Added on 2026-11-04 by ticket 32, the Refer page's words being James's own:
 - The email to james@ and lerone@ about a credit Discipler will not apply by itself, `referralCreditForReview` in `src/service/support-alerts.ts`, which nobody outside the team reads.
   Subject: "A referral credit is waiting for you".
   It names both churches, both Stripe customers, the opaque referral ID, and one sentence of why.
-- Every shared email domain sends a credit to review, a shared `gmail.com` included, because the spec says "an email domain".
+- A shared email domain sends a credit to review, except a public one such as `gmail.com` (James, 2026-11-04).
   If James finds he is reviewing credits between strangers on the same free mail service, leaving those domains out is one line in `whyTheyLookLikeOne` in `src/domain/referral-credit.ts`.
 
 Also from ticket 32, for the Stripe steps below: the restricted key needs Invoices and Charges read, on top of what ticket 04 lists, and Customers write has to cover customer balance transactions.

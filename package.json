@@ -21,6 +21,7 @@
     "seed": "vite-node -c vitest.config.ts scripts/seed-demo.ts",
     "setup-link": "vite-node -c vitest.config.ts scripts/setup-link.ts",
     "church-plant": "vite-node -c vitest.config.ts scripts/church-plant.ts",
+    "referral-review": "vite-node -c vitest.config.ts scripts/referral-review.ts",
     "shared-number": "vite-node -c vitest.config.ts scripts/shared-number.ts",
     "smoke:pages": "vite-node -c vitest.config.ts scripts/smoke-pages.ts",
     "email:check": "vite-node -c vitest.config.ts scripts/send-test-email.ts",

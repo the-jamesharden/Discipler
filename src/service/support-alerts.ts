@@ -171,8 +171,11 @@ Discipler has not applied it. ${EmailField.line(REVIEW_SAYS[review.because])}
 Inviting church's Stripe customer: ${EmailField.line(review.invitingCustomerId ?? none)}
 Invited church's Stripe customer: ${EmailField.line(review.invitedCustomerId ?? none)}
 Referral: ${EmailField.line(review.referralId)}
+Credit: ${EmailField.line(review.creditId)}
 
-If it should stand, take one month of the inviting church's price off its bill by hand: in Stripe, as a credit on the customer's balance described as "${EmailField.line(REFERRAL_CREDIT_DESCRIPTION)}", or on its invoice if it is billed outside Stripe. Nothing further happens on its own.`,
+If it should stand, take one month of the inviting church's price off its bill by hand: in Stripe, as a credit on the customer's balance described as "${EmailField.line(REFERRAL_CREDIT_DESCRIPTION)}", or on its invoice if it is billed outside Stripe. Nothing further happens on its own.
+
+When it is settled, mark it done: npm run referral-review -- settle ${EmailField.line(review.creditId)} credited, or not-credited.`,
       once: `referral-credit-review:${review.creditId}`,
     })
   },

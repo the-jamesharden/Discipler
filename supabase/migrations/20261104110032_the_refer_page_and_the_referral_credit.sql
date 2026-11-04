@@ -142,10 +142,12 @@ create table referral_credit (
   cancelled_because   text,
   sent_to_review_at   timestamptz,
   review_because      text,
+  settled_at          timestamptz,
+  settled_as          text,
 
   constraint referral_credit_one_per_referral unique (referral),
   constraint referral_credit_state_is_known
-    check (state in ('held', 'applying', 'applied', 'cancelled', 'in_review')),
+    check (state in ('held', 'applying', 'applied', 'cancelled', 'in_review', 'settled')),
   constraint referral_credit_amount_is_real
     check (amount_cents is null or amount_cents > 0),
   constraint referral_credit_applying_has_an_amount
@@ -155,7 +157,17 @@ create table referral_credit (
   constraint referral_credit_cancelled_says_why
     check (state <> 'cancelled' or (cancelled_at is not null and cancelled_because is not null)),
   constraint referral_credit_in_review_says_why
-    check (state <> 'in_review' or (sent_to_review_at is not null and review_because is not null))
+    check (state <> 'in_review' or (sent_to_review_at is not null and review_because is not null)),
+  constraint referral_credit_settled_says_how
+    check (
+      state <> 'settled'
+      or (
+        sent_to_review_at is not null
+        and review_because is not null
+        and settled_at is not null
+        and settled_as in ('credited', 'not_credited')
+      )
+    )
 );
 
 create index referral_credit_coming_due on referral_credit (held_until)
@@ -170,4 +182,5 @@ revoke all on referral_credit from anon, authenticated, service_role, discipler_
 
 comment on table referral_credit is
   'The credit a church earned by inviting another, one per referral: held after the invited '
-  'church''s first real payment, then applied at Stripe, cancelled, or sent to James to review.';
+  'church''s first real payment, then applied at Stripe, cancelled, or sent to James to review '
+  'and settle by hand.';

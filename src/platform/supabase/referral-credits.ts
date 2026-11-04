@@ -11,7 +11,21 @@ import type { DueReferralCredit, ReferralCreditRecords } from '~/service/ports'
  * twice.
  */
 export interface PostgresReferralCredits extends ReferralCreditRecords {
+  /** What is waiting for James, oldest first, for `scripts/referral-review.ts`. */
+  underReview(): Promise<readonly CreditUnderReview[]>
+  /** Marks one as settled. Asking again for one already settled keeps the first answer. */
+  settleReview(creditId: string, as: ReviewSettledAs, at: Date): Promise<'settled' | 'already_settled' | 'not_under_review'>
   close(): Promise<void>
+}
+
+export type ReviewSettledAs = 'credited' | 'not_credited'
+
+export interface CreditUnderReview {
+  readonly id: string
+  readonly invitingChurch: string | null
+  readonly invitedChurch: string
+  readonly because: string
+  readonly sentAt: Date
 }
 
 interface DueRow {
@@ -169,6 +183,50 @@ export const createPostgresReferralCredits = (connectionString: string): Postgre
         [church],
       )
       return rows.map((row) => row.email)
+    },
+
+    async underReview() {
+      const { rows } = await pool.query<{
+        id: string
+        inviting_name: string | null
+        invited_name: string
+        review_because: string
+        sent_to_review_at: Date
+      }>(
+        `select c.id, inviting.name as inviting_name, invited.name as invited_name,
+                c.review_because, c.sent_to_review_at
+           from referral_credit c
+           join referral r on r.id = c.referral
+           join ministry invited on invited.id = r.invited_church
+           left join ministry inviting on inviting.id = r.inviting_church
+          where c.state = 'in_review'
+          order by c.sent_to_review_at, c.id`,
+      )
+      return rows.map((row) => ({
+        id: row.id,
+        invitingChurch: row.inviting_name,
+        invitedChurch: row.invited_name,
+        because: row.review_because,
+        sentAt: row.sent_to_review_at,
+      }))
+    },
+
+    async settleReview(creditId, as, at) {
+      const { rows } = await pool.query<{ state: string; changed: boolean }>(
+        `with settled as (
+           update referral_credit
+              set state = 'settled', settled_at = $3, settled_as = $2
+            where id = $1 and state = 'in_review'
+            returning id
+         )
+         select c.state, exists (select 1 from settled) as changed
+           from referral_credit c
+          where c.id = $1`,
+        [creditId, as, at],
+      )
+      const credit = rows[0]
+      if (credit?.changed) return 'settled'
+      return credit?.state === 'settled' ? 'already_settled' : 'not_under_review'
     },
 
     close: () => pool.end(),

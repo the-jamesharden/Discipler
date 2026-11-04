@@ -591,6 +591,48 @@ describe('the referral credit', { timeout: 60_000 }, () => {
       await expectReview(referral, 'shared_payment')
     })
 
+    it('does not send two churches on gmail.com to James', async () => {
+      const [inviter, invited] = [await aPayingChurch(), await aPayingChurch()]
+      const referral = await invite(inviter, invited)
+      fake.customers.get(inviter.customerId)!.email = 'first@gmail.com'
+      fake.customers.get(invited.customerId)!.email = 'second@gmail.com'
+      await pays(invited, 9_700)
+
+      pastTheHold()
+      expect(await sweepReferralCredits(work)).toMatchObject({ applied: 1, inReview: 0 })
+      expect((await creditOf(referral))[0]).toMatchObject({ state: 'applied' })
+      expect(told).toEqual([])
+    })
+
+    it('lists a credit under review until James marks it settled, and keeps why it went', async () => {
+      const [inviter, invited] = [await aPayingChurch(), await aPayingChurch()]
+      const referral = await invite(inviter, invited)
+      const domain = `${unique()}.example`
+      fake.customers.get(inviter.customerId)!.email = `one@${domain}`
+      fake.customers.get(invited.customerId)!.email = `two@${domain}`
+      await pays(invited, 9_700)
+      await expectReview(referral, 'shared_email_domain')
+      const creditId = (await creditOf(referral))[0]!.id as string
+      const at = new Date('2027-03-01T12:00:00Z')
+
+      expect((await credits.underReview()).map(({ id }) => id)).toContain(creditId)
+      expect(await credits.settleReview(creditId, 'credited', at)).toBe('settled')
+
+      expect((await credits.underReview()).map(({ id }) => id)).not.toContain(creditId)
+      expect((await creditOf(referral))[0]).toMatchObject({
+        state: 'settled',
+        settled_as: 'credited',
+        review_because: 'shared_email_domain',
+      })
+      // A second run says so and keeps the first answer.
+      expect(await credits.settleReview(creditId, 'not_credited', at)).toBe('already_settled')
+      expect((await creditOf(referral))[0]).toMatchObject({ settled_as: 'credited' })
+    })
+
+    it('settles nothing that is not under review', async () => {
+      expect(await credits.settleReview(crypto.randomUUID(), 'credited', new Date())).toBe('not_under_review')
+    })
+
     it('sends a shared email domain on the Stripe customers to James', async () => {
       const [inviter, invited] = [await aPayingChurch(), await aPayingChurch()]
       const referral = await invite(inviter, invited)

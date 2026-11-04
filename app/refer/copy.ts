@@ -7,11 +7,11 @@ export const REFER = {
   title: 'Refer a church',
   lede: 'Know a church that would love Discipler? Share your link.',
   offer: ['Give a month free.', 'Get a month free.'],
-  offerLine: 'Their first paid month is free, and when they pay their first bill, you get a month free too.',
+  offerLine: 'Their first paid month is free, and after their first paid bill, you get a month free too.',
   steps: [
     'Send your link to another church, by text or email.',
     'They sign up, get 30 days free, then their first paid month free.',
-    '30 days after they pay their first bill, a month free is taken off your next bill.',
+    '30 days after their first paid bill, a month free is taken off your next bill.',
   ],
   yourLink: 'Your link',
   yourLinkLabel: 'Your referral link',

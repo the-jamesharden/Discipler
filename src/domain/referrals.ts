@@ -17,3 +17,6 @@ export const readReferralCode = (given: string | null | undefined): string | nul
 /** The link as the Refer page shows and copies it: `app.trydiscipler.com/r/<code>`. */
 export const referralLinkShown = (appUrl: string, code: string): string =>
   `${appUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/r/${code}`
+
+/** What Copy puts in the note: with its scheme, since some text apps need one to make it a link. */
+export const referralLinkCopied = (shown: string): string => `https://${shown}`
