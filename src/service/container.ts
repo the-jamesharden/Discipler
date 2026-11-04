@@ -62,6 +62,7 @@ import {
 } from '~/platform/supabase/phone-checks'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
 import { createPostgresSignInLimit, type PostgresSignInLimit } from '~/platform/supabase/sign-in-limit'
+import { createPostgresPasswordResetLinks, type PostgresPasswordResetLinks } from '~/platform/supabase/password-reset-links'
 import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
 import {
@@ -107,6 +108,7 @@ import {
 import type { Invitations, TrialWork } from './open-trial'
 import { watchOver200Churches, type Over200WatchOutcome } from './over-200-watch'
 import { createEmailSupportAlerts } from './support-alerts'
+import { createForgotPassword, type ForgotPassword } from './forgot-password'
 import { createSupportForm, type SupportForm, type SupportSweep } from './support-form'
 import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
 import type {
@@ -185,6 +187,8 @@ let intakeReader: PostgresIntakeReader | undefined
 let invitationReader: PostgresInvitationReader | undefined
 let ministrySetup: SupabaseMinistrySetup | undefined
 let signInLimit: PostgresSignInLimit | undefined
+let passwordResetLinks: PostgresPasswordResetLinks | undefined
+let forgotPassword: ForgotPassword | undefined
 let inboundReader: PostgresInboundReader | undefined
 let outboundQueue: PostgresOutboundQueue | undefined
 let ministryDirectory: PostgresMinistryDirectory | undefined
@@ -341,6 +345,30 @@ export const getMinistrySetup = (): MinistrySetup => {
 export const getSignInLimit = (): SignInLimit => {
   if (!signInLimit) signInLimit = createPostgresSignInLimit(commandDatabaseUrl(), systemClock)
   return signInLimit
+}
+
+/**
+ * "Forgot your password?" (Exponential launch, ticket 22). On the trusted connection,
+ * because somebody who lost their password has no session. Turnstile's secret and
+ * Resend's key are read per use, so a deployment with neither runs every other page.
+ */
+export const getForgotPassword = (): ForgotPassword => {
+  if (!forgotPassword) {
+    passwordResetLinks = createPostgresPasswordResetLinks(commandDatabaseUrl())
+    forgotPassword = createForgotPassword({
+      links: passwordResetLinks,
+      humanCheck: createTurnstile(),
+      sender: getEmailSender(),
+      accounts: supabaseAccounts,
+      signIns: getSignInLimit(),
+      addresses: {
+        link: (token) => new URL(`/login/forgot/${token}`, appBaseUrl()),
+        logo: () => new URL('/discipler-logo.png', appBaseUrl()),
+      },
+      clock: systemClock,
+    })
+  }
+  return forgotPassword
 }
 
 /**
@@ -706,6 +734,7 @@ export const closeCommandService = async (): Promise<void> => {
   const signupRows = churchSignups
   const capHolds = dailyCapHolds
   const limit = signInLimit
+  const resetLinks = passwordResetLinks
   const signUps = pendingSignups
   const billed = postgresBilling
   const submissions = supportSubmissions
@@ -724,6 +753,8 @@ export const closeCommandService = async (): Promise<void> => {
   churchSignups = undefined
   dailyCapHolds = undefined
   signInLimit = undefined
+  passwordResetLinks = undefined
+  forgotPassword = undefined
   pendingSignups = undefined
   signUp = undefined
   openingAChurch = undefined
@@ -747,6 +778,7 @@ export const closeCommandService = async (): Promise<void> => {
   await followUps?.close()
   await capHolds?.close()
   await limit?.close()
+  await resetLinks?.close()
   await signUps?.close()
   await billed?.close()
   await submissions?.close()

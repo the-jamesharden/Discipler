@@ -157,6 +157,23 @@ export const createPostgresSignInLimit = (
       }
     },
 
+    async forgive(userId) {
+      // Every key the account can have been counted under: what a sign-in counts, by
+      // phone or by email, and what a change of password counts. The rows go from the
+      // network's count with them, which is right: they were this person's own.
+      const { rows } = await pool.query<{ phone: string | null; email: string | null }>(
+        `select phone, email from auth.users where id = $1`,
+        [userId],
+      )
+      const { phone, email } = rows[0] ?? { phone: null, email: null }
+      const keys = [
+        `user:${userId}`,
+        ...(phone ? [`phone:+${phone.replace(/^\+/, '')}`] : []),
+        ...(email ? [`email:${email.toLowerCase()}`] : []),
+      ]
+      await pool.query(`delete from sign_in_attempt where account_digest = any($1)`, [keys.map(digestOf)])
+    },
+
     async close() {
       await pool.end()
     },

@@ -52,10 +52,6 @@ describe('the form', () => {
       "People being discipled have no account and no dashboard. They take part entirely over text. Leaders who sign in with a phone number: if you've forgotten your password, ask whoever runs Discipler at your church to reset it.",
     )
   })
-
-  it('leaves "Forgot your password?" to ticket 22', async () => {
-    expect(await htmlOf()).not.toContain('Forgot')
-  })
 })
 
 describe('"Create an account"', () => {

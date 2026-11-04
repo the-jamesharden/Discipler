@@ -146,6 +146,7 @@ import type { SuggestionQuestion, Suggestions } from '~/domain/suggestions'
 import type { CardShape, NewRelationship } from '~/domain/relationships'
 import type { DailyCapHold, NewDailyCapHold } from '~/domain/daily-cap'
 import type { Email, EmailAddress, EmailEnvelope } from '~/domain/email'
+import type { PasswordResetToken } from '~/domain/password-reset'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
@@ -843,6 +844,45 @@ export interface SignInAttempt {
  */
 export interface SignInLimit {
   attempt(account: SignInAccount, network: string | null): Promise<SignInAttempt | null>
+  /**
+   * Everything counted against this account, however it was tried, is forgotten: its
+   * owner has just proven who they are by another way (Exponential launch, ticket 22).
+   */
+  forgive(userId: string): Promise<void>
+}
+
+/** A link just made, for the one email it goes in. The token is here and nowhere else. */
+export interface NewPasswordResetLink {
+  /** The row's ID, new with each link, which is safe to log and to key an email on. */
+  readonly id: string
+  /** The address as the account holds it, not as it was typed. */
+  readonly to: EmailAddress
+  readonly token: PasswordResetToken
+}
+
+/**
+ * Where the links behind "Forgot your password?" are kept (Exponential launch, ticket
+ * 22), on the trusted connection, because somebody asking has no session.
+ */
+export interface PasswordResetLinks {
+  /**
+   * Counts the request and, if the address belongs to an Admin, replaces that account's
+   * live link with a new one. Null is everything else alike: nobody holds it, somebody
+   * who is not an Admin does, or the caps were reached.
+   */
+  ask(request: {
+    readonly email: EmailAddress
+    readonly network: string | null
+    readonly at: Date
+  }): Promise<NewPasswordResetLink | null>
+  isLive(token: PasswordResetToken, at: Date): Promise<boolean>
+  /**
+   * Runs `work` with the account of a live link, and spends the link if it succeeds.
+   * False when the link was not live, and `work` did not run. If `work` throws, the
+   * link stays live and the throw comes back. One method, so a link cannot be spent on
+   * a password that was not set, nor two presses both set one.
+   */
+  spending(token: PasswordResetToken, at: Date, work: (userId: string) => Promise<void>): Promise<boolean>
 }
 
 /**

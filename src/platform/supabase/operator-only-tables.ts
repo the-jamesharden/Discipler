@@ -45,4 +45,7 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   'payment_fingerprint_grant',
   // The support form, from somebody not signed in as an Admin (Exponential launch, ticket 25).
   'signed_out_support_submission',
+  // "Forgot your password?": the links and the caps on asking for one (Exponential launch, ticket 22).
+  'password_reset_link',
+  'password_reset_request',
 ]
