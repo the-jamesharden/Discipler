@@ -2,8 +2,11 @@
 
 > **Triaged 2026-10-31 against the spec's "Referrals", its mock-up 5 decisions and its triage decisions.**
 > The screen is `.lavish/refer-billing/refer.html`, built by `build.mjs`.
+> **Changed by the triage of ticket 20 (2026-11-04):** each church's code and the `referral` table are built in ticket 20, because an invited church has to be recorded the moment it opens.
+> This ticket keeps the page, "Get a new link", the events and the credit.
+> **The link it shows is `app.trydiscipler.com/r/<code>`** (James, 2026-11-04), not the `trydiscipler.com/r/<code>` drawn in mock-up 5.
 
-**What to build:** The Refer page, each church's random referral code, and the automatic credit.
+**What to build:** The Refer page, "Get a new link", and the automatic credit.
 
 **Blocked by:** 04, 20
 
@@ -26,9 +29,9 @@ As drawn, in order:
 
 ## The rule
 
-- One random code per church from a CSPRNG (Crockford base32, about 10 characters), stored church-scoped.
+- The code and how it is made are ticket 20's.
 - "Get a new link" retires the old code: the old link opens sign-up at the normal price, with no free month and no credit (James, triage 2026-10-31).
-- "Ministry A invited Ministry B" lives in an operator-only `referral` table with a unique invited church.
+- "Ministry A invited Ministry B" is ticket 20's `referral` table, which this ticket reads.
 - Referral events (Signed up, Paying, Credit applied) are recorded on the inviting church's own history with an opaque referral ID; no page lists them, and an applied credit shows on Billing.
 - The credit is earned on the invited church's first invoice with `amount_paid > 0`, held 30 days, and cancelled on a refund or dispute in that window.
 - It is one month of the inviting church's own price, $97 or $147 (Q79), applied as a negative customer balance transaction described as "Referral credit", made idempotent in Discipler's own table before Stripe is called.

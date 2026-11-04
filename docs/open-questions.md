@@ -711,11 +711,11 @@ The spec says continuing past page two records a consent for that phone.
 The attempt's row keeps only its latest send, so as built the moment the person agreed could be lost.
 James decided on 2026-11-03: the record stays at opening, ticket 17 carries the time the person agreed, and the spec is reworded.
 
-## Open: nothing links to sign-up yet
+## Resolved: nothing links to sign-up yet
 
 Raised on 2026-11-03 by the Exponential launch, ticket 15.
-The spec and mock-up 1 draw "Create an account" on the sign-in page, and no ticket builds it.
-What needs deciding: whether it joins ticket 17, and whether `ref` stays the parameter name for `/r/<code>`.
+The spec and mock-up 1 draw "Create an account" on the sign-in page, and no ticket built it.
+Settled in the triage of 2026-11-04: it joins ticket 21, which rebuilds that page, and `ref` stays the parameter name for `/r/<code>`.
 
 ## Open: the edges of a free month and an offer
 

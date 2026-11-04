@@ -68,7 +68,7 @@ Decided in the mock-up 1 review (2026-10-29):
 - Every sign-up page is subtitled "Create an account".
   On the sign-in page, "Create an account" is a full-width green button styled like "Sign in", and "Sign in" is the plain, not highlighted, button.
 - The human-check page has no explanatory line under the widget.
-- During sign-up, dollar amounts appear only on Stripe's payment form.
+- During sign-up, dollar amounts appear only in the monthly or yearly choice on "Set up your account" (round 3, replacing Stripe's payment form).
   After sign-up they do show: on Billing, its Settings card, the restart page and the trial-ending email (James, mock-up 5).
 - The email code is one box.
 - The help lines under the password ("Use at least 8 characters.") and the timezone stay; the one under "Where did you hear about us?" is removed. An `EXPO26` link prefills "Conferences", a referral link "Another ministry".
@@ -76,7 +76,7 @@ Decided in the mock-up 1 review (2026-10-29):
 - The special-offer screen fires confetti once from the top and bottom edges (none when the device asks for reduced motion), and does not say "applied automatically".
 
 The marketing site gets a "Start your ministry" button.
-`trydiscipler.com/r/<code>` redirects to sign-up carrying a referral code.
+`app.trydiscipler.com/r/<code>` redirects to sign-up carrying a referral code (James, 2026-11-04, because `trydiscipler.com` is on GitHub Pages, which has no redirects by path).
 
 ## Signing in
 
@@ -452,6 +452,16 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 - A church billed outside Stripe sees Refer like any church, and its earned credit goes to James for review, to settle by hand.
 - When a subscription has ended, links people were already texted (Intake forms, accept links, Material pages) keep working and their answers are kept, but nothing is texted until the church restarts.
 
+## Decided in triage (2026-11-04)
+
+James answered these when tickets 17 to 22 were triaged.
+
+- A sentence or small state inside an approved screen may go as a draft James approves at review; a whole new screen or email is still a mock-up first.
+- A church plant approved after a bill was paid starts its free year at the next bill, and the paid bill stays paid, with any refund James's by hand.
+- A flyer's code is typed through a small "Have a code?" link on the email and phone page, and a good code shows the offer screen.
+- Referral links live at `app.trydiscipler.com/r/<code>`.
+- Mock-up 6 draws the typed code, the forgot-password pages and the reset email (`.lavish/forgot-and-code/`).
+
 ## Open risks
 
 - **Twilio may classify Discipler as a platform (ISV).** If it does, each church needs its own registration and EIN, which James rejected in Q65; the shared numbers are the best case, not a certainty, and the solution is worked out with James when Twilio answers.
@@ -495,11 +505,11 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | 14 - The over-200 follow-up | An email when a church stays above 200 people for a month | shipped | 03, 10 |
 | 15 - Sign-up: are you human, email and phone | Steps 1 and 2 of sign-up | shipped | 11 |
 | 16 - Sign-up: verify your email | Step 3 of sign-up | shipped | 15 |
-| 17 - Sign-up: set up your account | Step 4, opening the church through `provisionMinistry` | needs-info | 12, 16 |
-| 18 - Sign-up: Checkout and landing on Overview | Steps 5 and 7 | needs-info | 04, 17 |
-| 19 - Sign-up: the church-plant question and application | Step 6, and the operator approval command | needs-info | 18 |
-| 20 - Sign-up: the Exponential special offer and referral links | `EXPO26`, the booth QR link and `/r/<code>` | needs-info | 18 |
-| 21 - Sign in with email or phone | One box for both | needs-info | 17 |
+| 17 - Sign-up: set up your account | Step 4, with the monthly or yearly choice, opening the church through `provisionMinistry` | ready-for-agent | 12, 16 |
+| 18 - Sign-up: payment and landing on Overview | Steps 5 and 6, the return at the next sign-in and the reminder | ready-for-agent | 04, 17 |
+| 19 - Sign-up: the church-plant question and application | The questions on step 4, and the operator approval command | ready-for-agent | 04, 17 |
+| 20 - Sign-up: the Exponential special offer and referral links | `EXPO26`, the booth QR link, `/r/<code>`, each church's code and the `referral` table | needs-info | 17 |
+| 21 - Sign in with email or phone | One box for both, and "Create an account" | ready-for-agent | 17 |
 | 22 - Forgot password | The emailed reset link for Admins | needs-info | 10, 21 |
 | 23 - The top nav and Help menu | The gear, the avatar, the meter's place and the six Help items | shipped | Nothing |
 | 24 - Search | The directory behind ⌘K, `/` and the search bar | shipped | 23 |
@@ -510,7 +520,7 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | 29 - The unpaired pop-up | The bottom-right card on Overview | shipped | Nothing |
 | 30 - What's new and office hours | The two cards, from repo files | shipped | 23 |
 | 31 - The AI guide | Help-docs-only answers through the AI Gateway | ready-for-agent | 26, 34 |
-| 32 - Refer and the referral credit | The Refer page and the credit | ready-for-agent | 04, 20 |
+| 32 - Refer and the referral credit | The Refer page, "Get a new link" and the credit | ready-for-agent | 04, 20 |
 | 33 - Billing in Settings and the billing states | The Billing row, the banners and the restart page | ready-for-agent | 04, 05 |
 | 34 - Help docs | Markdown at `/help` | shipped | Nothing |
 | 35 - Docs and ADRs | Every amendment and ADR listed above | shipped | Nothing |

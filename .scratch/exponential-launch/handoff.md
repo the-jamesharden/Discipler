@@ -91,7 +91,11 @@ What they left for a human is in `docs/open-questions.md`.
 - `npm run stripe:catalog` creates the Stripe product, prices and coupons, once per account, staging's sandbox first.
 - Operator-only tables added: `over_200_follow_up`, `payment_fingerprint_grant`, `signed_out_support_submission`.
 
-Next: triage 17 to 22, rewrite 18 and 19, then build the next wave in the same way, one worktree per ticket merged into one launch branch cut from `origin/main`.
+Tickets 17 to 22 were triaged on 2026-11-04, and 18 and 19 rewritten for the mock-up 1 changes.
+James answered every question the same day: 17, 18, 19 and 21 are `ready-for-agent`; 20 and 22 wait only on mock-up 6.
+Each church's referral code and the `referral` table moved from ticket 32 to ticket 20.
+
+Next: James approves mock-up 6, then build in this order, one worktree per ticket merged into one launch branch cut from `origin/main`: 17 first; then 18, 19 and 21 side by side; then 20, because 19 and 20 both change the opening transaction; then 22 and 32.
 
 ## Blocked on James
 
