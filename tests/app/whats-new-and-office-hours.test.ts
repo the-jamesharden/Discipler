@@ -5,7 +5,7 @@ import { OPENING_CHOICE } from '~/domain/growth'
 import { upcomingOfficeHours } from '~/domain/office-hours'
 import { whatsNewList } from '../../app/help/facts'
 import { helpPage } from '../../app/help/library'
-import { NEXT_OFFICE_HOURS } from '../../app/help/office-hours'
+import { NEXT_OFFICE_HOURS, speakWithTheTeamLine } from '../../app/help/office-hours'
 import { WHATS_NEW } from '../../app/help/whats-new'
 import { NewsRow } from '../../app/overview/news-cards'
 
@@ -82,6 +82,13 @@ describe('the office hours file', () => {
   it('ships with no date and no link, so nothing shows', () => {
     expect(NEXT_OFFICE_HOURS).toBeNull()
     expect(upcomingOfficeHours(NEXT_OFFICE_HOURS, new Date())).toBeNull()
+  })
+
+  it('feeds the welcome window’s card, which leaves out its Next line when there is no date', () => {
+    expect(speakWithTheTeamLine(UPCOMING)).toBe(
+      'Office hours on Zoom every 2 weeks. Next: Thursday, November 12, at 12pm CT.',
+    )
+    expect(speakWithTheTeamLine(null)).toBe('Office hours on Zoom every 2 weeks.')
   })
 })
 

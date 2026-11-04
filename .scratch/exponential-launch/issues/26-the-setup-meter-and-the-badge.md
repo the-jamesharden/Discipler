@@ -82,7 +82,7 @@ The consequence, on purpose: no church can reach 100% or see the badge until 27 
 Each of 27 and 28 has one line to change, the address, and one thing to record.
 
 **Decided: what 27 and 28 record.**
-Ticket 27 appends `setup.tour_finished` and ticket 28 appends `setup.test_check_in_sent`, both named in `SETUP_HISTORY` in `src/domain/setup-meter.ts`.
+Ticket 27 appends `setup.tour_finished` with the builder `tourFinished`, and ticket 28 appends `setup.test_check_in_sent` with `testCheckInSent`, both in `src/domain/setup-meter.ts`.
 The alternative was reading ticket 28's table, which does not exist yet and would have had this migration name it.
 The SQL already reads both, so neither ticket has to touch the meter's read.
 
@@ -124,5 +124,11 @@ A first sign-in at a church from before launch would play the bar's confetti beh
 
 ### Closed out (2026-11-03)
 
-"Open: the setup meter cannot reach 100% yet" in `docs/open-questions.md` is not answered, and as `docs/agents/triage-labels.md` says, a parked question does not hold a ticket open.
-So the bar is live on every Admin page from the merge, as that entry describes, unless James holds it.
+James decided on 2026-11-03 to hide the bar until tickets 27 and 28 ship, so a live Admin never sees it stuck below 100%.
+`SETUP_METER_ON=true` draws it, and it stays unset on production until then (`src/platform/setup-meter-switch.ts`).
+The steps are read and `app.setup_meter_of` runs on every Admin page either way, so a church's progress is right on the day it comes on.
+
+Two things the gate's test step saw, to fix before it comes on:
+
+- On a phone the folded bar cuts its own instruction short, "Next: Create your first relatio...", because `.next-line span` never wraps.
+- On the narrower Settings layout the grown bar cuts step 5 mid-word, with steps 6 and 7 off the row at 1280 wide.

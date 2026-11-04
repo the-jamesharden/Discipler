@@ -181,6 +181,9 @@ export APP_URL="http://127.0.0.1:$PORT"
 # The webhook's signing secret, for the server below and the tests that sign for it.
 # Real secrets stay out of a test run: a process's environment beats `.env.local`.
 export STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-whsec_locked_tests_only}"
+# The setup meter's bar is off on production until tickets 27 and 28 ship, and is what its
+# suite tests.
+export SETUP_METER_ON=true
 
 if [ "$SERVE" = 1 ]; then
   squatter="$(lsof -tnP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)"

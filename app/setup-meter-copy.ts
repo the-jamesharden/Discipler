@@ -9,8 +9,8 @@ import { DAYS, hourLabel } from './settings/copy'
  *
  * **A step's button shows the moment it has an address, as the top nav's items do
  * (`./top-nav-menus`), so no control goes nowhere.** Tickets 27 and 28 each set one
- * line below, and append their event from `SETUP_HISTORY` in `~/domain/setup-meter`,
- * and nothing else about the bar changes.
+ * line below, and record their fact with `tourFinished` or `testCheckInSent` from
+ * `~/domain/setup-meter`, and nothing else about the bar changes.
  *
  * Until then those two steps are listed with no button, and "Next:" passes over them:
  * a step nobody can do yet is not the next thing to do.

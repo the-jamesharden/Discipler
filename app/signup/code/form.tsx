@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { CODE_PAGE, newCodeSent } from '../copy'
 import { countdown, digitsOfCode, signUpHref, stepAfterCodeRefusal, type NextStep } from '../flow'
 import { postToSignUp } from '../post'
-import { forgetTyped } from '../typed'
 
 /**
  * "Continue" and "Send a new code" (Exponential launch, ticket 16). The code goes in a
@@ -56,7 +55,6 @@ export const CodeForm = ({
 
     const answer = await postToSignUp('/signup/confirm-code', { code })
     if (answer.ok) {
-      forgetTyped()
       goTo({ step: 'account' })
       return
     }

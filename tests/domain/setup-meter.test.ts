@@ -5,6 +5,8 @@ import {
   SETUP_HISTORY,
   SETUP_STEPS,
   setupMeterOf,
+  testCheckInSent,
+  tourFinished,
   type SetupStep,
 } from '~/domain/setup-meter'
 
@@ -69,6 +71,33 @@ describe('the setup meter', () => {
     const { tour: _tour, ...withoutTour } = done
 
     expect(() => setupMeterOf({ ...rest, done: withoutTour })).toThrow(/tour/)
+  })
+
+  describe('what the tour and the test check-in record', () => {
+    const ministry = ministryId('11111111-1111-4111-8111-111111111111')
+    const at = new Date('2026-11-04T10:00:00Z')
+
+    it('records the tour finished, by whoever pressed Done', () => {
+      expect(tourFinished({ ministryId: ministry, finishedBy: 'admin-1', at })).toEqual({
+        ministryId: ministry,
+        occurredAt: at,
+        type: SETUP_HISTORY.tourFinished,
+        subjectType: 'ministry',
+        subjectId: ministry,
+        payload: { finishedBy: 'admin-1' },
+      })
+    })
+
+    it('records a test check-in sent, by whoever sent it', () => {
+      expect(testCheckInSent({ ministryId: ministry, sentBy: 'admin-1', at })).toEqual({
+        ministryId: ministry,
+        occurredAt: at,
+        type: SETUP_HISTORY.testCheckInSent,
+        subjectType: 'ministry',
+        subjectId: ministry,
+        payload: { sentBy: 'admin-1' },
+      })
+    })
   })
 
   describe('reading what a page says was seen', () => {

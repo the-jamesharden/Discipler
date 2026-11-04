@@ -75,7 +75,8 @@ It stays off on production until James says the privacy policy and terms are liv
   A value is carried only if it could be a code (`[A-Za-z0-9_-]`, up to 64 characters), so nothing a stranger puts in a link is repeated back.
   The alternative was carrying any value and leaving it to ticket 20.
 - **Going through page one again** is `/signup?again=1`, because page one otherwise sends somebody with an attempt on to the page they stand on.
-- **What was typed crosses page one in `sessionStorage`** and is forgotten once the address is proven, so a phone handed back at a booth keeps nothing after its tab closes.
+- **What was typed does not cross page one.** James removed the `sessionStorage` copy at the merge on 2026-11-03, because it left a phone number in a tab on a device that may be handed back at a booth.
+  After "Use a different email" or a lapsed pass the person types them again, and a failed send still restores the address through `triedEmail`.
   The alternatives were putting a phone in the address, or having the new attempt read the old row.
 - **Refusals are sentences under the field, not the browser's bubbles** (`noValidate`), so the page speaks in one voice.
 - **A double click sends one email:** the second is answered "too soon", which goes on to the code page.

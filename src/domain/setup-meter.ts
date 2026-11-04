@@ -1,3 +1,6 @@
+import type { NewHistoryEvent } from './history'
+import type { MinistryId } from './ids'
+
 /**
  * The setup meter: seven steps that say how far a church has got with Discipler
  * (`.scratch/exponential-launch/spec.md`, "Setup meter and onboarding").
@@ -29,9 +32,10 @@ export type SetupStep = (typeof SETUP_STEPS)[number]
 /**
  * The three facts nothing recorded before the meter, as `ministry_event` types.
  *
- * Tickets 27 and 28 have only to append theirs: the meter reads them already, and the
- * bar's buttons appear with one line in `app/setup-meter-copy.ts`. An event rather than
- * ticket 28's own table, so that the meter names nothing that does not exist yet.
+ * Tickets 27 and 28 have only to append theirs, with `tourFinished` and
+ * `testCheckInSent` below: the meter reads them already, and the bar's buttons appear
+ * with one line in `app/setup-meter-copy.ts`. An event rather than ticket 28's own
+ * table, so that the meter names nothing that does not exist yet.
  */
 export const SETUP_HISTORY = {
   /** Settings saved with nothing changed. A save that changes something says `ministry.settings_changed`. */
@@ -41,6 +45,42 @@ export const SETUP_HISTORY = {
   /** An Admin sent themselves a test check-in. */
   testCheckInSent: 'setup.test_check_in_sent',
 } as const
+
+/** For ticket 27, when an Admin presses Done on the tour's last step. */
+export const tourFinished = ({
+  ministryId,
+  finishedBy,
+  at,
+}: {
+  readonly ministryId: MinistryId
+  readonly finishedBy: string
+  readonly at: Date
+}): NewHistoryEvent => ({
+  ministryId,
+  occurredAt: at,
+  type: SETUP_HISTORY.tourFinished,
+  subjectType: 'ministry',
+  subjectId: ministryId,
+  payload: { finishedBy },
+})
+
+/** For ticket 28, when an Admin sends themselves a test check-in. */
+export const testCheckInSent = ({
+  ministryId,
+  sentBy,
+  at,
+}: {
+  readonly ministryId: MinistryId
+  readonly sentBy: string
+  readonly at: Date
+}): NewHistoryEvent => ({
+  ministryId,
+  occurredAt: at,
+  type: SETUP_HISTORY.testCheckInSent,
+  subjectType: 'ministry',
+  subjectId: ministryId,
+  payload: { sentBy },
+})
 
 /** Where one Admin stands with their church's meter. */
 export type SetupMeter =

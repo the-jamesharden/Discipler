@@ -1,4 +1,5 @@
-import type { OfficeHours } from '~/domain/office-hours'
+import { OFFICE_HOURS_EVERY_WEEKS } from '~/domain/launch-terms'
+import type { OfficeHours, UpcomingOfficeHours } from '~/domain/office-hours'
 
 /**
  * The next office hours (`.scratch/exponential-launch/spec.md`, "Help, What's new and
@@ -14,3 +15,9 @@ import type { OfficeHours } from '~/domain/office-hours'
  * The repo is public, so the link is too: everything in this file can be read by anyone.
  */
 export const NEXT_OFFICE_HOURS: OfficeHours | null = null
+
+/** The welcome window's card (ticket 27), which leaves out its Next line when there is no date. */
+export const speakWithTheTeamLine = (upcoming: UpcomingOfficeHours | null): string => {
+  const every = `Office hours on Zoom every ${OFFICE_HOURS_EVERY_WEEKS} weeks.`
+  return upcoming ? `${every} Next: ${upcoming.date}, at ${upcoming.time}.` : every
+}

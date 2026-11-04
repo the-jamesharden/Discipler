@@ -45,10 +45,13 @@
 - A test left unanswered for an hour is closed, and a `1` sent after that is handled as it would be with no test.
 - A real check-in queued for an Admin's phone closes their open test before it is sent, and the reply lands on the real check-in.
 
+The setup meter's bar is off on production until this ticket and its partner ship.
+Whichever of 27 and 28 ships second sets `SETUP_METER_ON=true` on production, or removes the switch, and fixes the two bar faults listed at the end of ticket 26.
+
 ## Comments
 
 - From building tickets 02 and 09 (2026-10-31): Verify sends from Twilio's own senders, outside the message transport, so ticket 02 also gives it a recording stand-in (`src/platform/recording-verifier.ts`), picked by the same `messageTransportKind`.
   On staging the code is written to the log and is always `000000`, so a test check-in can be walked through there with no real code reaching a real phone.
 - From building ticket 26 (2026-11-03): the setup meter already reads step 3, so this ticket has only to record it and give the bar its button.
-  When a test check-in is sent, append `SETUP_HISTORY.testCheckInSent` from `src/domain/setup-meter.ts` as history, about the ministry with `{ sentBy }` as its payload, alongside this ticket's own table: the meter reads the event, so it names nothing that did not exist yet.
+  When a test check-in is sent, append `testCheckInSent({ ministryId, sentBy, at })` from `src/domain/setup-meter.ts` as history, alongside this ticket's own table: the meter reads the event, so it names nothing that did not exist yet.
   Then set `test_check_in`'s `href` in `STEP_COPY` in `app/setup-meter-copy.ts`; the button and its place in "Next:" appear from that one line.

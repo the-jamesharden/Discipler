@@ -4,7 +4,7 @@ import { createTestClock, minutes } from '~/domain/clock'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
 import { readPageDocument } from '~/platform/supabase/page'
-import { SETUP_HISTORY, SETUP_STEPS } from '~/domain/setup-meter'
+import { SETUP_HISTORY, SETUP_STEPS, testCheckInSent, tourFinished } from '~/domain/setup-meter'
 import type { NewHistoryEvent } from '~/domain/history'
 import type { PersonId, RelationshipId } from '~/domain/ids'
 import {
@@ -119,21 +119,18 @@ describe.skipIf(skipUnlessAppIsRunning)('the setup meter', () => {
     return response
   }
 
-  const recordStep = (ministry: MinistryFixture, type: string) =>
-    record({
+  /** A church holding all seven steps, as history. */
+  const finish = async (ministry: MinistryFixture) => {
+    await record({
       ministryId: ministry.id,
       occurredAt: new Date(),
-      type,
+      type: SETUP_HISTORY.checkInTimeConfirmed,
       subjectType: 'ministry',
       subjectId: ministry.id,
       payload: {},
     })
-
-  /** A church holding all seven steps, as history. */
-  const finish = async (ministry: MinistryFixture) => {
-    await recordStep(ministry, SETUP_HISTORY.checkInTimeConfirmed)
-    await recordStep(ministry, SETUP_HISTORY.tourFinished)
-    await recordStep(ministry, SETUP_HISTORY.testCheckInSent)
+    await record(tourFinished({ ministryId: ministry.id, finishedBy: ministry.adminUserId, at: new Date() }))
+    await record(testCheckInSent({ ministryId: ministry.id, sentBy: ministry.adminUserId, at: new Date() }))
     await addPerson(ministry, 'Mark Wilson')
     await createRelationship(ministry, 'one_to_one')
   }
@@ -223,10 +220,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the setup meter', () => {
 
     /** What tickets 27 and 28 have only to record. */
     it('ticks steps 2 and 3 from the events those tickets will append', async () => {
-      await recordStep(ministry, SETUP_HISTORY.tourFinished)
+      await record(tourFinished({ ministryId: ministry.id, finishedBy: ministry.adminUserId, at: new Date() }))
       expect(tickedIn((await getPage('/overview', cookie)).html)).toEqual(['tour'])
 
-      await recordStep(ministry, SETUP_HISTORY.testCheckInSent)
+      await record(testCheckInSent({ ministryId: ministry.id, sentBy: ministry.adminUserId, at: new Date() }))
       const { html } = await getPage('/overview', cookie)
       expect(tickedIn(html)).toEqual(['tour', 'test_check_in'])
       expect(countIn(html)).toBe('29% complete · 2 of 7')
@@ -235,7 +232,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the setup meter', () => {
     it('shows "43% complete · 3 of 7" for a church with three steps done', async () => {
       await pressSave(ministry, cookie)
       await addPerson(ministry, 'Mark Wilson', { intake: false })
-      await recordStep(ministry, SETUP_HISTORY.tourFinished)
+      await record(tourFinished({ ministryId: ministry.id, finishedBy: ministry.adminUserId, at: new Date() }))
 
       const { html } = await getPage('/roster', cookie)
 

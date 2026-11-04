@@ -37,6 +37,9 @@
 - Leaving the tour on step 4 does not tick step 2; pressing Done does.
 - An existing SAU BCM Admin sees the modal on their first sign-in after launch.
 
+The setup meter's bar is off on production until this ticket and its partner ship.
+Whichever of 27 and 28 ships second sets `SETUP_METER_ON=true` on production, or removes the switch, and fixes the two bar faults listed at the end of ticket 26.
+
 ## For James
 
 1. Provide the photo of yourself.
@@ -52,7 +55,7 @@ The welcome window's office hours line reads `NEXT_OFFICE_HOURS` through `upcomi
 
 The setup meter already reads step 2, so this ticket has only to record it and give the bar its button.
 
-1. When an Admin presses Done on the tour's last step, append `SETUP_HISTORY.tourFinished` from `src/domain/setup-meter.ts` as history, about the ministry with `{ finishedBy }` as its payload, through a command like every other Admin act.
+1. When an Admin presses Done on the tour's last step, append `tourFinished({ ministryId, finishedBy, at })` from `src/domain/setup-meter.ts` as history, through a command like every other Admin act.
    Leaving the tour early records nothing.
 2. Set `tour`'s `href` in `STEP_COPY` in `app/setup-meter-copy.ts`.
    The button and its place in "Next:" appear from that one line, and `tests/app/the-setup-meter-words.test.ts` and `tests/integration/the-setup-meter-over-http.test.ts` are the tests that then say to change.

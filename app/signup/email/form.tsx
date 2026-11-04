@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { EMAIL_PAGE, TEXTING_FINE_PRINT } from '../copy'
 import { signUpHref, stepAfterSendRefusal } from '../flow'
 import { postToSignUp } from '../post'
-import { rememberTyped, typedEarlier } from '../typed'
 
 /** Which field a refusal is about, so the sentence sits under it. */
 const fieldOf = (refusal: string | null): 'email' | 'phone' | 'form' => {
@@ -31,19 +30,11 @@ export const EmailAndPhoneForm = ({
   const [busy, setBusy] = useState(false)
   const [refused, setRefused] = useState<{ field: 'email' | 'phone' | 'form'; message: string } | null>(null)
 
-  useEffect(() => {
-    const earlier = typedEarlier()
-    if (!earlier) return
-    setEmail(earlier.email)
-    setPhone(earlier.phone)
-  }, [])
-
   const send = async (event: FormEvent) => {
     event.preventDefault()
     if (busy) return
     setBusy(true)
     setRefused(null)
-    rememberTyped({ email, phone })
 
     const answer = await postToSignUp('/signup/send-code', { email, phone })
     if (answer.ok) {

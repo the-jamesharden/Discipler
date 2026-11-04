@@ -761,13 +761,13 @@ Search lists an Ask Discipler entry that needs an address, and ticket 31 may bui
 Results open over the page rather than hanging from the bar.
 What needs deciding: whether ticket 31 gives the circle an address or removes the entry, and whether results stay over the page.
 
-## Open: the setup meter cannot reach 100% yet
+## Resolved: the setup meter cannot reach 100% yet
 
 Raised on 2026-11-03 by the Exponential launch, ticket 26.
 Steps 2 and 3, the tour and the test check-in, wait for tickets 27 and 28, so every church stays below 100%, and a church with only those left has no "Next:" line, though the spec says "always showing".
 SAU BCM will read 5 of 7, and an Admin's first sign-in plays every finished step's confetti at once.
-Wave 3 ships ticket 26 without 27 and 28, so all of this is live on every Admin page from the merge unless the bar is held.
-What needs deciding: nothing if 27 and 28 ship together with this, otherwise whether the bar waits for them.
+James decided on 2026-11-03 that the bar waits for them: `SETUP_METER_ON` stays unset on production until 27 and 28 ship.
+Until then `getting-started.md`, `settings.md` and `test-check-in.md` in the help pages describe a bar that is not drawn.
 
 ## Open: Leaders on the support form
 
