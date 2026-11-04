@@ -733,7 +733,6 @@ Raised on 2026-11-03 by the Exponential launch, tickets 04, 14, 24 and 25.
 Nothing in wave 3 has reached real Stripe, so its tests prove only what a fake can.
 Ticket 04's "For James" holds the steps: the catalog, the restricted key's access, the webhook's `setup_intent.succeeded`, the publishable key, the payment methods, and the staging check before the rehearsal.
 Until the key and the catalog are in place the tick reports `over200` as `failed` or `no_prices` and no email goes, and ticket 14 asks for one check of its price lookup against real Stripe after the deploy.
-Ticket 24 asks for `npm run smoke:pages` on production after the migrations are pushed and before the merge, and stays `ready-for-human` until it passes.
 Ticket 25's form was never drawn in a mock-up.
 What is left: those steps, looking at the form, and approving the drafted words in `app/signup/payment/copy.ts`, `app/texting-gate-copy.ts` and `app/help/contact/copy.ts` and the `textingGateUnread` email.
 

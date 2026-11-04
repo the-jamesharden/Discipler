@@ -82,7 +82,7 @@ What they left for a human is in `docs/open-questions.md`.
 
 Tickets 04, 05, 14, 15, 16, 24, 25, 26 and 30 were built on 2026-11-03 and merged into one branch, `launch/wave-3-2026-11-03`, and James's decisions on them are in the spec and `docs/open-questions.md`.
 Their nine migrations, dated 20261104, are not pushed; James says when, and they must be pushed before the merge.
-Eight are `shipped`, which reaches `main` only with the merge; 24 is `ready-for-human` until James runs `npm run smoke:pages` on production, after the migrations are pushed and before the merge.
+All nine are `shipped`: PR 39 merged on 2026-11-04 as ea4b8c6, after its nine migrations were pushed and the page check passed.
 Sign-up stays shut until `SIGN_UP_OPEN=true`, which waits for ticket 17, because until then the flow stops after the email is verified.
 From the deploy, the texting gate checks every text and the over-200 watch runs on the tick.
 What they left for a human is in `docs/open-questions.md`.

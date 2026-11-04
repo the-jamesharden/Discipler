@@ -502,7 +502,7 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | 21 - Sign in with email or phone | One box for both | needs-info | 17 |
 | 22 - Forgot password | The emailed reset link for Admins | needs-info | 10, 21 |
 | 23 - The top nav and Help menu | The gear, the avatar, the meter's place and the six Help items | shipped | Nothing |
-| 24 - Search | The directory behind ⌘K, `/` and the search bar | ready-for-human | 23 |
+| 24 - Search | The directory behind ⌘K, `/` and the search bar | shipped | 23 |
 | 25 - Contact, bug and feature form | Stored and emailed to support@ | shipped | 10, 23 |
 | 26 - The setup meter and the badge | Seven steps, never going down, one badge per Admin | shipped | 23 |
 | 27 - The onboarding modal and the tour | The modal, the welcome video, the three cards, the checklist and the seven-step demo tour | ready-for-agent | 26, 30 |
