@@ -141,3 +141,6 @@ The support form's box has its own class, `contact-human-check`, because its rul
 Both checks now load the script through `loadTurnstile` and pick the widget's size through `widgetSizeFor`, in `app/turnstile-widget.ts`, so a client navigation between them cannot load it twice, and the support form's widget is light like the sign-up page's.
 Sign-up gave up `next/script` for this.
 Seen in headless Chrome at 1440, 390 and 320 wide with Cloudflare's test key: one script, no sideways scrolling, and the compact widget only at 320.
+
+**Decided by James on 2026-11-03.**
+What somebody typed may reach support@, phone numbers stripped, and the spec's sentence is reworded to cover what Discipler composes.

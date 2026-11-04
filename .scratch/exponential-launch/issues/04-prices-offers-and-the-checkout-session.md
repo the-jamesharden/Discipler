@@ -137,6 +137,7 @@ The prices and offers are in `src/domain/offers.ts`, built on `src/domain/launch
 - **No `redeem_by` on the Exponential coupon.** The server enforces the date at opening.
   With `redeem_by`, a church that opened on December 11 and confirmed after midnight would have an event that fails forever.
 - **The referral month for a yearly church is $77.60 off its first bill,** one twelfth of it.
+  James confirmed this on 2026-11-03, and the spec now says so.
   A 100%-off first invoice, as written, would be a free year.
   The spec only prices this for monthly.
   James may prefer $97.

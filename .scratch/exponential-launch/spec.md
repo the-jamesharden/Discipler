@@ -40,7 +40,8 @@ The flow is modelled on Planning Center's sign-up.
    The token is verified on the server before anything costs money.
 2. **Email and mobile phone.** One page asks for both.
    Under the phone field sits this fine print, word for word: "By continuing, you agree to receive texts from Discipler at this number, including sign-in codes and test check-ins. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help."
-   Continuing records a consent for that phone with a new `consent_source` value, `ministry_setup` (the enum is `('pastor_link', 'qr_code')` today, from `20260827000200_intake_is_the_consent_gate.sql`).
+   Continuing is the consent, and its time is kept.
+   The record is written when the church opens, with that time and a new `consent_source` value, `ministry_setup` (the enum is `('pastor_link', 'qr_code')` today, from `20260827000200_intake_is_the_consent_gate.sql`), because `consent_record` needs a Person and a Ministry, and nothing is texted before then (James, 2026-11-03).
    That consent lets Discipler text the Admin without changing their Roster status, because participation still needs an Intake.
 3. **Verify your email.** A 6-digit code is emailed through Resend.
    It expires after 10 minutes, allows 5 tries, and can be resent after 60 seconds.
@@ -119,6 +120,7 @@ The marketing site gets a "Start your ministry" button.
 ### A church invited by another church
 
 - The invited church's first paid month is free, as a 100%-off first invoice after the trial.
+  A yearly church gets one month at the rate it pays instead, $77.60 off its first bill, rather than a free year (James, 2026-11-03).
 - It does not stack with the Exponential special offer; whichever saves the church more applies, which is the Exponential special offer.
 - The inviting church still earns its credit when the invited church pays its first real bill, whichever offer the invited church got.
 
@@ -377,7 +379,8 @@ Texts over it fail with Twilio error 30023 until midnight Pacific.
 - The apex domain's SPF `-all` and DMARC `p=quarantine` are left untouched.
 - New sign-ups, support and bug reports, feature requests, the over-200 follow-up and the capacity and balance alerts go to support@trydiscipler.com.
 - Church-plant applications go to james@trydiscipler.com and lerone@trydiscipler.com.
-- No email carries congregation names, phone numbers or Concerns.
+- No email Discipler composes carries congregation names, phone numbers or Concerns.
+  A support message is emailed as typed, with phone numbers stripped: the form asks people to leave names out, and a name someone typed anyway can reach support@ (James, 2026-11-03).
 
 ## Security
 
@@ -407,7 +410,9 @@ Texts over it fail with Twilio error 30023 until midnight Pacific.
 - Admins with a verified email get an emailed reset link (Q29).
 - The privacy policy and terms in `docs/legal/` are updated, reviewed by James or a lawyer, and published by James before sign-up goes live, and sign-up stays off until they are (Q30).
 - Bank accounts only through instant verification (Q31).
-- A church's texts go out only while its subscription is trialing or active, or it is billed outside Stripe, checked in the one query every outbound text passes through (Q32).
+- A church's texts go out only while its subscription is trialing, active or past due, or it is billed outside Stripe, checked in the one query every outbound text passes through (Q32).
+  Past due is in that list because everything keeps running during Stripe's retries (James, 2026-11-03).
+  If that check itself fails the text goes out and support@ is told that day, because silencing live churches is worse than an ended church texting briefly (James, 2026-11-03).
 - Stripe keys exist only on Production, and Preview deployments need a Vercel sign-in (Q33).
 - The sign-in guessing hole is tested first, and if it is real, Discipler adds its own limit of 10 failures per account and per network per 15 minutes (Q34).
 - AI chats are deleted after 90 days, readable only by their author, and sent with zero data retention (Q35).

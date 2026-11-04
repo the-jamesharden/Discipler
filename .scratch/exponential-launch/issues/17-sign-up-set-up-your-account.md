@@ -31,6 +31,9 @@ There is no "Let {inviting church} know we joined" box; an invited church is nev
 - support@ is emailed about the new sign-up.
 - The browser only ever sees refusal codes, never `MinistryNotProvisioned.reason`.
 
+The time recorded on the `ministry_setup` consent is when the person pressed Continue on page two, and not when the church opened (James, 2026-11-03).
+The sign-up attempt's row keeps only its latest send today, so this ticket has to carry that first time through to opening.
+
 ## Acceptance
 
 - A double click opens one church.

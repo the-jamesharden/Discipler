@@ -65,6 +65,7 @@ It stays off on production until James says the privacy policy and terms are liv
 ### Decisions made
 
 - **The spec and this ticket disagree on when consent is recorded.** The spec says continuing records it; this ticket and ticket 17 say opening the church does.
+  James decided on 2026-11-03: the record is written at opening, ticket 17 keeps the time they pressed Continue, and the spec is reworded to say so.
   `consent_record` belongs to a Person in a Ministry, and neither exists on page two, so the spec's sentence cannot be built as written without a new table.
   Nothing is texted before the church opens, so no text goes out without the record, and this ticket stands.
   The spec's sentence should be reworded when this ticket is merged.

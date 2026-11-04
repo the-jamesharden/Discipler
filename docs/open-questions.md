@@ -530,12 +530,12 @@ The spec says "points and the What's new item come off the list", and also says 
 `docs/non-goals.md` keeps "points", because removing it would read as approving points, and it has no What's new item to remove.
 What needs deciding: whether that reading stands.
 
-## Open: whether a past-due church keeps texting
+## Resolved: whether a past-due church keeps texting
 
 Raised on 2026-11-01 by the Exponential launch, ticket 35.
 The spec's Billing section says "everything keeps running during Stripe's retries", while its Q32 says texts go out only while trialing or active.
 The docs and ticket 05 follow "everything keeps running", so a `past_due` church keeps texting, and ticket 05 is built that way.
-What needs deciding: whether that stands, before ticket 05 ships.
+James decided on 2026-11-03 that it stands, and the spec's Q32 line now lists past due.
 
 ## Resolved: the reply choices ticket 40 lists
 
@@ -677,12 +677,12 @@ Raised on 2026-11-03 by the Exponential launch, ticket 36.
 The opt-in draft's sample is "Your Discipler verification code is: 123456", from Twilio's documented pattern rather than a code anyone has received.
 What needs deciding: nothing; James checks a real code against the sample before the sign-up section is published.
 
-## Open: a church's texts when the access read fails
+## Resolved: a church's texts when the access read fails
 
 Raised on 2026-11-03 by the Exponential launch, ticket 05.
 Every text is checked against the church's access as it leaves, and the ticket does not say what happens when that read itself fails.
 It was built so a failed read sends, and alerts, because silencing every live church over a database hiccup is worse than an ended church texting briefly.
-What needs deciding: whether that stands.
+James decided on 2026-11-03 that it stands, and the spec says so.
 
 ## Open: Discipler's HELP reply for a church without access
 
@@ -690,23 +690,24 @@ Raised on 2026-11-03 by the Exponential launch, ticket 05.
 The fine print on every sign-up says "HELP for help", while a church without access has Discipler's own HELP reply closed like any other text.
 Twilio may answer HELP itself, and nobody has checked that on a real phone.
 An exemption is a hole in the one query, because a row does not say today that it is a HELP reply.
-What needs deciding: test on a real phone, and exempt the reply if Twilio does not answer.
+James decided on 2026-11-03 to test on a real phone, and exempt the reply if Twilio does not answer.
+What is left: that test, and the exemption if it is needed, before a church can be without access, which needs sign-up open or a subscription ended.
 
-## Open: a name typed into a support message reaches support@
+## Resolved: a name typed into a support message reaches support@
 
 Raised on 2026-11-03 by the Exponential launch, ticket 25.
 The spec says "No email carries congregation names, phone numbers or Concerns".
 The support form strips phone numbers from the message it emails, but it cannot detect a name or a Concern somebody typed, and its hint only asks people to leave them out.
 The alternative is an email carrying only the kind and a reference, with the message read from the row by an operator.
-What needs deciding: whether what somebody chose to type may be emailed, in which case the spec's sentence is reworded.
+James decided on 2026-11-03 that it may, and the spec's sentence now covers what Discipler composes.
 
-## Open: when sign-up's consent is recorded
+## Resolved: when sign-up's consent is recorded
 
 Raised on 2026-11-03 by the Exponential launch, tickets 15 and 17.
 The spec says continuing past page two records a consent for that phone.
 `consent_record` needs a Person and a Ministry, neither of which exists yet at page two, so tickets 15 and 17 record it when the church opens, and nothing is texted before then.
 The attempt's row keeps only its latest send, so as built the moment the person agreed could be lost.
-What needs deciding: whether the spec is reworded, and ticket 17 made to carry the time the person agreed.
+James decided on 2026-11-03: the record stays at opening, ticket 17 carries the time the person agreed, and the spec is reworded.
 
 ## Open: nothing links to sign-up yet
 
@@ -717,12 +718,12 @@ What needs deciding: whether it joins ticket 17, and whether `ref` stays the par
 ## Open: the edges of a free month and an offer
 
 Raised on 2026-11-03 by the Exponential launch, ticket 04.
-The spec says a referral is "a 100%-off first invoice", and a yearly church is given $77.60 off, one month at the annual rate, rather than a whole year free.
+The spec said a referral is "a 100%-off first invoice"; James decided on 2026-11-03 that a yearly church gets $77.60 off, one month at the rate it pays, and the spec says so.
 A church refused a free month because its card has had one is told nothing (`free_month_refused`).
 Stripe Link gives no fingerprint, so a church paying by Link always gets the free month.
 Every offer church is on a Subscription Schedule, the spec says "A church may cancel itself", and whether Stripe lets a scheduled Subscription cancel at period end has not been tried.
 Payment methods are listed explicitly rather than left to Stripe's dynamic methods, and `schedulePhases` assumes the trial is the current phase (ticket 19).
-What needs deciding: the yearly amount and what a refused church is told, and a sandbox test of cancelling before ticket 19 ships.
+What needs deciding: what a refused church is told, and a sandbox test of cancelling before ticket 19 ships.
 
 ## Open: the over-200 follow-up's edges
 

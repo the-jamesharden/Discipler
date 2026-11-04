@@ -113,3 +113,8 @@ There is no other.
 
 - `app/texting-gate-copy.ts`: "Your church has no active subscription, so Discipler cannot send this text. Nothing was changed."
 - The `textingGateUnread` email to support@, in `src/service/support-alerts.ts`.
+
+**Decided by James on 2026-11-03.**
+A past-due church keeps texting during Stripe's retries.
+A failed access check sends, and tells support@ that day.
+Discipler's HELP reply: test on a real phone, and exempt it if Twilio does not answer (see `docs/open-questions.md`).
