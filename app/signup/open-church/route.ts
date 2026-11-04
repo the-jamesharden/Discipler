@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
     cycle: fieldOf(form, 'cycle'),
     agreedToTerms: fieldOf(form, 'agreedToTerms') === 'yes',
     carriedCode: carriedValue(fieldOf(form, 'code')),
+    carriedRef: carriedValue(fieldOf(form, 'ref')),
   })
 
   if ('refusal' in outcome) {

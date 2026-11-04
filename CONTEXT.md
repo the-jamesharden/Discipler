@@ -207,7 +207,7 @@ _Avoid_: Coupon, discount, founding church rate
 The Offer for churches met at the Exponential conference, applied by the code `EXPO26` or the booth's QR link, which opens Sign-Up with it already applied. It is never called a coupon or a founding church rate.
 
 **Referral Link**:
-A church's one link for inviting another church, `trydiscipler.com/r/<code>`, whose code is random and never the church's name. Getting a new one retires the old code at once. A church that signs up through it is a Referred Church, and is never named to the church that invited it.
+A church's one link for inviting another church, `app.trydiscipler.com/r/<code>`, whose code is random and never the church's name. Getting a new one retires the old code at once. A church that signs up through it is a Referred Church, and is never named to the church that invited it.
 _Avoid_: Slug, invite code, affiliate link
 
 **Referral Credit**:

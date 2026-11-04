@@ -18,7 +18,7 @@ describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the swit
     expect(html).not.toContain('href="/signup"')
   })
 
-  it.each(['human-check', 'send-code', 'resend-code', 'confirm-code', 'payment/open'])('answers 404 at %s', async (route) => {
+  it.each(['human-check', 'send-code', 'resend-code', 'confirm-code', 'apply-code', 'payment/open'])('answers 404 at %s', async (route) => {
     const response = await fetch(`${baseUrl}/signup/${route}`, {
       method: 'POST',
       redirect: 'manual',
@@ -50,7 +50,7 @@ describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the swit
         'Check your email',
         'Set up your account',
         'challenges.cloudflare.com',
-        'Email me a code',
+        'This will be your login email.',
         'Add a card or bank account',
         'js.stripe.com',
       ]) {
@@ -58,6 +58,13 @@ describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the swit
       }
     },
   )
+
+  it('answers 404 at a referral link, and points at nothing', async () => {
+    const response = await fetch(`${baseUrl}/r/k7m2qp9xab`, { redirect: 'manual' })
+
+    expect(response.status).toBe(404)
+    expect(response.headers.get('location')).toBeNull()
+  })
 
   it('answers 404 at the small read the payment step asks', async () => {
     const response = await fetch(`${baseUrl}/signup/payment/access`, { redirect: 'manual' })

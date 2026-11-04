@@ -95,6 +95,7 @@ describe('every ministry-owned table', () => {
       'person',
       'person_opt_out',
       'person_removal',
+      'referral_code',
       'relationship',
       'relationship_member',
       'sending_number_assignment',

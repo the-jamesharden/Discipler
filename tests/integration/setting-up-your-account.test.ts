@@ -355,6 +355,7 @@ describe('a double click', { timeout: 60_000 }, () => {
       agreedAt: h.clock.now(),
       cycle: 'month',
       carriedCode: null,
+      carriedRef: null,
       heardFrom: null,
     })
 
@@ -569,7 +570,7 @@ describe('the consent and the terms', { timeout: 60_000 }, () => {
     return rows
   }
 
-  it('records the Admin\'s consent for texts, at the press of "Email me a code"', async () => {
+  it('records the Admin\'s consent for texts, at the press of "Continue"', async () => {
     const { church, pressedAt } = await openedChurch()
 
     expect(await consentOf((await adminOf(church.id)).id)).toEqual([
@@ -889,6 +890,7 @@ describe('when something fails', { timeout: 60_000 }, () => {
         agreedAt: h.clock.now(),
         cycle: 'month',
         carriedCode: null,
+        carriedRef: null,
         heardFrom: null,
       }),
     ).rejects.toThrow(MinistryNotProvisioned)

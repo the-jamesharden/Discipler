@@ -672,6 +672,11 @@ Added on 2026-11-04 by ticket 18, all drafts inside the approved payment and rem
 - The page behind "Don't send me reminders": the sentence "Press the button and we won't remind you about finishing your account.", the button "Don't send me reminders", and then "You won't get another reminder."
 - The reminder has an HTML part beside its plain text, because the approved screen has a Start button, and every other email is plain text only.
 
+Added on 2026-11-04 by ticket 20, drafts inside the approved email and phone page and the email to support@:
+
+- A code in the address that nobody recognizes says the sentence mock-up 6 draws for a typed one: "We don't recognize that code, but your free trial still applies."
+- The email to support@, `tellSupport` in `src/service/opening-a-church.ts`, says "Offer: The first paid month free, invited by another church" for a church that came through a live referral link.
+
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
 
 ## Open: the check-in words' refusals and `Messages read as`

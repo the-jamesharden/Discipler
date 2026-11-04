@@ -1869,6 +1869,12 @@ export interface PaymentReminderCandidate {
  * launch, tickets 17 and 18). It decides who the payment step is for and who gets its
  * reminder, from what is stored and never from what a browser said.
  */
+/** Whether a referral code is one a church holds today (Exponential launch, ticket 20). */
+export interface ReferralCodes {
+  /** False for a retired code, an unknown one and something that could not be one. */
+  isLive(code: string): Promise<boolean>
+}
+
 export interface ChurchSignups {
   /** The church's row, or null: it did not sign itself up. */
   of(church: MinistryId): Promise<ChurchSignup | null>

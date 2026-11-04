@@ -73,6 +73,7 @@ import {
   type PostgresSharedNumbers,
 } from '~/platform/supabase/shared-numbers'
 import { createPostgresChurchSignups, type PostgresChurchSignups } from '~/platform/supabase/church-signups'
+import { createPostgresReferrals, type PostgresReferrals } from '~/platform/supabase/referrals'
 import {
   createPostgresOver200FollowUps,
   type PostgresOver200FollowUps,
@@ -111,6 +112,7 @@ import { createSupportForm, type SupportForm, type SupportSweep } from './suppor
 import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
 import type {
   ChurchSignups,
+  ReferralCodes,
   Accounts,
   BillingRecords,
   CareNeededReader,
@@ -587,12 +589,20 @@ const stripeEventWork = (): StripeEventWork => ({
   clock: systemClock,
 })
 
+let referrals: PostgresReferrals | undefined
+const theReferrals = (): PostgresReferrals => {
+  if (!referrals) referrals = createPostgresReferrals(commandDatabaseUrl())
+  return referrals
+}
+
+/** Whether a code in a referral link is live, for the page that shows the banner (ticket 20). */
+export const getReferralCodes = (): ReferralCodes => theReferrals()
+
 /**
- * Who invited a church. Nobody, until ticket 32's `referral` table holds the answer:
- * that table is written when a church opens (ticket 17) and not taken from the browser,
- * so this is the one line for it to change.
+ * Who invited a church, from the `referral` row written in the transaction that opened it
+ * (ticket 20), and never from a browser.
  */
-export const getInvitations = (): Invitations => ({ wasInvited: async () => false })
+export const getInvitations = (): Invitations => theReferrals()
 
 /** Opening a church's trial, on the server's word about everything but the choice. */
 export const getTrialWork = (): TrialWork => ({

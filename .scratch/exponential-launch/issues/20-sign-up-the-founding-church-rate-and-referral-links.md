@@ -9,7 +9,7 @@
 
 Ticket 18 is no longer a blocker, because nothing here needs the payment page.
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 The typed code and the popup are drawn in mock-up 6, `c1-have-a-code.html` and `c2-code-sent.html` in `~/Downloads/discipler-grill-baseline-v2/.lavish/forgot-and-code/`, and James said to build them (2026-11-04).
 
@@ -83,3 +83,85 @@ These are recorded so James can overrule them.
 1. Decided 2026-11-04: a small "Have a code?" link on the email and phone page opens one box, and a good code shows the offer screen, as drawn in mock-up 6.
 2. Print the booth QR code and flyer, once the address is settled: `https://app.trydiscipler.com/signup?code=EXPO26`.
 3. Publish the "Start your ministry" button on trydiscipler.com.
+
+## Comments
+
+Built on `wave4/20`, on top of tickets 17, 18, 19 and 21.
+
+### What was built
+
+- The email and phone page's button reads "Continue" on every sign-up, and the code page opens under the "Login code sent" popup, whose OK puts the cursor in the code box.
+- `/signup?code=EXPO26` opens the offer over the whole screen with confetti once, none under reduced motion, and "CLAIM MY OFFER" leaves the email and phone page underneath.
+- "Have a code?" opens one box, and `/signup/apply-code` answers it, so a typed code obeys the same `offerFor` as one in the address.
+- `/r/<code>` redirects to `/signup?ref=<code>`, and a live `ref` shows the banner.
+- Migration `20261104110020_referral_codes_and_who_invited_whom.sql` adds `referral_code`, the operator-only `referral`, `app.issue_referral_code`, the trigger that gives every new church its code, the backfill for every existing church, and reserves the short name `r`.
+- `provisionMinistry` records the referral inside the opening transaction when the carried `ref` names a live code, and `getInvitations()` now answers from that table.
+- The account page posts `ref`, as ticket 17 asked, and the email to support@ names the invited month when no code outranks it.
+- `docs/consent-language.md` and the screenshot placeholder in `docs/legal/sms-opt-in-sign-up-section.md` say "Continue".
+
+### Decisions on gaps, each with its alternative
+
+- "No second offer after a claim" is `claimed=1` in the address.
+  It does not flash on a reload, it survives "Use a different email", and a fresh scan in a new tab shows the offer again.
+  The alternative was sessionStorage, which only answers once the page has hydrated, so the offer would flash.
+- The popup's "once" is `sent=1` on arrival from "Continue", removed from the address by `replaceState` as soon as it shows.
+  The alternative was sessionStorage again, with the same flash and a stale flag after a failed send.
+- A typed code is decided on the server by `/signup/apply-code`, never by the browser's clock.
+  The alternative was reloading the page with `?code=`, which loses what was already typed in the two boxes.
+- A code carried in the address that nobody recognizes says "We don't recognize that code, but your free trial still applies." and shows no "Have a code?", following James's "only shows when somebody arrived with no code".
+  The alternative was showing the link so that they could correct it.
+- "Have a code?" does show on a referral arrival, because that arrival has no code, and a referred church may hold `EXPO26`.
+  `s2-email-phone.html?offer=referral` was drawn before mock-up 6 and has no link; the alternative was hiding it there.
+- Any `ref` preselects "Another ministry" on the account page, even an unknown or retired one, so that nothing but the banner tells them apart.
+  The alternative was preselecting only for a live code, which would tell them apart and needs one more read.
+- The code is issued in the database by a trigger, so every way of opening a church gets one, including the operator's.
+  The alternative was issuing in `provisionMinistry` with Node's crypto, which a later way of opening could miss.
+- The code's randomness is the bytes of `gen_random_uuid()`, a CSPRNG already in Postgres, with the version and variant positions left out.
+  The alternative was adding `pgcrypto` for `gen_random_bytes`.
+- `referral_code` is church-scoped and select-only to `discipler_command`, and ticket 32 adds its own grants for "Get a new link".
+  The alternative was granting those now, for code nothing yet calls.
+- The `referral` row's inviting church and code are set null when they are deleted, so the invited church keeps its month.
+  The alternative was a cascade, which would take a church's month away when its inviter closes.
+- `/r/<code>` answers 404 while sign-up is shut, like every other sign-up address, and reads nothing, so it cannot tell a live code from an unknown one.
+- A code in a link reads the same in any case, and `r` is reserved as a short name so that no church's readable link can collide with `/r/`.
+- Focus stays where it is after "CLAIM MY OFFER", rather than moving to the email box, so that a phone's keyboard does not jump up over the page.
+- Escape closes the popup as OK does, and Tab stays inside it and inside the offer screen.
+- The offer screen sits above everything at z-index 1000 and scrolls on a short screen, and its canvas is fixed.
+- `pending_signup.agreed_at` has a new comment in this migration naming "Continue", and the old migration's comment stays as history.
+
+### What was looked at
+
+The changed pages were looked at in headless Chrome at 390 and 1280 pixels, on a production build with stand-ins for Turnstile and Resend, and compared with the mock-ups.
+The look found two differences, both fixed: the popup's paragraph took `.card p`'s margin and pushed OK down by 12 pixels, and the refusal sentence's line height was tighter than drawn.
+The app's DM Sans renders a little heavier than the mock-ups' on the buttons and the offer's small line; that was left alone.
+The card's foot is 12 pixels shorter than `c1-have-a-code.html`, because the script after that mock-up's last paragraph stops `.card p:last-child` matching; the built foot matches `s2-email-phone.html?offer=referral`.
+
+### What in this ticket turned out wrong
+
+- The banner is one sentence in the ticket, but mock-up 5 draws two pieces: a title with no period, then "Your first paid month is on us."
+  The mock-up is followed.
+- `CONTEXT.md` and `docs/product-rules.md` said `trydiscipler.com/r/`, and now say `app.trydiscipler.com/r/<code>`.
+- `spec.md`'s "For James" item 7 still asks for a `/r/<code>` redirect on the marketing site, which is no longer needed; the spec is left for James to change.
+
+### Draft words for James
+
+Both are also in `docs/open-questions.md` under *sign-up's numbers and wording*.
+
+- A code in the address that nobody recognizes: "We don't recognize that code, but your free trial still applies."
+- The email to support@: "Offer: The first paid month free, invited by another church".
+
+### The legal document
+
+`docs/legal/sms-opt-in-sign-up-section.md` does not look filed.
+It is headed as a draft, not yet published or reviewed by a lawyer, the old button's name appeared only in its screenshot placeholder, and it says to publish before ticket 38's campaign is submitted.
+The live `trydiscipler.com/sms-opt-in/` has no sign-up section and does not contain "Email me a code".
+Twilio's own records were not checked, because this ticket does not touch Twilio.
+The fine print's sentence is unchanged.
+
+### What later tickets must build on
+
+- Ticket 32 reads `referral` (`invited_church`, `inviting_church`, `referral_code`, `invited_at`) on the trusted connection.
+- Ticket 32's "Get a new link" sets `retired_at` and then calls `app.issue_referral_code(church)`, and needs its own grants for both.
+- Any later migration that replaces `app.short_name_is_reserved` must keep `r`.
+- Ticket 38's screenshot of the email and phone page shows "Continue".
+- The flyer and the QR code use `https://app.trydiscipler.com/signup?code=EXPO26`.

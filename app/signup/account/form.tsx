@@ -57,6 +57,7 @@ export const AccountForm = ({
   siteKey,
   action,
   code,
+  referral,
   carried,
 }: {
   readonly email: string
@@ -70,6 +71,8 @@ export const AccountForm = ({
   readonly action: string
   /** The code the address carried, as it came, for the church's row. */
   readonly code: string | null
+  /** The referral code the address carried, as it came, which opening the church checks. */
+  readonly referral: string | null
   readonly carried: string
 }) => {
   const [churchName, setChurchName] = useState('')
@@ -187,6 +190,7 @@ export const AccountForm = ({
       cycle,
       agreedToTerms: agreedToTerms ? 'yes' : 'no',
       code: code ?? '',
+      ref: referral ?? '',
     })
     check.done()
 
