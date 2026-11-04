@@ -49,6 +49,7 @@ import type {
   StripeInboxEntry,
   StripeSubscriptionFacts,
 } from '~/domain/billing'
+import type { PlantApplication, PlantDecision } from '~/domain/church-plant'
 import type { BillingCycle, FingerprintGrant, PaidPhase, TrialOffer } from '~/domain/offers'
 import type { GrowthChoice, GrowthHistory, GrowthSeries } from '~/domain/growth'
 import type { ChurchPriceRecord } from '~/domain/over-200'
@@ -1918,8 +1919,11 @@ export interface StripeTrials {
     customerId: string,
   ): Promise<{ readonly fingerprint: string | null } | null>
   /**
-   * Replaces what a Subscription bills after its free days with these phases, through
-   * its schedule, made if it has none. Doing it twice is doing it once.
+   * Replaces what a Subscription bills next with these phases, through its schedule,
+   * made if it has none. They follow what is running now, kept as it is: the free days
+   * while it is trialing, and otherwise the current paid stretch until its next bill,
+   * which is where a church plant approved after its trial starts its free year (ticket
+   * 19). Doing it twice is doing it once.
    */
   schedulePhases(subscriptionId: string, phases: readonly PaidPhase[]): Promise<void>
 }
@@ -1992,6 +1996,25 @@ export interface BillingUnit {
    * time and every time after for the church that has it, no for every other church.
    */
   claimFingerprint(fingerprint: string, grant: FingerprintGrant, at: Date): Promise<boolean>
+  /**
+   * The decision on this church's application as it stands under the lock, or null where
+   * none has been made or it is not this church's (ticket 19).
+   */
+  plantDecisionOf(applicationId: string): Promise<PlantDecision | null>
+  /** Records the decision, once: an application with one keeps it. */
+  recordPlantDecision(applicationId: string, decision: PlantDecision, at: Date): Promise<void>
+}
+
+/**
+ * Church-plant applications as the operator's command reads them, across churches, on
+ * the trusted connection (ticket 19). A decision is written through `BillingUnit`, so it
+ * commits with the claim on the card.
+ */
+export interface ChurchPlantApplications {
+  /** One application by its ID, or null where there is none, decided or not. */
+  find(applicationId: string): Promise<PlantApplication | null>
+  /** Every application with no decision yet, the oldest first. */
+  undecided(): Promise<readonly PlantApplication[]>
 }
 
 /**

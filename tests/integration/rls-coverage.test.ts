@@ -65,6 +65,7 @@ describe('every ministry-owned table', () => {
       'billing_event',
       'checkin_prompt',
       'checkin_sequence',
+      'church_plant_application',
       'church_signup',
       'concern',
       'concern_viewing',

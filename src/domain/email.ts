@@ -20,7 +20,9 @@
  * is a plain string everywhere in the domain, so nothing can tell a congregant's name
  * from a church's: an email says "something needs your attention" and links into
  * the signed-in app, and never names who. What somebody typed into the support form is
- * theirs and not composed, so a name in it can reach support@ (`./support-form`).
+ * theirs and not composed, so a name in it can reach support@ (`./support-form`). A
+ * church-plant application's answers are the same kind of thing, the applicant's own words
+ * about their own church, and reach only the founders (ticket 19).
  */
 import type { Branded } from './branded'
 import type { ConcernId, PersonId } from './ids'

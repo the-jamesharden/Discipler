@@ -326,6 +326,189 @@ describe('the phases after the free days', () => {
   })
 })
 
+describe('a church plant approved after its trial', () => {
+  const NEXT_BILL = 1_794_592_000
+  const PAID_FROM = 1_792_000_000
+
+  const paying = (changes: Record<string, unknown> = {}) =>
+    aSubscription({
+      status: 'active',
+      pending_setup_intent: null,
+      // Stripe keeps the trial's end on a Subscription long after it has passed.
+      trial_end: PAID_FROM,
+      items: { object: 'list', data: [{ id: 'si_1', current_period_end: NEXT_BILL, price: { id: 'price_97' } }] },
+      ...changes,
+    })
+
+  const scheduled = (subscription: unknown, schedule: unknown) =>
+    answering(({ path }) => (path.startsWith('/v1/subscription_schedules') ? schedule : subscription))
+
+  const plantYear = paidPhasesOf({ cycle: 'month', offer: 'none', plantYear: true })
+
+  it('keeps the bill it has paid and starts the free year at its next one', async () => {
+    const { asked, trials } = scheduled(paying(), {
+      id: 'sub_sched_1',
+      object: 'subscription_schedule',
+      current_phase: { start_date: PAID_FROM, end_date: NEXT_BILL },
+      phases: [{ start_date: PAID_FROM, end_date: NEXT_BILL, discounts: [] }],
+    })
+
+    await trials.schedulePhases('sub_1', plantYear)
+
+    const update = Object.fromEntries(asked.at(-1)!.body)
+    expect(update).toMatchObject({
+      end_behavior: 'release',
+      proration_behavior: 'none',
+      'phases[0][items][0][price]': 'price_97',
+      'phases[0][start_date]': String(PAID_FROM),
+      'phases[0][end_date]': String(NEXT_BILL),
+      'phases[0][discounts]': '',
+      'phases[0][proration_behavior]': 'none',
+      'phases[1][duration][interval]': 'month',
+      'phases[1][duration][interval_count]': '12',
+      'phases[1][discounts][0][coupon]': STRIPE_COUPONS.plantYear.id,
+      'phases[2][discounts]': '',
+    })
+    // No trial is put back on something that has already billed.
+    expect(update).not.toHaveProperty('phases[0][trial_end]')
+    expect(asked.some(({ method, path }) => method === 'POST' && path === '/v1/subscriptions/sub_1')).toBe(false)
+  })
+
+  it('keeps the discount of the stretch it is in, and leaves past phases out', async () => {
+    const { asked, trials } = scheduled(paying({ schedule: 'sub_sched_1' }), {
+      id: 'sub_sched_1',
+      object: 'subscription_schedule',
+      current_phase: { start_date: PAID_FROM, end_date: PAID_FROM + 31_536_000 },
+      phases: [
+        { start_date: 1_790_000_000, end_date: PAID_FROM, discounts: [] },
+        {
+          start_date: PAID_FROM,
+          end_date: PAID_FROM + 31_536_000,
+          discounts: [{ coupon: STRIPE_COUPONS.exponentialYear.id, discount: null, promotion_code: null }],
+        },
+        { start_date: PAID_FROM + 31_536_000, end_date: PAID_FROM + 34_128_000, discounts: [] },
+      ],
+    })
+
+    await trials.schedulePhases('sub_1', paidPhasesOf({ cycle: 'month', offer: 'exponential', plantYear: true }))
+
+    const update = Object.fromEntries(asked.at(-1)!.body)
+    expect(update).toMatchObject({
+      'phases[0][start_date]': String(PAID_FROM),
+      // The next bill and not the phase's own end, which is a year away.
+      'phases[0][end_date]': String(NEXT_BILL),
+      'phases[0][discounts][0][coupon]': STRIPE_COUPONS.exponentialYear.id,
+      'phases[1][discounts][0][coupon]': STRIPE_COUPONS.plantYear.id,
+      'phases[2][discounts][0][coupon]': STRIPE_COUPONS.exponentialYear.id,
+      'phases[3][discounts]': '',
+    })
+    expect(update).not.toHaveProperty('phases[4][items][0][price]')
+  })
+
+  it('makes a schedule when the Subscription has none by then', async () => {
+    const { asked, trials } = scheduled(paying(), {
+      id: 'sub_sched_1',
+      object: 'subscription_schedule',
+      current_phase: { start_date: PAID_FROM, end_date: NEXT_BILL },
+      phases: [{ start_date: PAID_FROM, end_date: NEXT_BILL, discounts: [] }],
+    })
+
+    await trials.schedulePhases('sub_1', plantYear)
+
+    const made = asked.find(({ method, path }) => method === 'POST' && path === '/v1/subscription_schedules')
+    expect(made?.body.get('from_subscription')).toBe('sub_1')
+  })
+
+  it('counts a Subscription behind on a bill as past its trial too', async () => {
+    const { asked, trials } = scheduled(paying({ status: 'past_due' }), {
+      id: 'sub_sched_1',
+      object: 'subscription_schedule',
+      current_phase: { start_date: PAID_FROM, end_date: NEXT_BILL },
+      phases: [{ start_date: PAID_FROM, end_date: NEXT_BILL, discounts: [] }],
+    })
+
+    await trials.schedulePhases('sub_1', plantYear)
+
+    expect(asked.at(-1)!.body.get('phases[0][end_date]')).toBe(String(NEXT_BILL))
+    expect(asked.at(-1)!.body.has('phases[0][trial_end]')).toBe(false)
+  })
+
+  it('stops rather than guess when Stripe names no current phase', async () => {
+    const { trials } = scheduled(paying(), {
+      id: 'sub_sched_1',
+      object: 'subscription_schedule',
+      current_phase: null,
+      phases: [{ start_date: 1_790_000_000, end_date: PAID_FROM, discounts: [] }],
+    })
+
+    await expect(trials.schedulePhases('sub_1', plantYear)).rejects.toThrow(/no current phase/)
+  })
+})
+
+describe('what an approved plant pays', () => {
+  const MONTHLY_CENTS = 9700
+  const YEARLY_CENTS = 93120
+  const DISCOUNT: Record<string, number> = {
+    [STRIPE_COUPONS.plantYear.id]: 100,
+    [STRIPE_COUPONS.exponentialYear.id]: 20,
+    [STRIPE_COUPONS.firstMonth.id]: 100,
+  }
+
+  /** Every bill the phases Stripe was asked for would raise, in order, in cents. */
+  const billsFrom = (body: URLSearchParams, priceCents: number): number[] => {
+    const bills: number[] = []
+    for (let phase = 1; body.has(`phases[${phase}][items][0][price]`); phase += 1) {
+      const coupon = body.get(`phases[${phase}][discounts][0][coupon]`)
+      const count = Number(body.get(`phases[${phase}][duration][interval_count]`))
+      const off = coupon ? (DISCOUNT[coupon] ?? 0) : 0
+      for (let bill = 0; bill < count; bill += 1) bills.push((priceCents * (100 - off)) / 100)
+    }
+    return bills
+  }
+
+  const aSchedule = {
+    id: 'sub_sched_1',
+    object: 'subscription_schedule',
+    phases: [{ start_date: 1_790_000_000, end_date: 1_792_000_000 }],
+  }
+
+  const phasesAsked = async (phases: ReturnType<typeof paidPhasesOf>) => {
+    const { asked, trials } = answering(({ path }) =>
+      path.startsWith('/v1/subscription_schedules') ? aSchedule : aSubscription(),
+    )
+    await trials.schedulePhases('sub_1', phases)
+    return asked.at(-1)!.body
+  }
+
+  const twelve = <T,>(value: T): T[] => Array.from({ length: 12 }, () => value)
+
+  it('on a 30-day trial: nothing for its 12 paid months, and then $97', async () => {
+    const body = await phasesAsked(paidPhasesOf({ cycle: 'month', offer: 'none', plantYear: true }))
+    expect(billsFrom(body, MONTHLY_CENTS)).toEqual([...twelve(0), 9700])
+  })
+
+  it('with EXPO26: 12 months free, then 12 at $77.60, then $97', async () => {
+    const body = await phasesAsked(paidPhasesOf({ cycle: 'month', offer: 'exponential', plantYear: true }))
+    expect(billsFrom(body, MONTHLY_CENTS)).toEqual([...twelve(0), ...twelve(7760), 9700])
+  })
+
+  it('yearly: nothing at its first yearly bill, and the full price after', async () => {
+    const body = await phasesAsked(paidPhasesOf({ cycle: 'year', offer: 'none', plantYear: true }))
+    expect(billsFrom(body, YEARLY_CENTS)).toEqual([0, YEARLY_CENTS])
+  })
+
+  it('yearly with EXPO26: nothing, then the offer\'s year, then the full price', async () => {
+    const body = await phasesAsked(paidPhasesOf({ cycle: 'year', offer: 'exponential', plantYear: true }))
+    expect(billsFrom(body, YEARLY_CENTS)).toEqual([0, 74496, YEARLY_CENTS])
+  })
+
+  it('with a referral: the plant offer wins, and no first free month is scheduled', async () => {
+    const body = await phasesAsked(paidPhasesOf({ cycle: 'month', offer: 'referral', plantYear: true }))
+    expect(billsFrom(body, MONTHLY_CENTS)).toEqual([...twelve(0), 9700])
+    expect([...body.values()]).not.toContain(STRIPE_COUPONS.firstMonth.id)
+  })
+})
+
 describe('the catalog', () => {
   it('creates everything in an empty account, with the product named as James said', async () => {
     const { asked, client } = answering(({ method, path }) => {

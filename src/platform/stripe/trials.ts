@@ -36,8 +36,24 @@ const priceIdOf = async (client: Stripe, cycle: BillingCycle): Promise<string> =
 const expandedSetupIntent = (subscription: Stripe.Subscription): Stripe.SetupIntent | null =>
   typeof subscription.pending_setup_intent === 'object' ? subscription.pending_setup_intent : null
 
+type PhaseDiscount = Stripe.SubscriptionScheduleUpdateParams.Phase.Discount
+
 const fingerprintOf = (method: Stripe.PaymentMethod): string | null =>
   method.card?.fingerprint ?? method.us_bank_account?.fingerprint ?? null
+
+const idOfExpandable = (value: string | { readonly id: string } | null | undefined): string | null =>
+  typeof value === 'string' ? value : (value?.id ?? null)
+
+/** A running phase's discounts, said again as an update has to say them. */
+const discountsKept = (phase: Stripe.SubscriptionSchedule.Phase): Stripe.Emptyable<PhaseDiscount[]> => {
+  const kept = (phase.discounts ?? []).flatMap((held): PhaseDiscount[] => {
+    const coupon = idOfExpandable(held.coupon)
+    if (coupon) return [{ coupon }]
+    const discount = idOfExpandable(held.discount)
+    return discount ? [{ discount }] : []
+  })
+  return kept.length > 0 ? kept : ''
+}
 
 export const createStripeTrials = (client: () => Stripe = stripeClient): StripeTrials => ({
   async createCustomer({ church, churchName, email }) {
@@ -122,9 +138,10 @@ export const createStripeTrials = (client: () => Stripe = stripeClient): StripeT
     const stripe = client()
     const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
-    const price = subscription.items.data[0]?.price?.id
-    const trialEnd = subscription.trial_end
-    if (!price || !trialEnd) {
+    const item = subscription.items.data[0]
+    const price = item?.price?.id
+    const trialing = subscription.status === 'trialing'
+    if (!price || (trialing && !subscription.trial_end)) {
       throw new Error('Only a Subscription with a price and a trial can be given these phases')
     }
 
@@ -134,18 +151,41 @@ export const createStripeTrials = (client: () => Stripe = stripeClient): StripeT
         : (subscription.schedule?.id ??
           (await stripe.subscriptionSchedules.create({ from_subscription: subscriptionId })).id)
     const schedule = await stripe.subscriptionSchedules.retrieve(scheduleId)
-    const start = schedule.phases[0]?.start_date
-    if (!start) throw new Error('A schedule made from a Subscription has no first phase')
 
     const items = [{ price, quantity: 1 }]
+
+    // What is running now, as it is: every setting of the current phase has to be said
+    // again, or an update unsets it. Past phases are left out, as Stripe allows.
+    const running = (): Stripe.SubscriptionScheduleUpdateParams.Phase => {
+      if (trialing) {
+        const start = schedule.phases[0]?.start_date
+        if (!start) throw new Error('A schedule made from a Subscription has no first phase')
+        const trialEnd = subscription.trial_end!
+        return { items, start_date: start, end_date: trialEnd, trial_end: trialEnd }
+      }
+
+      // Past its free days, a bill may already be paid, and it stays paid (James,
+      // 2026-11-04): this stretch keeps its price and discount until the next bill, and
+      // what is asked for begins there. The period's end, and not the phase's, because a
+      // discounted phase can have months still to run.
+      const startedAt = schedule.current_phase?.start_date
+      const phase = schedule.phases.find(({ start_date }) => start_date === startedAt)
+      const nextBill = item?.current_period_end
+      if (!phase || !nextBill) throw new Error('This Subscription has no current phase to keep until its next bill')
+      return {
+        items,
+        start_date: phase.start_date,
+        end_date: nextBill,
+        discounts: discountsKept(phase),
+        proration_behavior: 'none',
+      }
+    }
 
     await stripe.subscriptionSchedules.update(scheduleId, {
       end_behavior: 'release',
       proration_behavior: 'none',
       phases: [
-        // The free days as they are: every setting of the current phase has to be said
-        // again, or an update unsets it.
-        { items, start_date: start, end_date: trialEnd, trial_end: trialEnd },
+        running(),
         ...phases.map(({ couponId, interval, intervals }) => ({
           items,
           duration: { interval, interval_count: intervals },

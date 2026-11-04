@@ -1,5 +1,6 @@
 import pg from 'pg'
 import { billingStateOf, type BillingFact, type StripeInboxEntry } from '~/domain/billing'
+import type { PlantDecision } from '~/domain/church-plant'
 import { ministryId, type MinistryId } from '~/domain/ids'
 import { isBillingCycle, type TrialOffer } from '~/domain/offers'
 import type {
@@ -143,6 +144,22 @@ const unitFor = (client: pg.PoolClient): BillingUnit => ({
       [fingerprint, grant, at],
     )
     return rows[0]!.claimed
+  },
+
+  async plantDecisionOf(applicationId) {
+    const { rows } = await client.query<{ decision: PlantDecision | null }>(
+      `select decision from church_plant_application where id::text = lower($1)`,
+      [applicationId],
+    )
+    return rows[0]?.decision ?? null
+  },
+
+  async recordPlantDecision(applicationId, decision, at) {
+    await client.query(
+      `update church_plant_application set decision = $2, decided_at = $3
+        where id::text = lower($1) and decision is null`,
+      [applicationId, decision, at],
+    )
   },
 })
 

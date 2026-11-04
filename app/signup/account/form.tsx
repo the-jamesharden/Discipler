@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { IS_A_PLANT } from '~/domain/church-plant'
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '~/domain/consent'
 import { SIGN_UP_TIMEZONE_BEFORE_ASKING, signUpTimezones } from '../../timezones'
 import { loadTurnstile, widgetSizeFor } from '../../turnstile-widget'
@@ -13,8 +14,9 @@ import {
 } from '../copy'
 import { canStartFreeTrial, signUpHref, stepAfterOpenRefusal } from '../flow'
 import { postToSignUp } from '../post'
+import { PlantQuestions, type PlantField } from './plant-questions'
 
-type RefusedField = 'churchName' | 'fullName' | 'password' | 'timezone' | 'form'
+type RefusedField = 'churchName' | 'fullName' | 'password' | 'timezone' | PlantField | 'form'
 
 /** Which field a refusal is about, so the sentence sits under it. */
 const fieldOf = (refusal: string | null): RefusedField => {
@@ -22,6 +24,10 @@ const fieldOf = (refusal: string | null): RefusedField => {
   if (refusal === 'signup.full_name_needed') return 'fullName'
   if (refusal?.startsWith('account.password_')) return 'password'
   if (refusal === 'signup.bad_timezone') return 'timezone'
+  if (refusal === 'signup.plant_launch_date_needed') return 'plantLaunchDate'
+  if (refusal === 'signup.plant_sending_church_needed') return 'plantSendingChurch'
+  if (refusal === 'signup.plant_attendance_needed') return 'plantAverageAttendance'
+  if (refusal === 'signup.plant_lead_pastor_needed') return 'plantLeadPastor'
   return 'form'
 }
 
@@ -41,10 +47,6 @@ const zoneOfThisDevice = (): string | null => {
  * lasts about five minutes and this form can take longer. The button turns off at that
  * press, so a browser sends one request. A refusal keeps what was typed, apart from a
  * refused password.
- *
- * **Ticket 19's church-plant block goes between Timezone and "How would you like to
- * pay?"**, where the comment below marks it, and its required fields join
- * `canStartFreeTrial`.
  */
 export const AccountForm = ({
   email,
@@ -76,6 +78,14 @@ export const AccountForm = ({
   const [password, setPassword] = useState('')
   const [timezone, setTimezone] = useState(SIGN_UP_TIMEZONE_BEFORE_ASKING)
   const [browserZone, setBrowserZone] = useState<string | null>(null)
+  const [isPlant, setIsPlant] = useState(false)
+  const [launchDate, setLaunchDate] = useState('')
+  const [sendingChurch, setSendingChurch] = useState('')
+  const [averageAttendance, setAverageAttendance] = useState('')
+  // Follows the Full name until they type here, and then is theirs, even when emptied.
+  const [leadPastorTyped, setLeadPastorTyped] = useState<string | null>(null)
+  const leadPastor = leadPastorTyped ?? fullName
+  const [anythingElse, setAnythingElse] = useState('')
   const [cycle, setCycle] = useState<'month' | 'year'>('month')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -129,7 +139,16 @@ export const AccountForm = ({
     })
   }
 
-  const ready = canStartFreeTrial({ churchName, fullName, password, agreedToTerms }, shortestPassword)
+  const ready = canStartFreeTrial(
+    {
+      churchName,
+      fullName,
+      password,
+      agreedToTerms,
+      plant: isPlant ? { launchDate, sendingChurch, averageAttendance, leadPastor } : null,
+    },
+    shortestPassword,
+  )
 
   const start = async (event: FormEvent) => {
     event.preventDefault()
@@ -159,6 +178,12 @@ export const AccountForm = ({
       heardFrom,
       password,
       timezone,
+      plant: isPlant ? IS_A_PLANT : '',
+      plantLaunchDate: launchDate,
+      plantSendingChurch: sendingChurch,
+      plantAverageAttendance: averageAttendance,
+      plantLeadPastor: leadPastor,
+      plantAnythingElse: anythingElse,
       cycle,
       agreedToTerms: agreedToTerms ? 'yes' : 'no',
       code: code ?? '',
@@ -314,7 +339,21 @@ export const AccountForm = ({
         </p>
       </div>
 
-      {/* Ticket 19's church-plant block goes here. */}
+      <PlantQuestions
+        isPlant={isPlant}
+        onIsPlant={setIsPlant}
+        answers={{ launchDate, sendingChurch, averageAttendance, leadPastor, anythingElse }}
+        onAnswer={{
+          launchDate: setLaunchDate,
+          sendingChurch: setSendingChurch,
+          averageAttendance: setAverageAttendance,
+          leadPastor: setLeadPastorTyped,
+          anythingElse: setAnythingElse,
+        }}
+        refusedField={refusedField}
+        refusalFor={refusalFor}
+        describedBy={describedBy}
+      />
 
       <fieldset>
         <legend className="plain">
