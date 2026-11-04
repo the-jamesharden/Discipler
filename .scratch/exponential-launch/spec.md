@@ -461,6 +461,7 @@ James answered these when tickets 17 to 22 were triaged.
 - A flyer's code is typed through a small "Have a code?" link on the email and phone page, and a good code shows the offer screen.
 - Referral links live at `app.trydiscipler.com/r/<code>`.
 - Mock-up 6 draws the typed code, the forgot-password pages and the reset email (`.lavish/forgot-and-code/`).
+  James's changes to it: the email and phone page's button reads "Continue", and a "Login code sent" popup shows over the code page on arrival; the forgot-password button reads "Send me the link", the page after it says "Email sent." and that the link is in the inbox, even for an address where nothing was sent; the Leaders' sentence and the "Saving signs you out everywhere" sentence are gone.
 
 ## Open risks
 

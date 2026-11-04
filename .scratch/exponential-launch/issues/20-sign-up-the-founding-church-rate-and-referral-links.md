@@ -9,9 +9,19 @@
 
 Ticket 18 is no longer a blocker, because nothing here needs the payment page.
 
-**Status:** needs-info
+**Status:** ready-for-agent
 
-It waits only on James approving the typed code in mock-up 6.
+The typed code and the popup are drawn in mock-up 6, `c1-have-a-code.html` and `c2-code-sent.html` in `~/Downloads/discipler-grill-baseline-v2/.lavish/forgot-and-code/`, and James said to build them (2026-11-04).
+
+## The email page's button and the popup
+
+James changed these in mock-up 6, and they apply to every sign-up, with or without a code:
+
+- The email and phone page's button reads "Continue", no longer "Email me a code".
+- Pressing it goes to the code page as before, with a popup over it: heading "Login code sent", then "A login code has been sent to {email}.", and an "OK" button that closes it and puts the cursor in the code box.
+- The popup shows once, on arrival from "Continue". A reload, or "Send a new code", which already has its own sentence, does not show it.
+- The code page underneath keeps its words.
+- `docs/consent-language.md` and `docs/legal/sms-opt-in-sign-up-section.md` name the old button, so change them with it, keep every code comment and test in step, and report whether the legal document's wording was filed anywhere.
 
 ## The offer screen
 
@@ -70,7 +80,6 @@ These are recorded so James can overrule them.
 
 ## For James
 
-1. Decided 2026-11-04: a small "Have a code?" link on the email and phone page opens one box, and a good code shows the offer screen.
-   Approve how it looks in mock-up 6.
+1. Decided 2026-11-04: a small "Have a code?" link on the email and phone page opens one box, and a good code shows the offer screen, as drawn in mock-up 6.
 2. Print the booth QR code and flyer, once the address is settled: `https://app.trydiscipler.com/signup?code=EXPO26`.
 3. Publish the "Start your ministry" button on trydiscipler.com.

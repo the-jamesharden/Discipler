@@ -8,15 +8,16 @@
 
 **Blocked by:** 10, 21
 
-**Status:** needs-info
+**Status:** ready-for-agent
 
-It also waits on James approving mock-up 6.
+The screens and the email are drawn in mock-up 6, `f1-request.html`, `f2-sent.html`, `f3-new-password.html`, `f4-link-dead.html` and `m1-reset-email.html` in `~/Downloads/discipler-grill-baseline-v2/.lavish/forgot-and-code/`, and their words are James's (2026-11-04).
 The link reads "Forgot your password?", as drawn; the docs' "Forgot password?" names the feature.
 
 ## The rule
 
 - `/login` links to a request page that asks for one thing, an email address, behind Turnstile.
 - Asking always answers the same, in about the same time, whether or not the email has an account.
+  So the page after "Send me the link" says "Email sent." to everyone, including an address where nothing was sent; James asked for that wording, and it is a known trade.
 - An address on the account of an Admin gets `passwordReset`.
   Anybody else gets nothing, and Leaders keep today's reset by an Admin.
 - The link is single use and expires in 30 minutes.
@@ -51,4 +52,4 @@ These are recorded so James can overrule them.
 
 ## For James
 
-1. Approve the request page, the new-password page and the email in mock-up 6, drawn from the real sign-in page.
+1. Done 2026-11-04: the request page, the new-password page and the email are as redrawn in mock-up 6 round 2. The Leaders' sentence and the "Saving signs you out everywhere" sentence are removed.
