@@ -8,7 +8,15 @@ import type { SearchParams } from '../parts'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = { title: REMINDERS_OFF_PAGE.title, robots: { index: false, follow: false } }
+const NOT_INDEXED: Metadata = { robots: { index: false, follow: false } }
+
+/** Only a signed link names the page: Next writes a title into the 404 as well. */
+export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
+  const { t } = await searchParams
+  const signed = typeof t === 'string' && churchOfRemindersOffToken(t) !== null
+
+  return signed ? { ...NOT_INDEXED, title: REMINDERS_OFF_PAGE.title } : NOT_INDEXED
+}
 
 /**
  * The page behind "Don't send me reminders" (Exponential launch, ticket 18). Opening it
