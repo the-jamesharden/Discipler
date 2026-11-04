@@ -7,7 +7,7 @@
 
 **Blocked by:** 23
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## The cards
 

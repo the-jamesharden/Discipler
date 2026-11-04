@@ -8,7 +8,7 @@
 
 **Blocked by:** 10, 23
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## What was true before
 
@@ -144,3 +144,7 @@ Seen in headless Chrome at 1440, 390 and 320 wide with Cloudflare's test key: on
 
 **Decided by James on 2026-11-03.**
 What somebody typed may reach support@, phone numbers stripped, and the spec's sentence is reworded to cover what Discipler composes.
+
+### Closed out (2026-11-03)
+
+Looking at the form and its words is parked in `docs/open-questions.md`, under "Open: what wave 3 left James to do in Stripe and on production", and the mailbox's retention under "Open: nothing deletes what the privacy policy says is deleted".

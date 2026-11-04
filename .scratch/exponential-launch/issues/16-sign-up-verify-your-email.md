@@ -9,7 +9,7 @@
 
 **Blocked by:** 15
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## The page
 

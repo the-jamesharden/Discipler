@@ -9,7 +9,7 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## The catalog
 
@@ -166,3 +166,8 @@ All in `app/signup/payment/copy.ts`, and none shown until ticket 18:
 - "Your church's billing is handled by the Discipler team, so there's nothing to add here."
 - "Your church has been with us before. Restart your subscription from Settings, Billing."
 - "We couldn't get the payment form ready just now. Please try again in a minute."
+
+### Closed out (2026-11-03)
+
+The Acceptance lines are proven against a fake Stripe, because nothing here has reached the real one.
+The steps under "For James", the staging check included, and the drafted words above are parked in `docs/open-questions.md`, under "Open: what wave 3 left James to do in Stripe and on production".

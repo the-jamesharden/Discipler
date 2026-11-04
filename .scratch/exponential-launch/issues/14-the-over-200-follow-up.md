@@ -4,7 +4,7 @@
 
 **Blocked by:** 03, 10
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## The rule
 
@@ -101,3 +101,7 @@ The words are drafts for James, in `src/service/support-alerts.ts`.
 - A church with no time zone is skipped, since none is guessed.
   Every church opened since PR #25 has one.
 - Nothing tells the church itself, and nothing moves its price; the spec gives both to whoever follows up.
+
+### Closed out (2026-11-03)
+
+The steps under "For James" are parked in `docs/open-questions.md`, under "Open: what wave 3 left James to do in Stripe and on production".

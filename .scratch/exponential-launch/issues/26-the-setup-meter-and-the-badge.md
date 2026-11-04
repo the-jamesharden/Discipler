@@ -7,7 +7,7 @@
 
 **Blocked by:** 23
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## The steps
 
@@ -121,3 +121,8 @@ All from this ticket and the mock-ups, except one draft: "(done)", the text only
 
 **For ticket 27.**
 A first sign-in at a church from before launch would play the bar's confetti behind the onboarding modal, so the bar should hold back while the modal is open; ticket 27 carries the same note.
+
+### Closed out (2026-11-03)
+
+"Open: the setup meter cannot reach 100% yet" in `docs/open-questions.md` is not answered, and as `docs/agents/triage-labels.md` says, a parked question does not hold a ticket open.
+So the bar is live on every Admin page from the merge, as that entry describes, unless James holds it.

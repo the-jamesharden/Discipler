@@ -9,7 +9,7 @@
 
 **Blocked by:** 23 (shipped)
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 ## The rule
 
@@ -118,3 +118,9 @@ Each is in `directoryPages` (`app/search/pages.ts`) already, and nothing is list
 - **With no script the bar is not drawn**, since nothing could open, as ticket 23's "no control goes nowhere" asks.
 - **A native `dialog`**, so the browser keeps focus inside it, closes it on Esc, gives focus back and draws it above Waiting on you and any card; the mock-up's scrim is its `::backdrop`.
 - **Found on the way:** the Overview ran 41px wide at 320px, because the relationship cards had a 320px minimum; that minimum now yields to the page.
+
+### Closed out (2026-11-03)
+
+Built, but not `shipped`: the last Acceptance line, `npm run smoke:pages`, has not been run, and it is James's to run on production after the migrations are pushed and before the merge.
+Move this ticket to `shipped` when it passes.
+It is parked in `docs/open-questions.md`, under "Open: what wave 3 left James to do in Stripe and on production".

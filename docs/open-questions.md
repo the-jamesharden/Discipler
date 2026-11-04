@@ -548,6 +548,7 @@ Raised on 2026-11-01 by the Exponential launch, ticket 36.
 James filled every bracket in the privacy policy and the terms of service on 2026-11-03, with no refund on cancellation and an effective date of November 3, 2026.
 No lawyer or accountant has reviewed them, including the tax line and the Stripe and Cloudflare disclosures.
 The privacy policy's sentences on Stripe's fingerprint of a card or bank account were added on 2026-11-03 to match ticket 04 and the spec, after James filled it, and are his or a lawyer's to approve before it is published.
+The terms' sentence on a yearly Organization's referral month was added the same day to match James's decision, and is his or a lawyer's to approve too.
 The opt-in page's sign-up section still has its screenshot, which waits on ticket 15, and the checks of the Twilio Verify, HELP and STOP wording.
 All three are to be published on trydiscipler.com, and sign-up stays off in production until they are live.
 What is left: James publishes the two finished documents, registers himself with the US Copyright Office as the copyright agent, and adds the address's ZIP code if he wants it shown.
@@ -628,7 +629,7 @@ If Resend is down through all of Twilio's retries, that day's spend alarm is los
 Neither the balance read nor the Usage Trigger's signed callback has met the real Twilio.
 What needs deciding: whether repeated failed reads should email support@, and James's one check of both against the real Twilio, with auto-recharge set to add $500 below $100 and a backup card.
 
-## Open: sign-up's numbers and wording, before ticket 15
+## Open: sign-up's numbers and wording, before sign-up opens
 
 Raised on 2026-11-03 by the Exponential launch, ticket 11.
 The spec gives none of these, so the build chose: 5 emails per address and 30 per network each hour, a human check lasting 30 minutes, a proven address lasting 60, and one human pass per address.
@@ -645,20 +646,20 @@ An emoji counts as one character toward the 160, and it can make a text cost mor
 ADR-0034 lists "reminders" as Discipler's words and `docs/product-rules.md` says a conversation keeps its sentences, reminders included; the build reads ADR-0034's as the acceptance reminder.
 What needs deciding: whether those refusals stand, the wording, whether `Messages read as` gets the same refusals, and which reading of reminders is right.
 
-## Open: a trial Subscription reads as access before payment is confirmed
+## Resolved: a trial Subscription reads as access before payment is confirmed
 
 Raised on 2026-11-03 by the Exponential launch, ticket 03.
 The spec says a church that leaves the payment step sends no texts.
 With the Payment Element, a trial Subscription reads `trialing` from when the server creates it, before its setup intent is confirmed, and the webhook subscribes to no setup-intent event.
-Nothing reads access until ticket 05, so this does nothing yet.
-What needs deciding: when tickets 04 and 18 are rewritten, whether the Subscription is created only once the payment method is confirmed, or a pending setup intent counts as no access.
+Ticket 04 settled it: a pending setup intent counts as no access, and the webhook now subscribes to `setup_intent.succeeded`.
 
 ## Open: Setup Link churches are billed outside Stripe automatically
 
 Raised on 2026-11-03 by the Exponential launch, ticket 03.
 The spec names SAU BCM and Anthem Community Church for the operator flag and says it is for churches James chooses to comp.
 As built, a church opened by a Setup Link gets the flag automatically.
-What needs deciding: whether that stands, before ticket 05 makes the flag matter.
+Ticket 05 makes the flag matter from the deploy: a church with it keeps texting with no subscription.
+What needs deciding: whether that stands.
 
 ## Open: consent Statement 2's wording
 
@@ -669,8 +670,8 @@ What needs deciding: which one is right.
 ## Open: the help pages name Help menu items not yet shown
 
 Raised on 2026-11-03 by the Exponential launch, ticket 23.
-The Help menu holds only what exists, so items that wait on tickets 25, 27 and 30 are not there yet, and the help docs already mention them.
-What needs deciding: nothing if those tickets ship by the launch; otherwise the wording of those pages.
+The Help menu holds only what exists, so what waits on ticket 27, and Office hours until a next call is set, are not there yet, and the help docs already mention them.
+What needs deciding: nothing if ticket 27 ships by the launch; otherwise the wording of those pages.
 
 ## Open: the wording Twilio Verify really sends
 
@@ -726,6 +727,16 @@ Every offer church is on a Subscription Schedule, the spec says "A church may ca
 Payment methods are listed explicitly rather than left to Stripe's dynamic methods, and `schedulePhases` assumes the trial is the current phase (ticket 19).
 What needs deciding: what a refused church is told, and a sandbox test of cancelling before ticket 19 ships.
 
+## Open: what wave 3 left James to do in Stripe and on production
+
+Raised on 2026-11-03 by the Exponential launch, tickets 04, 14, 24 and 25.
+Nothing in wave 3 has reached real Stripe, so its tests prove only what a fake can.
+Ticket 04's "For James" holds the steps: the catalog, the restricted key's access, the webhook's `setup_intent.succeeded`, the publishable key, the payment methods, and the staging check before the rehearsal.
+Until the key and the catalog are in place the tick reports `over200` as `failed` or `no_prices` and no email goes, and ticket 14 asks for one check of its price lookup against real Stripe after the deploy.
+Ticket 24 asks for `npm run smoke:pages` on production after the migrations are pushed and before the merge, and stays `ready-for-human` until it passes.
+Ticket 25's form was never drawn in a mock-up.
+What is left: those steps, looking at the form, and approving the drafted words in `app/signup/payment/copy.ts`, `app/texting-gate-copy.ts` and `app/help/contact/copy.ts` and the `textingGateUnread` email.
+
 ## Open: the over-200 follow-up's edges
 
 Raised on 2026-11-03 by the Exponential launch, ticket 14.
@@ -771,4 +782,3 @@ React error 418 came on a few visits to pages with the Admin header, on a produc
 The page recovers by rendering in the browser, and nothing looked wrong on screen.
 It did not come back in 275 visits on the combined branch, so what mismatched was never captured and the cause is not known; the history is in ticket 25.
 What needs deciding: nothing yet; look again if it is seen on a phone or in production.
-
