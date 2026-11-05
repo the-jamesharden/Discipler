@@ -304,6 +304,66 @@ describe('following the customer’s default', () => {
   })
 })
 
+describe('a first bill setting the customer’s default', () => {
+  const anInvoice = (reason: string, subscription = 'sub_1') => ({
+    id: 'in_1',
+    object: 'invoice',
+    billing_reason: reason,
+    parent: { subscription_details: { subscription } },
+  })
+
+  const answers = (invoice: Record<string, unknown>, onSubscription: string | null, onCustomer: string | null) =>
+    answering(({ path, method }) => {
+      if (path === '/v1/invoices/in_1') return invoice
+      if (path === '/v1/customers/cus_1') {
+        return { id: 'cus_1', object: 'customer', invoice_settings: { default_payment_method: onCustomer } }
+      }
+      if (path === '/v1/subscriptions/sub_1') return aSubscription({ default_payment_method: onSubscription })
+      return method === 'POST' ? { id: 'cus_1', object: 'customer' } : undefined
+    })
+
+  const posts = (asked: readonly { method: string }[]) => asked.filter(({ method }) => method === 'POST')
+
+  it('moves a restart’s new card onto the customer, so its next change has nothing to move back', async () => {
+    const { asked, trials } = answers(anInvoice('subscription_create'), 'pm_restart', 'pm_replaced')
+
+    expect(await trials.firstBillSetsCustomersDefault('cus_1', 'sub_1', 'in_1')).toBe(true)
+
+    const posted = asked.filter(({ method }) => method === 'POST')
+    expect(posted.map(({ path, body }) => [path, Object.fromEntries(body)])).toEqual([
+      ['/v1/customers/cus_1', { 'invoice_settings[default_payment_method]': 'pm_restart' }],
+    ])
+  })
+
+  it('changes nothing where they already agree, so a retried event does nothing', async () => {
+    const { asked, trials } = answers(anInvoice('subscription_create'), 'pm_new', 'pm_new')
+
+    expect(await trials.firstBillSetsCustomersDefault('cus_1', 'sub_1', 'in_1')).toBe(false)
+    expect(posts(asked)).toEqual([])
+  })
+
+  it('leaves a later bill alone, so a card chosen since is never put back', async () => {
+    const { asked, trials } = answers(anInvoice('subscription_cycle'), 'pm_restart', 'pm_portal')
+
+    expect(await trials.firstBillSetsCustomersDefault('cus_1', 'sub_1', 'in_1')).toBe(false)
+    expect(posts(asked)).toEqual([])
+  })
+
+  it('leaves the first bill of an older Subscription alone', async () => {
+    const { asked, trials } = answers(anInvoice('subscription_create', 'sub_ended'), 'pm_restart', 'pm_portal')
+
+    expect(await trials.firstBillSetsCustomersDefault('cus_1', 'sub_1', 'in_1')).toBe(false)
+    expect(posts(asked)).toEqual([])
+  })
+
+  it('changes nothing where a bill covered by credit saved no method', async () => {
+    const { asked, trials } = answers(anInvoice('subscription_create'), null, 'pm_old')
+
+    expect(await trials.firstBillSetsCustomersDefault('cus_1', 'sub_1', 'in_1')).toBe(false)
+    expect(posts(asked)).toEqual([])
+  })
+})
+
 describe('the phases after the free days', () => {
   const aSchedule = {
     id: 'sub_sched_1',

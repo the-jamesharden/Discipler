@@ -128,6 +128,7 @@ A sandbox has to answer these before launch:
 - whether a schedule cancels and previews as `cancelOnItsSchedule` and `previewOf` expect;
 - whether the deferred Payment Element shows the method on file through the Customer Session;
 - a restart by bank;
+- whether a restart's new card stays the one billed: restart, let `invoice.paid` set the customer's default, change anything on the customer such as a balance credit, and check the Subscription and its next invoice still name the new card (review of wave 4, 2026-11-05);
 - a past-due retry after a new method;
 - how a bank's name is capitalized, which may be all capitals;
 - whether the amount the page confirms always matches the charge.

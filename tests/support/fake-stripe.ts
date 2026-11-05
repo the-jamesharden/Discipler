@@ -18,6 +18,7 @@ export const aFakeStripe = (clock: { now(): Date }) => {
     scheduled: [] as { subscriptionId: string; phases: readonly PaidPhase[] }[],
     defaults: [] as string[],
     followedDefaults: [] as { customerId: string; subscriptionId: string }[],
+    firstBills: [] as { customerId: string; subscriptionId: string; invoiceId: string }[],
   }
   const state = { failScheduling: false, failOpening: false }
 
@@ -81,6 +82,10 @@ export const aFakeStripe = (clock: { now(): Date }) => {
     },
     async followCustomersDefault(customerId, subscriptionId) {
       calls.followedDefaults.push({ customerId, subscriptionId })
+      return false
+    },
+    async firstBillSetsCustomersDefault(customerId, subscriptionId, invoiceId) {
+      calls.firstBills.push({ customerId, subscriptionId, invoiceId })
       return false
     },
     async schedulePhases(subscriptionId, phases) {

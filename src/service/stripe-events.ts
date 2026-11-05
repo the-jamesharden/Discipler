@@ -167,6 +167,10 @@ export const processStripeEvent = async (
     if (entry.type === 'customer.updated' && isConfirmedAndLive(recorded.subscription)) {
       await work.trials.followCustomersDefault(customerId, recorded.subscription.id)
     }
+    // Only ever about one invoice, so a card changed later on is not put back.
+    if (entry.type === 'invoice.paid' && entry.invoiceId && isConfirmedAndLive(recorded.subscription)) {
+      await work.trials.firstBillSetsCustomersDefault(customerId, recorded.subscription.id, entry.invoiceId)
+    }
   }
 
   await work.creditOnEvent(entry, church, customerId)

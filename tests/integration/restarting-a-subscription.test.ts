@@ -207,5 +207,42 @@ describe('restarting a subscription', { timeout: 30_000 }, () => {
 
       expect(stripe.calls.followedDefaults).toEqual([{ customerId, subscriptionId: live.id }])
     })
+
+    describe('when a bill is paid', () => {
+      const paid = async (work: StripeEventWork, customerId: string, invoiceId: string) => {
+        const entry = stripeInboxEntryOf({
+          id: `evt_${unique()}`,
+          type: 'invoice.paid',
+          created: Math.floor(NOW.getTime() / 1000),
+          livemode: false,
+          object: { object: 'invoice', id: invoiceId, customer: customerId },
+        })
+        await work.inbox.receive(entry, NOW)
+        return processStripeEvent(work, entry.id)
+      }
+
+      it('asks Stripe whether that bill is the first, naming the live Subscription and the invoice', async () => {
+        const stripe = fake()
+        const { customerId } = await aChurchWithACustomer(`First bill ${unique().slice(0, 6)}`)
+        const live = held({ status: 'active' })
+        stripe.held.set(customerId, [live])
+
+        await paid(workOn(stripe), customerId, 'in_first')
+
+        expect(stripe.calls.firstBills).toEqual([{ customerId, subscriptionId: live.id, invoiceId: 'in_first' }])
+      })
+
+      it('does not ask while nothing is confirmed, or on any other event', async () => {
+        const stripe = fake()
+        const { customerId } = await aChurchWithACustomer(`No first bill ${unique().slice(0, 6)}`)
+        stripe.held.set(customerId, [held({ status: 'incomplete', awaitingPaymentMethod: true })])
+        await paid(workOn(stripe), customerId, 'in_waiting')
+        expect(stripe.calls.firstBills).toEqual([])
+
+        stripe.held.set(customerId, [held({ status: 'active' })])
+        await heard(workOn(stripe), customerId, 'customer.updated')
+        expect(stripe.calls.firstBills).toEqual([])
+      })
+    })
   })
 })

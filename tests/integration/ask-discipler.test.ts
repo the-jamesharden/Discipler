@@ -200,6 +200,31 @@ describe('Ask Discipler', () => {
       expect(await guideWith(model).ask(asking(ministry))).toMatchObject({ kind: 'answered', questionsLeft: 0 })
     })
 
+    it('costs a question when the model was paid for and gave no whole answer, and shows nothing', async () => {
+      const ministry = await createMinistryWithAdmin('A paid failure')
+      const { model, say } = aModel()
+      say({ outcome: 'billed_with_no_answer' })
+
+      const answer = await guideWith(model).ask(asking(ministry))
+
+      expect(answer).toEqual({ kind: 'failed', questionsLeft: AI_GUIDE_QUESTIONS_PER_DAY - 1 })
+      expect(await countFor(ministry)).toBe(1)
+      expect(delivered).toEqual([])
+    })
+
+    it('stops at the day’s limit however many were cut off, so one Admin cannot spend the month', async () => {
+      const ministry = await createMinistryWithAdmin('Long questions')
+      const { model, seen, say } = aModel()
+      await alreadyAsked(ministry, AI_GUIDE_QUESTIONS_PER_DAY - 1, new Date())
+
+      say({ outcome: 'billed_with_no_answer' })
+      expect(await guideWith(model).ask(asking(ministry))).toEqual({ kind: 'failed', questionsLeft: 0 })
+      const paidFor = seen.length
+
+      expect(await guideWith(model).ask(asking(ministry))).toEqual({ kind: 'limit' })
+      expect(seen.length).toBe(paidFor)
+    })
+
     it('asks nothing of the model for nothing typed, or too much', async () => {
       const ministry = await createMinistryWithAdmin('Nothing typed')
       const { model, seen } = aModel()

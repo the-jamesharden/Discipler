@@ -1849,6 +1849,9 @@ export type GuideModelAnswer =
     }
   /** The gateway refused it for spending: past the monthly cap, or out of credits. */
   | { readonly outcome: 'spent' }
+  /** The model ran and was paid for, and gave no whole answer to show. It costs a question. */
+  | { readonly outcome: 'billed_with_no_answer' }
+  /** Nothing was paid for. */
   | { readonly outcome: 'failed' }
 
 /**
@@ -2281,6 +2284,14 @@ export interface StripeTrials {
    * Stripe's billing page changes (ticket 33). Answers whether anything had to move.
    */
   followCustomersDefault(customerId: string, subscriptionId: string): Promise<boolean>
+  /**
+   * Makes the method a Subscription's first bill saved the customer's default too, where
+   * this invoice is that bill (ticket 33). A restart saves its card on the Subscription
+   * only, and `followCustomersDefault` would otherwise move it back to the card the
+   * customer held before, at the customer's next change of any kind. Answers whether
+   * anything had to move.
+   */
+  firstBillSetsCustomersDefault(customerId: string, subscriptionId: string, invoiceId: string): Promise<boolean>
 }
 
 /** The prices a restarting church is shown, and its credit (ticket 33). */

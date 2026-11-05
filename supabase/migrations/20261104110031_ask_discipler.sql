@@ -41,8 +41,9 @@ create table ask_discipler_question (
   -- no writer can keep more than the box lets anybody type.
   question    text not null
     constraint ask_discipler_question_fits check (char_length(question) between 1 and 1000),
-  -- Null while it is being answered. A failed answer deletes the row, which is what
-  -- stops it counting toward the day.
+  -- Null while it is being answered, and for good when the model was paid for and gave no
+  -- whole answer, which still counts toward the day. A failure before the model was paid
+  -- for deletes the row, which is what stops it counting.
   answer      text,
   asked_at    timestamptz not null,
   answered_at timestamptz,

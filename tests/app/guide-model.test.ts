@@ -117,14 +117,14 @@ describe('the guide’s model', () => {
     expect(await model.answer(asking)).toEqual({ outcome: 'failed' })
   })
 
-  it('reads an answer cut short as failed', async () => {
+  it('reads an answer cut short as paid for with nothing to show', async () => {
     const { model } = answers(200, { ...ANSWER, finishReason: { unified: 'length', raw: 'max_tokens' } })
-    expect(await model.answer(asking)).toEqual({ outcome: 'failed' })
+    expect(await model.answer(asking)).toEqual({ outcome: 'billed_with_no_answer' })
   })
 
-  it('reads an answer the model’s safeguards declined as failed', async () => {
+  it('reads an answer the model’s safeguards declined as paid for with nothing to show', async () => {
     const { model } = answers(200, { ...ANSWER, finishReason: { unified: 'content-filter', raw: 'refusal' } })
-    expect(await model.answer(asking)).toEqual({ outcome: 'failed' })
+    expect(await model.answer(asking)).toEqual({ outcome: 'billed_with_no_answer' })
   })
 
   it('reads a request that never left as failed, with no credential at hand', async () => {

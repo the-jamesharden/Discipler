@@ -158,6 +158,26 @@ export const createStripeTrials = (client: () => Stripe = stripeClient): StripeT
     return true
   },
 
+  async firstBillSetsCustomersDefault(customerId, subscriptionId, invoiceId) {
+    const stripe = client()
+    const invoice = await stripe.invoices.retrieve(invoiceId)
+    if (invoice.billing_reason !== 'subscription_create') return false
+    if (idOfExpandable(invoice.parent?.subscription_details?.subscription) !== subscriptionId) return false
+
+    const [customer, subscription] = await Promise.all([
+      stripe.customers.retrieve(customerId),
+      stripe.subscriptions.retrieve(subscriptionId),
+    ])
+    if (customer.deleted) return false
+    const held = idOfExpandable(subscription.default_payment_method)
+    // Read from the Subscription each time, so a retry after a change on Stripe's billing
+    // page, which the Subscription has by then followed, finds the two agreeing.
+    if (!held || held === idOfExpandable(customer.invoice_settings?.default_payment_method)) return false
+
+    await stripe.customers.update(customerId, { invoice_settings: { default_payment_method: held } })
+    return true
+  },
+
   async schedulePhases(subscriptionId, phases: readonly PaidPhase[]) {
     const stripe = client()
     const subscription = await stripe.subscriptions.retrieve(subscriptionId)

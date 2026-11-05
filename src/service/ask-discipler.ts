@@ -98,6 +98,13 @@ export const createAskDiscipler = ({
 
       const said = await model.answer({ instructions, history: asked.history, question })
 
+      // The row stays with no answer, which counts toward the day and shows in no chat. If
+      // this gave the place back, one Admin asking for something too long to finish could
+      // spend the month's whole budget without ever reaching the day's limit.
+      if (said.outcome === 'billed_with_no_answer') {
+        return { kind: 'failed', questionsLeft: questionsLeftAfter(asked.askedToday) }
+      }
+
       if (said.outcome !== 'answered') {
         await store.giveUpThePlace({ ministryId, userId, id: asked.id })
         if (said.outcome === 'spent') await tellSupportOnce(clock.now())

@@ -84,7 +84,7 @@ export const createGatewayGuideModel = (
         // Cut short, or declined by the model's safeguards: there is no whole answer to show.
         if (finishReason !== 'stop' || text.trim() === '') {
           console.error(`Ask Discipler's model gave no whole answer: ${finishReason}`)
-          return { outcome: 'failed' }
+          return { outcome: 'billed_with_no_answer' }
         }
 
         return {
