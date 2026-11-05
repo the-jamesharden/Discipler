@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { MinistryId } from '~/domain/ids'
+import type { NewChurchLimitsOutcome } from '~/service/new-church-limits-watch'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import type { SettledPairings } from '~/service/command-service'
 import type { PaymentReminderOutcome } from '~/service/payment-reminder-watch'
@@ -14,6 +15,7 @@ import {
   sweepTheSupportSubmissions,
   sweepUnsavedUploads,
   tellSupportTheTextingGateIsUnread,
+  watchTheNewChurchLimits,
   watchTheOver200Churches,
   watchThePaymentReminders,
   watchTheSharedNumbers,
@@ -81,6 +83,8 @@ interface MinistryOutcome {
   readonly awaitingANumber: number
   /** Messages left for Twilio's daily limit to reset, see `DispatchOutcome`. */
   readonly waitingOnTheCap: number
+  /** Messages left for a new church's week to have room, see `DispatchOutcome`. */
+  readonly waitingOnTheNewChurchLimit: number
   /** Messages closed for good because the church holds no access, see `DispatchOutcome`. */
   readonly closedWithoutAccess: number
   /** The church's access could not be read, and its drain went on unchecked. */
@@ -91,7 +95,7 @@ interface MinistryOutcome {
 }
 
 const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> => {
-  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, waitingOnTheCap: 0, closedWithoutAccess: 0, accessUnread: false, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
+  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, waitingOnTheCap: 0, waitingOnTheNewChurchLimit: 0, closedWithoutAccess: 0, accessUnread: false, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
 
   try {
     // The tick first, then the drain, in that order and in the same run: the tick is
@@ -219,6 +223,17 @@ export async function GET(request: NextRequest) {
     paymentReminders = 'failed'
   }
 
+  // Then the churches that hit a limit on their first weeks (Exponential launch, ticket 37).
+  // Caught on its own, and logged by name alone: what it found stays recorded, or is found
+  // again, and the next pass tells what is owed.
+  let newChurchLimits: NewChurchLimitsOutcome | 'failed'
+  try {
+    newChurchLimits = await watchTheNewChurchLimits()
+  } catch (error) {
+    console.error(`Watching the new church limits failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    newChurchLimits = 'failed'
+  }
+
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries
   // a non-2xx, and retrying the whole run to recover one Ministry would re-drain
   // every other one -- the outcomes say what happened instead, per Ministry, where
@@ -231,6 +246,7 @@ export async function GET(request: NextRequest) {
     failed: ran.reduce((total, one) => total + one.failed, 0),
     awaitingANumber: ran.reduce((total, one) => total + one.awaitingANumber, 0),
     waitingOnTheCap: ran.reduce((total, one) => total + one.waitingOnTheCap, 0),
+    waitingOnTheNewChurchLimit: ran.reduce((total, one) => total + one.waitingOnTheNewChurchLimit, 0),
     closedWithoutAccess: ran.reduce((total, one) => total + one.closedWithoutAccess, 0),
     accessUnread,
     settled: {
@@ -245,6 +261,7 @@ export async function GET(request: NextRequest) {
     over200,
     supportSubmissions,
     paymentReminders,
+    newChurchLimits,
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,
       error: one.error,

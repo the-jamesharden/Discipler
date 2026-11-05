@@ -101,6 +101,7 @@ import {
   ReinvitationRefused,
   RemovalRefused,
   type PairingRefusal,
+  NewChurchRosterLimitReached,
 } from './errors'
 import type { PersonToRemove } from './removal'
 import { DISCIPLERS_CHECK_IN_WORDS, type CheckInWords } from './check-in-words'
@@ -326,6 +327,12 @@ export interface CommandContext {
    * The two readings differ by a whole congregation being imported a second time.
    */
   readonly roster?: RosterSnapshot
+  /**
+   * How many more people a new church's Roster may take (Exponential launch, ticket 37),
+   * loaded on `person.import`'s behalf, or null when the church is not held to it. Read
+   * in the transaction that holds the Roster, so two imports cannot both fit.
+   */
+  readonly rosterRoom?: number | null
   /**
    * The held row an answer is about, as the database found it, loaded on
    * `import_row.resolve`'s behalf. It carries `resolvedAt` rather than a *still
@@ -4754,6 +4761,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         openPlans: context.openPlans,
       })
       const now = context.clock.now()
+
+      // Absent on every church that is past its first weeks, which is nearly all of them.
+      if (context.rosterRoom !== undefined && context.rosterRoom !== null) {
+        const adding = classified.rows.filter((row) => row.outcome === 'new').length
+        if (adding > context.rosterRoom) throw new NewChurchRosterLimitReached()
+      }
 
       const effects: Effect[] = []
       /** The Person each row became, where it became one; a row already on the Roster is that Person. */

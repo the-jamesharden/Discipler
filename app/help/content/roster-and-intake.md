@@ -15,6 +15,10 @@ There are two ways people arrive on your Roster:
 Not sure your spreadsheet will come out right?
 Email it to [support@trydiscipler.com](mailto:support@trydiscipler.com) and we will import it for you.
 
+For its first {{newChurchFirstDays}}, a new church can have up to {{newChurchPeople}} people on its Roster and send up to {{newChurchTextsPerWeek}} texts a week.
+An import that would go past that is refused, and texts past it wait until there is room.
+If your church is larger, email the same address and we will lift both.
+
 ## Why Intake matters
 
 Being on the Roster is not the same as agreeing to be texted.

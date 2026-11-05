@@ -201,6 +201,38 @@ describe('a Preview deployment', () => {
   })
 })
 
+describe('Stripe keys on a Preview deployment (Q33)', () => {
+  const preview = { VERCEL_ENV: 'preview', VERCEL_TARGET_ENV: 'preview' }
+
+  it.each(['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'STRIPE_MCP_KEY'])(
+    'refuses %s, naming it and not quoting it',
+    (name) => {
+      const refusals = deploymentRefusals({ ...preview, [name]: 'sk_test_do_not_print' })
+      expect(refusals).toHaveLength(1)
+      expect(refusals[0]).toContain(name)
+      expect(refusals[0]).not.toContain('do_not_print')
+    },
+  )
+
+  it('refuses a live key pasted under any other name', () => {
+    expect(deploymentRefusals({ ...preview, PAYMENTS: 'rk_live_abc' })[0]).toContain('PAYMENTS')
+  })
+
+  it('reads an old deployment with no target by VERCEL_ENV', () => {
+    expect(deploymentRefusals({ VERCEL_ENV: 'preview', STRIPE_SECRET_KEY: 'x' })).toHaveLength(1)
+  })
+
+  it('takes a variable that is set but empty as not set', () => {
+    expect(deploymentRefusals({ ...preview, STRIPE_SECRET_KEY: '' })).toEqual([])
+  })
+
+  it('leaves production, staging and a developer’s machine their keys', () => {
+    expect(deploymentRefusals({ VERCEL_ENV: 'production', STRIPE_SECRET_KEY: 'sk_live_x' })).toEqual([])
+    expect(deploymentRefusals({ ...staging, VERCEL_ENV: 'preview', VERCEL_TARGET_ENV: 'staging' })).toEqual([])
+    expect(deploymentRefusals({ STRIPE_SECRET_KEY: 'sk_test_x' })).toEqual([])
+  })
+})
+
 describe('any deployment', () => {
   it('runs with nothing set, as a developer’s machine does', () => {
     expect(deploymentRefusals({})).toEqual([])

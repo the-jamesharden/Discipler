@@ -50,6 +50,7 @@ import type {
   StripeSubscriptionFacts,
 } from '~/domain/billing'
 import type { PlantApplication, PlantDecision } from '~/domain/church-plant'
+import type { NewChurchLimit } from '~/domain/new-church-limits'
 import type { BillingCycle, FingerprintGrant, PaidPhase, TrialOffer } from '~/domain/offers'
 import type { GrowthChoice, GrowthHistory, GrowthSeries } from '~/domain/growth'
 import type { ChurchPriceRecord } from '~/domain/over-200'
@@ -194,6 +195,12 @@ export interface UnitOfWork {
    * until an Admin says which.
    */
   peopleOnRoster(): Promise<RosterReadback>
+  /**
+   * How many more people this Ministry's Roster may take while it is a new church
+   * (Exponential launch, ticket 37), never below nothing, or null when it is not held to
+   * that limit.
+   */
+  newChurchRosterRoom(at: Date): Promise<number | null>
   /**
    * Everyone in this Ministry with at least one Intake submission already on file.
    * Read inside the unit of work like the Roster, and for the same reason: two
@@ -1631,6 +1638,12 @@ export interface DueMessages {
    * A failed read never closes a row and never stops a church: see `due`.
    */
   readonly accessUnread: boolean
+  /**
+   * How many more texts may go on this drain while this is a new church (Exponential
+   * launch, ticket 37), or null when it is not held to that limit. Null too when the read
+   * failed, for the reason `accessUnread` gives: a limit nobody could read silences nobody.
+   */
+  readonly textRoom: number | null
 }
 
 export interface OutboundQueue {
@@ -1786,12 +1799,45 @@ export interface SharedNumbersNearCapacity {
  * What support@ is told about. One method per alert, so a message is never assembled
  * by a caller who does not know what it says.
  */
+/** A limit a church hit in its first weeks, as it was recorded (Exponential launch, ticket 37). */
+export interface NewChurchLimitHit {
+  readonly church: MinistryId
+  readonly churchName: string
+  readonly limit: NewChurchLimit
+}
+
+/** A church still in its first weeks, and what it stands at right now. */
+export interface NewChurchStanding {
+  readonly church: MinistryId
+  readonly name: string
+  readonly openedAt: Date
+  readonly people: number
+  readonly textsThisWeek: number
+}
+
+/**
+ * What the limits on a new church's first weeks keep, on the trusted connection, because
+ * the watch looks across every new church (Exponential launch, ticket 37).
+ */
+export interface NewChurchLimits {
+  /** Every church in its first weeks whose limits have not been lifted. */
+  standings(now: Date): Promise<readonly NewChurchStanding[]>
+  /** Once per church per limit; a second hit changes nothing. */
+  recordHit(church: MinistryId, limit: NewChurchLimit, at: Date): Promise<void>
+  untold(): Promise<readonly NewChurchLimitHit[]>
+  recordTold(church: MinistryId, limit: NewChurchLimit, at: Date): Promise<void>
+  /** An operator's act, kept in the church's history. Answers false for no such church. */
+  lift(church: MinistryId, at: Date): Promise<boolean>
+}
+
 export interface SupportAlerts {
   sharedNumbersNearCapacity(alert: SharedNumbersNearCapacity): Promise<void>
   /** Words only from the fall as it was recorded, so a retry is the same message. */
   twilioBalanceLow(fall: TwilioBalanceFall): Promise<void>
   /** Words only from what was recorded, so a retry is the same message. */
   over200FollowUp(followUp: Over200FollowUp): Promise<void>
+  /** Words only from what was recorded, so a retry is the same message. */
+  newChurchLimitHit(hit: NewChurchLimitHit): Promise<void>
   twilioSpendPassed(alert: TwilioSpendPassed): Promise<void>
   /** `day` is the Pacific day it was reached in, and what makes the email once a day. */
   dailyCapReached(alert: { readonly day: string }): Promise<void>

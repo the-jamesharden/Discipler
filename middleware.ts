@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { contentSecurityPolicy, newNonce } from '~/platform/security-headers'
 import { supabaseCredentials } from '~/platform/supabase/credentials'
 
 /**
@@ -14,8 +15,19 @@ import { supabaseCredentials } from '~/platform/supabase/credentials'
  * behind a valid token still exists is the page's question, answered in
  * `src/platform/supabase/session.ts` -- the middleware runs on prefetches too, and
  * a question asked here would be asked once per link on the screen.
+ *
+ * It is also where the Content-Security-Policy is set (Exponential launch, ticket 37),
+ * because the policy holds a nonce and a nonce is one request's. On the request as well
+ * as the response, because that is where Next reads the nonce it puts on its own scripts.
  */
 export async function middleware(request: NextRequest) {
+  const policy = contentSecurityPolicy({
+    nonce: newNonce(),
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    development: process.env.NODE_ENV === 'development',
+  })
+  request.headers.set('content-security-policy', policy)
+
   let response = NextResponse.next({ request })
 
   let credentials
@@ -27,6 +39,7 @@ export async function middleware(request: NextRequest) {
     // have said what to do about it. So the request passes through unrefreshed and
     // the reason is logged where whoever started the app will see it.
     console.error(error)
+    response.headers.set('content-security-policy', policy)
     return response
   }
 
@@ -47,6 +60,8 @@ export async function middleware(request: NextRequest) {
 
   await supabase.auth.getClaims()
 
+  // Last, because a refreshed session replaces the response.
+  response.headers.set('content-security-policy', policy)
   return response
 }
 

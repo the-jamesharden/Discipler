@@ -119,4 +119,4 @@ export const decodeImportReport = (params: {
  * Person reached the Roster, so there is nothing to count. A `FileProblem` is one of
  * these by definition -- rows that cannot be read as a whole reject every row.
  */
-export type ImportFailure = FileProblem | 'nothing_pasted' | 'too_large' | 'roster_changed'
+export type ImportFailure = FileProblem | 'nothing_pasted' | 'too_large' | 'roster_changed' | 'new_church_limit'

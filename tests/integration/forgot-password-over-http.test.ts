@@ -86,10 +86,9 @@ describe.skipIf(skipUnlessAppIsRunning)('forgetting a password', { timeout: MANY
   const LINK_IS_DEAD = 'This link has run out or has already been used.'
 
   describe('the way there', () => {
-    it('is on the sign-in page, and needs no session', async () => {
-      const login = await getPage('/login', '')
-      expect(login.html).toContain('<a href="/login/forgot">Forgot your password?</a>')
-
+    // The link on the sign-in page shows only while sign-up is open, which it is not on this
+    // server, so `tests/app/the-forgot-password-pages.test.ts` holds that.
+    it('needs no session', async () => {
       const { response, html } = await getPage('/login/forgot', '')
       expect(response.status).toBe(200)
       expect(html).toContain('<title>Reset your password</title>')

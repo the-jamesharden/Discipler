@@ -107,6 +107,7 @@ describe('Billing records and the Stripe webhook', () => {
       async twilioSpendPassed() {},
       async dailyCapReached() {},
       async over200FollowUp() {},
+      async newChurchLimitHit() {},
       async billingEventRefused(alert) {
         told.push(alert)
       },

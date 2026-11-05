@@ -39,6 +39,7 @@ const world = (
       messages: messages.filter((message) => !sentIds.includes(message.id)),
       closedWithoutAccess: 0,
       accessUnread: false,
+      textRoom: null,
     }),
     timeZoneOf: async () => 'America/New_York',
     sendingNumberFor: async (_, phone, at) => {
@@ -86,7 +87,7 @@ describe('Sending from the shared numbers', () => {
       { from: '+13185316138', to: '+15553330001' },
       { from: '+15674303906', to: '+15553330002' },
     ])
-    expect(outcome).toEqual({ sent: 2, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, waitingOnTheCap: 0, closedWithoutAccess: 0, accessUnread: false })
+    expect(outcome).toEqual({ sent: 2, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, waitingOnTheCap: 0, waitingOnTheNewChurchLimit: 0, closedWithoutAccess: 0, accessUnread: false })
   })
 
   it('asks for the number on the drain’s clock, the moment the pair is first texted', async () => {
@@ -121,6 +122,6 @@ describe('Sending from the shared numbers', () => {
     expect(it_.delivered.map(({ to }) => to)).toEqual(['+15553330002'])
     // Not claimed, so it holds no conversation while it waits.
     expect(it_.claimed).toEqual([aMessage(2, '+15553330002').id])
-    expect(outcome).toEqual({ sent: 1, withheld: 0, held: 0, failed: 0, awaitingANumber: 1, waitingOnTheCap: 0, closedWithoutAccess: 0, accessUnread: false })
+    expect(outcome).toEqual({ sent: 1, withheld: 0, held: 0, failed: 0, awaitingANumber: 1, waitingOnTheCap: 0, waitingOnTheNewChurchLimit: 0, closedWithoutAccess: 0, accessUnread: false })
   })
 })

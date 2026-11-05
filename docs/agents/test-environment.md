@@ -46,6 +46,10 @@ Start it in the background and read its log; a shell call that blocks on it will
 - **`fetch failed` or `EADDRNOTAVAIL` across many suites is the host, not the code.**
   Past about fifty days of uptime macOS stops expiring sockets in TIME_WAIT and the ephemeral ports run out.
   `netstat -an -p tcp | awk 'NR>2{print $6}' | sort | uniq -c | sort -rn | head`; if the counts are in the tens of thousands, stop running tests and tell the person. Only a reboot fixes it.
+- **A browser on `127.0.0.1` whose plain form stops with a `form-action` error is the address, not the policy.**
+  `next start` builds `request.url` on `localhost`, so a form's redirect names `http://localhost:<port>`, another origin to a page on `127.0.0.1`, and the Content-Security-Policy stops it.
+  Chrome names the address the form posted to, not the redirect it refused.
+  Open a local build in a browser at `http://localhost:<port>`.
 - **`relationship_member_ends_after_it_starts` in a fixture is two clocks, not the code.**
   The fixtures stamp `started_at` with this process's clock, and SQL `now()` is the database container's.
   After a heavy build the container can sit a few milliseconds behind, so a membership ended with `now()` a moment after it was added ends before it started, and a whole `beforeAll` goes with it.
@@ -123,6 +127,7 @@ Staging's Stripe is a Stripe sandbox (test mode), whose webhook endpoint is stag
 - A late or out-of-order event: resend an older `customer.subscription.updated` after a newer one; the webhook re-reads the subscription, so the church's state must not move.
 - Time passing (a trial ending, a renewal, a failed payment): create the customer on a Stripe test clock in the sandbox and advance the clock; the events it produces arrive at staging like any other.
 - `stripe trigger <event>` makes objects that belong to no church on staging, so the webhook should refuse them; it is a test of the refusal, not of a sign-up.
+- Only Stripe's published addresses may reach the webhook route on staging and production (`docs/stripe-webhook-addresses.md`), so a request sent by hand gets a 400 before its signature is read.
 - `stripe listen --forward-to` is for a server on this machine only: it signs with a secret of its own that staging does not hold, so its events are refused there.
 
 ## Other facts

@@ -74,6 +74,12 @@ export interface DispatchOutcome {
    */
   readonly waitingOnTheCap: number
   /**
+   * Messages left on the queue because a new church has sent its week's texts (Exponential
+   * launch, ticket 37). They go when the week has room, the church's first weeks end or
+   * its limits are lifted. Their recipients are checked then.
+   */
+  readonly waitingOnTheNewChurchLimit: number
+  /**
    * Messages closed for good because the church holds no access (Exponential launch,
    * ticket 05). Apart from `withheld`, which is a promise kept to a Person: these say
    * nothing about anybody's recipient.
@@ -104,7 +110,7 @@ const drainOnce = async ({
 }: Dispatch): Promise<DispatchOutcome> => {
   const startedAt = clock.now()
   const hold = await dailyCap.latestHold(startedAt)
-  const { messages, closedWithoutAccess, accessUnread } = await queue.due(ministryId, startedAt)
+  const { messages, closedWithoutAccess, accessUnread, textRoom } = await queue.due(ministryId, startedAt)
 
   let sent = 0
   let withheld = 0
@@ -112,6 +118,7 @@ const drainOnce = async ({
   let held = 0
   let awaitingANumber = 0
   let waitingOnTheCap = 0
+  let waitingOnTheNewChurchLimit = 0
 
   // Twilio would refuse every one of them, so it is not asked. Whichever text comes
   // next is the one that finds out the limit has reset, on the pass after midnight
@@ -124,6 +131,7 @@ const drainOnce = async ({
       held,
       awaitingANumber,
       waitingOnTheCap: messages.length,
+      waitingOnTheNewChurchLimit,
       closedWithoutAccess,
       accessUnread,
     }
@@ -165,6 +173,14 @@ const drainOnce = async ({
     if (message.disclosesPersonId) {
       const contact = await queue.contactToShare(ministryId, message.disclosesPersonId)
       if (contact) body = withSharedContact(body, contact)
+    }
+
+    // After the recipient checks, because a message that was never going to go uses none
+    // of the week. Counted by what was sent, because a refused text was not. Two drains of
+    // one church never overlap, so this is exact.
+    if (textRoom !== null && sent >= textRoom) {
+      waitingOnTheNewChurchLimit++
+      continue
     }
 
     // The shared number this church texts this phone from, given the first time and
@@ -242,5 +258,5 @@ const drainOnce = async ({
     sent++
   }
 
-  return { sent, withheld, failed, held, awaitingANumber, waitingOnTheCap, closedWithoutAccess, accessUnread }
+  return { sent, withheld, failed, held, awaitingANumber, waitingOnTheCap, waitingOnTheNewChurchLimit, closedWithoutAccess, accessUnread }
 }

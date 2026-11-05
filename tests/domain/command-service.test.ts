@@ -348,6 +348,9 @@ describe('applying a command\'s effects', () => {
         peopleOnRoster: async () => {
           throw new Error('the Roster should not have been read')
         },
+        newChurchRosterRoom: async () => {
+          throw new Error('the Roster limit should not have been read')
+        },
       }).then(() => sink),
     )
 
