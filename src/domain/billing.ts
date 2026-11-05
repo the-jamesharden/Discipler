@@ -23,6 +23,11 @@ export const STRIPE_EVENTS_ACTED_ON = [
   'customer.subscription.resumed',
   // What opens a church's access: its trial's card or bank account was saved (ticket 04).
   'setup_intent.succeeded',
+  // Stripe's billing page changes the customer's default, and a Subscription holding its
+  // own would go on being charged to the old one (ticket 33).
+  'customer.updated',
+  // Cancelling a Subscription on a schedule is said to the schedule alone (ticket 33).
+  'subscription_schedule.updated',
   'invoice.paid',
   'invoice.payment_failed',
   'invoice.payment_action_required',
@@ -147,19 +152,28 @@ const LIVE: ReadonlySet<SubscriptionStatus> = new Set(['trialing', 'active', 'pa
 export const isConfirmedAndLive = (subscription: StripeSubscriptionFacts): boolean =>
   LIVE.has(subscription.status) && !subscription.awaitingPaymentMethod
 
+/** Live first; a restart whose first payment has not gone through comes last (ticket 33). */
+const rankOf = (subscription: StripeSubscriptionFacts): number =>
+  isConfirmedAndLive(subscription)
+    ? 2
+    : subscription.status === 'incomplete' || subscription.status === 'incomplete_expired'
+      ? 0
+      : 1
+
 /**
  * The one Subscription a customer's billing state is read from, or null where it has
  * none. A church that ended and restarted holds two, and a late event about the old
  * one must not end the new one, so a live Subscription wins over any that is not, and
  * the newest wins among equals. One still waiting for its payment method is not live.
+ *
+ * A restart that has not been paid for yet does not replace what ended: a declined card
+ * leaves a church ended, under the ended banner, and not somewhere in between.
  */
 export const currentSubscription = (
   subscriptions: readonly StripeSubscriptionFacts[],
 ): StripeSubscriptionFacts | null =>
   [...subscriptions].sort(
-    (a, b) =>
-      Number(isConfirmedAndLive(b)) - Number(isConfirmedAndLive(a)) ||
-      b.createdAt.getTime() - a.createdAt.getTime(),
+    (a, b) => rankOf(b) - rankOf(a) || b.createdAt.getTime() - a.createdAt.getTime(),
   )[0] ?? null
 
 /** A verified Stripe event, as much of it as anything here reads. */
@@ -257,6 +271,15 @@ export const stripeInboxEntryOf = (event: StripeEventEnvelope): StripeInboxEntry
       case 'setup_intent':
         // Names its customer, and its Subscription only through the re-read.
         return { ...nothing, customerId: idOf(object.customer), namedChurches: present([own]) }
+      case 'customer':
+        return { ...nothing, customerId: textOf(object.id), namedChurches: present([own]) }
+      case 'subscription_schedule':
+        return {
+          ...nothing,
+          customerId: idOf(object.customer),
+          subscriptionId: idOf(object.subscription),
+          namedChurches: present([own]),
+        }
       case 'checkout.session':
         return {
           ...nothing,

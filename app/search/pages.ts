@@ -17,7 +17,9 @@ import { matching, termsOf, type DirectoryGroup, type DirectoryRow } from './mat
  * goes nowhere. This is the rule `./top-nav-menus` holds for the header, and how a later
  * ticket adds its page:
  *
- * - **Billing (ticket 33)** sets `href` on its entry below, to its section of Settings.
+ * - **Refer a church (ticket 32)** sets `REFER_A_CHURCH.href` for the header's button,
+ *   and this list reads the same line, so there is nothing to change here.
+ * - **Billing (ticket 33)** has its entry's `href` set below, to its own page.
  * - **Anything added to the Help menu** (Restart onboarding, What's new, Office hours,
  *   Contact support, Setup videos, Blog) is listed the moment `helpMenuFor` gives it an
  *   address, so tickets 25, 27 and 30 change nothing here. Office hours has one only
@@ -72,7 +74,7 @@ export const directoryPages = (officeHours: UpcomingOfficeHours | null): readonl
     heading: HEADINGS.settings,
     label: 'Billing',
     sub: BILLING_LINE,
-    href: null, // Ticket 33.
+    href: '/settings/billing',
     where: WHERE.settings,
     icon: 'card',
   },

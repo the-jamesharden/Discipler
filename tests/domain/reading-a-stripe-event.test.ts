@@ -127,7 +127,7 @@ describe('reading a Stripe event', () => {
   })
 
   it('reads nothing from an object it has no business with', () => {
-    const entry = stripeInboxEntryOf(anEvent('customer.created', { object: 'customer', id: 'cus_1' }))
+    const entry = stripeInboxEntryOf(anEvent('product.created', { object: 'product', id: 'prod_1' }))
 
     expect(entry).toMatchObject({
       customerId: null,
@@ -138,10 +138,35 @@ describe('reading a Stripe event', () => {
     })
   })
 
-  it('acts on the thirteen events the endpoint subscribes to and no others', () => {
-    expect(STRIPE_EVENTS_ACTED_ON).toHaveLength(13)
+  it('acts on the fifteen events the endpoint subscribes to and no others', () => {
+    expect(STRIPE_EVENTS_ACTED_ON).toHaveLength(15)
     expect(isStripeEventActedOn('invoice.paid')).toBe(true)
     expect(isStripeEventActedOn('customer.created')).toBe(false)
+  })
+})
+
+describe('what Stripe’s billing page and a schedule change', () => {
+  it('says which customer a changed default is about', () => {
+    const entry = stripeInboxEntryOf(
+      anEvent('customer.updated', { object: 'customer', id: 'cus_1', metadata: { ministry_id: 'm_1' } }),
+    )
+
+    expect(isStripeEventActedOn('customer.updated')).toBe(true)
+    expect(entry).toMatchObject({ customerId: 'cus_1', namedChurches: ['m_1'] })
+  })
+
+  it('says which customer and Subscription a changed schedule is about', () => {
+    const entry = stripeInboxEntryOf(
+      anEvent('subscription_schedule.updated', {
+        object: 'subscription_schedule',
+        id: 'sub_sched_1',
+        customer: 'cus_1',
+        subscription: 'sub_1',
+      }),
+    )
+
+    expect(isStripeEventActedOn('subscription_schedule.updated')).toBe(true)
+    expect(entry).toMatchObject({ customerId: 'cus_1', subscriptionId: 'sub_1' })
   })
 })
 
@@ -219,6 +244,33 @@ describe('the current subscription', () => {
     ])
 
     expect(current?.id).toBe('sub_paying')
+  })
+
+  it('is what ended, over a newer restart whose first payment has not gone through', () => {
+    const current = currentSubscription([
+      aSubscription('sub_ended', 'canceled', '2026-01-01'),
+      aSubscription('sub_restart', 'incomplete', '2026-06-01'),
+    ])
+
+    expect(current?.id).toBe('sub_ended')
+  })
+
+  it('is what ended, over a newer restart that ran out', () => {
+    const current = currentSubscription([
+      aSubscription('sub_ended', 'canceled', '2026-01-01'),
+      aSubscription('sub_restart', 'incomplete_expired', '2026-06-01'),
+    ])
+
+    expect(current?.id).toBe('sub_ended')
+  })
+
+  it('is the restart, once its first payment has gone through', () => {
+    const current = currentSubscription([
+      aSubscription('sub_ended', 'canceled', '2026-01-01'),
+      aSubscription('sub_restart', 'active', '2026-06-01'),
+    ])
+
+    expect(current?.id).toBe('sub_restart')
   })
 
   it('is a confirmed one over a newer trial still waiting for its payment method', () => {

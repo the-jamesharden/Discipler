@@ -7,6 +7,7 @@ import {
 } from '~/domain/ministry-settings'
 import { getMinistrySettingsReader } from '~/service/container'
 import { NotAnAdmin, PageShell } from '../shell'
+import { BillingCard } from './billing/card'
 import { AdminNav } from '../top-nav'
 import { TimezoneSelect } from '../timezone-select'
 import { CheckInWordsBlock } from './check-in-words'
@@ -74,6 +75,8 @@ export default async function MinistrySettingsPage({
       actions={<AdminNav admin={admin} />}
       admin={admin}
     >
+      <BillingCard admin={admin} timeZone={settings.timezone} />
+
       {refusals.length > 0 ? (
         <p className="toast error" role="alert">
           Nothing was saved. {refusals.join(' ')}

@@ -93,8 +93,14 @@ import {
   type PostgresSupportSubmissions,
 } from '~/platform/supabase/support-submissions'
 import type { CapacityConcern } from '~/domain/shared-numbers'
+import { createStripeAccount } from '~/platform/stripe/account'
 import { createStripeBilling, stripeClient } from '~/platform/stripe/billing'
 import { createStripeCredits } from '~/platform/stripe/credits'
+import {
+  createPostgresTrialEndingNotices,
+  type PostgresTrialEndingNotices,
+} from '~/platform/supabase/trial-ending-notices'
+import { supabaseBillingReader } from '~/platform/supabase/billing-reader'
 import { createStripeTrials } from '~/platform/stripe/trials'
 import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
 import { createCommandService, type CommandService } from './command-service'
@@ -120,12 +126,16 @@ import {
   type ReferralCreditWork,
 } from './referral-credits'
 import { watchOver200Churches, type Over200WatchOutcome } from './over-200-watch'
+import { restartSubscription, type RestartOpened } from './restart-subscription'
+import { watchTrialEndings, type TrialEndingOutcome } from './trial-ending-watch'
 import { createEmailSupportAlerts } from './support-alerts'
 import { createForgotPassword, type ForgotPassword } from './forgot-password'
 import { createSupportForm, type SupportForm, type SupportSweep } from './support-form'
 import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
+import type { BillingCycle } from '~/domain/offers'
 import type {
   ChurchSignups,
+  StripeAccount,
   ReferralCodes,
   ReferralLinks,
   ReferReader,
@@ -217,6 +227,7 @@ let phoneCheck: PhoneCheck | undefined
 let sharedNumbers: PostgresSharedNumbers | undefined
 let twilioBalanceFalls: PostgresTwilioBalanceFalls | undefined
 let over200FollowUps: PostgresOver200FollowUps | undefined
+let trialEndingNotices: PostgresTrialEndingNotices | undefined
 let churchSignups: PostgresChurchSignups | undefined
 let dailyCapHolds: PostgresDailyCapHolds | undefined
 let pendingSignups: PostgresPendingSignups | undefined
@@ -619,6 +630,43 @@ const billing = (): PostgresBilling => {
 /** Billing's church-scoped records (Exponential launch, ticket 03), for the server only. */
 export const getBillingRecords = (): BillingRecords => billing().records
 
+/** What Discipler itself knows for the Billing page (ticket 33), read as the Admin. */
+export const getBillingReader = () => supabaseBillingReader
+
+/** Stripe's API as the Billing page uses it (ticket 33). Throws per call where there is no key. */
+export const getStripeAccount = (): StripeAccount => createStripeAccount()
+
+/** Whether this deployment has Stripe at all. Preview and a developer's machine do not. */
+export const stripeIsConfigured = (): boolean => Boolean(process.env.STRIPE_SECRET_KEY)
+
+/** Restarting a church whose subscription ended (ticket 33). */
+export const restartTheSubscription = (church: MinistryId, cycle: BillingCycle): Promise<RestartOpened> =>
+  restartSubscription(
+    { records: billing().records, stripe: createStripeBilling(), account: createStripeAccount() },
+    church,
+    cycle,
+  )
+
+/**
+ * One pass of the trial-ending watch (Exponential launch, ticket 33). Where there is no
+ * Stripe nothing can be said about a charge, so nothing is read. Throws when the churches
+ * could not be read, and the tick catches it.
+ */
+export const watchTheTrialEndings = async (): Promise<TrialEndingOutcome | 'no_stripe'> => {
+  if (!process.env.STRIPE_SECRET_KEY) return 'no_stripe'
+  if (!trialEndingNotices) trialEndingNotices = createPostgresTrialEndingNotices(commandDatabaseUrl())
+  return watchTrialEndings({
+    notices: trialEndingNotices,
+    account: createStripeAccount(),
+    sender: getEmailSender(),
+    clock: systemClock,
+    links: {
+      billing: () => new URL('/settings/billing', appBaseUrl()),
+      logo: () => new URL('/discipler-logo.png', appBaseUrl()),
+    },
+  })
+}
+
 /** The Stripe webhook's inbox, which only the webhook and its processing touch. */
 export const getStripeEventInbox = (): StripeEventInbox => billing().inbox
 
@@ -777,6 +825,7 @@ export const closeCommandService = async (): Promise<void> => {
   const balanceFalls = twilioBalanceFalls
   const followUps = over200FollowUps
   const referralCreditRows = referralCredits
+  const endingNotices = trialEndingNotices
   const signupRows = churchSignups
   const capHolds = dailyCapHolds
   const limit = signInLimit
@@ -797,6 +846,7 @@ export const closeCommandService = async (): Promise<void> => {
   twilioBalanceFalls = undefined
   over200FollowUps = undefined
   referralCredits = undefined
+  trialEndingNotices = undefined
   churchSignups = undefined
   dailyCapHolds = undefined
   signInLimit = undefined
@@ -824,6 +874,7 @@ export const closeCommandService = async (): Promise<void> => {
   await shared?.close()
   await balanceFalls?.close()
   await followUps?.close()
+  await endingNotices?.close()
   await capHolds?.close()
   await limit?.close()
   await resetLinks?.close()

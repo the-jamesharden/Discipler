@@ -18,7 +18,7 @@ import {
 } from './flow'
 
 /** The site's own look, as far as Stripe's frames can wear it. */
-const ELEMENTS_LOOK: Pick<StripeElementsOptions, 'appearance' | 'fonts'> = {
+export const ELEMENTS_LOOK: Pick<StripeElementsOptions, 'appearance' | 'fonts'> = {
   appearance: {
     theme: 'stripe',
     variables: {

@@ -41,6 +41,8 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   'pending_signup_send',
   // The Stripe webhook's inbox (Exponential launch, ticket 03).
   'stripe_event',
+  // Which Admins were told a trial is ending (Exponential launch, ticket 33).
+  'trial_ending_email',
   // One first free month and one plant year per card or bank account (ticket 04).
   'payment_fingerprint_grant',
   // The support form, from somebody not signed in as an Admin (Exponential launch, ticket 25).

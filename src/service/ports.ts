@@ -50,6 +50,7 @@ import type {
   StripeSubscriptionFacts,
 } from '~/domain/billing'
 import type { PlantApplication, PlantDecision } from '~/domain/church-plant'
+import type { BillingPicture, PastBill } from '~/domain/billing-picture'
 import type { BillingCycle, FingerprintGrant, PaidPhase, TrialOffer } from '~/domain/offers'
 import type {
   ChargeFacts,
@@ -2130,6 +2131,112 @@ export interface StripeTrials {
    * 19). Doing it twice is doing it once.
    */
   schedulePhases(subscriptionId: string, phases: readonly PaidPhase[]): Promise<void>
+  /**
+   * Moves a Subscription holding a default of its own to the customer's, which is what
+   * Stripe's billing page changes (ticket 33). Answers whether anything had to move.
+   */
+  followCustomersDefault(customerId: string, subscriptionId: string): Promise<boolean>
+}
+
+/** The prices a restarting church is shown, and its credit (ticket 33). */
+export interface RestartPrices {
+  readonly monthCents: number
+  readonly yearCents: number
+  readonly creditCents: number
+}
+
+/** A step of Stripe's billing page that Discipler's Billing page opens at. */
+export type BillingPortalStep = 'update_method' | 'cancel'
+
+/**
+ * Stripe's API as Discipler's Billing page uses it (Exponential launch, ticket 33):
+ * reading a church's plan and bills, opening Stripe's billing page, and what that page
+ * cannot do. Throws when Stripe cannot answer, and the page says so.
+ */
+export interface StripeAccount {
+  /** The plan as Stripe says it now, or null where the customer holds no Subscription that began. */
+  pictureOf(customerId: string, at: Date): Promise<BillingPicture | null>
+  /** Past bills, the newest first. */
+  billsOf(customerId: string): Promise<readonly PastBill[]>
+  /** The one-time address of Stripe's billing page at that step, which comes back to `returnTo`. */
+  portalAddress(request: {
+    readonly customerId: string
+    readonly step: BillingPortalStep
+    readonly subscriptionId: string
+    readonly returnTo: string
+  }): Promise<string>
+  /**
+   * Ends a Subscription on a schedule at the end of what is paid for, and remembers on the
+   * schedule what it would have billed, so Keep my subscription can put it back.
+   */
+  cancelOnItsSchedule(subscriptionId: string): Promise<void>
+  /** Undoes a cancellation at the end of the period, by whichever way it was asked for. */
+  keep(subscriptionId: string): Promise<void>
+  /** What lets Stripe's Payment Element offer the card or bank account on file. */
+  customerSessionSecret(customerId: string): Promise<string>
+  /**
+   * A Subscription billed today at the normal price of `cycle`, with no trial and no
+   * offer, and the secret its first payment is confirmed with. Null in place of a secret
+   * where there is nothing to pay, because credit covered it. A first payment still
+   * waiting at the same price is handed back rather than made twice.
+   */
+  openRestart(restart: {
+    readonly customerId: string
+    readonly church: MinistryId
+    readonly cycle: BillingCycle
+    readonly waiting: readonly StripeSubscriptionFacts[]
+  }): Promise<{ readonly clientSecret: string | null }>
+  /** What the restart page charges for each cycle today, after any credit, from Stripe's prices. */
+  restartPrices(customerId: string): Promise<RestartPrices>
+  /** Ends one that cannot be paid again and would otherwise go on making bills. */
+  end(subscriptionId: string): Promise<void>
+}
+
+/** What Discipler itself knows for the Billing page (ticket 33). */
+export interface BillingPage {
+  readonly timeZone: string
+  readonly cadence: { readonly day: number; readonly hour: number }
+  readonly followUpCount: number
+}
+
+export interface BillingReader {
+  readBillingPage(): Promise<AdminPage<BillingPage>>
+}
+
+/** A church whose trial is about to end, as the seven-day watch reads it (ticket 33). */
+export interface TrialEndingCandidate {
+  readonly church: MinistryId
+  readonly churchName: string
+  readonly timeZone: string
+  readonly customerId: string
+  readonly subscriptionId: string
+  readonly trialEndsAt: Date
+  readonly admins: readonly {
+    readonly userId: string
+    readonly to: EmailAddress
+    readonly fullName: string
+  }[]
+}
+
+/**
+ * What the seven-day watch reads and remembers. Spans every church, on the trusted
+ * connection, as the other watches do. A church whose plant application was approved is
+ * never among them: it is not about to be charged (ticket 19).
+ */
+export interface TrialEndingNotices {
+  /**
+   * Confirmed trials ending between now and `before`, not canceling and not billed outside
+   * Stripe, with the Admins who have not yet been emailed. A church with none left is not
+   * among them.
+   */
+  toConsider(now: Date, before: Date): Promise<readonly TrialEndingCandidate[]>
+  /** Says it went to this Admin, for this Subscription. Saying so twice changes nothing. */
+  recordSent(notice: {
+    readonly church: MinistryId
+    readonly subscriptionId: string
+    readonly userId: string
+    readonly at: Date
+  }): Promise<void>
 }
 
 /**
