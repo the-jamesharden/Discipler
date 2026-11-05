@@ -611,6 +611,8 @@ export interface SetupSeen {
   readonly steps: readonly SetupStep[]
   /** When they were shown the badge, or null where this was not the badge. */
   readonly badgeSeenAt: Date | null
+  /** When the onboarding modal opened for them, or null where this was not that. */
+  readonly onboardingOpenedAt: Date | null
 }
 
 /**

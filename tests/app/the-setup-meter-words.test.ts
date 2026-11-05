@@ -49,26 +49,35 @@ describe('the setup meter words', () => {
    * Tickets 27 and 28 are not built, and no control goes nowhere. Each sets one line,
    * and this test is the one that then tells them to change it.
    */
-  it('offers no button for the tour or the test check-in while there is nowhere to go', () => {
+  it('offers no button for the test check-in while there is nowhere to go', () => {
     const steps = view([]).steps
 
-    expect(steps.find(({ step }) => step === 'tour')?.action).toBeNull()
     expect(steps.find(({ step }) => step === 'test_check_in')?.action).toBeNull()
+  })
+
+  it('sends Start the tour to the tour', () => {
+    const steps = view([]).steps
+
+    expect(steps.find(({ step }) => step === 'tour')?.action).toEqual({
+      button: 'Start the tour',
+      href: '/overview/tour',
+    })
   })
 
   it('passes over a step nobody can do yet when it says what is next', () => {
     expect(view([]).next).toBe('check_in_time')
-    expect(view(['check_in_time']).next).toBe('roster')
-    expect(view(['check_in_time', 'roster']).next).toBe('intake')
+    expect(view(['check_in_time']).next).toBe('tour')
+    expect(view(['check_in_time', 'tour']).next).toBe('roster')
+    expect(view(['check_in_time', 'tour', 'roster']).next).toBe('intake')
   })
 
   it('takes the first step not done, whatever order they were done in', () => {
     expect(view(['roster', 'intake', 'relationship', 'accepted']).next).toBe('check_in_time')
   })
 
-  it('says nothing is next when only the steps nobody can do yet are left', () => {
+  it('says nothing is next when only the step nobody can do yet is left', () => {
     expect(
-      view(['check_in_time', 'roster', 'intake', 'relationship', 'accepted']).next,
+      view(['check_in_time', 'tour', 'roster', 'intake', 'relationship', 'accepted']).next,
     ).toBeNull()
   })
 

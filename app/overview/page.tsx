@@ -27,6 +27,8 @@ import { GrowthChart } from './growth'
 import { growthChoiceFrom, overviewAddress } from './growth-address'
 import { cardPill, needOf } from './need'
 import { NewsCards } from './news-cards'
+import { RESTARTED } from './onboarding/addresses'
+import { OnboardingModal } from './onboarding/modal'
 import { WaitingOnYouCard } from './waiting-on-you-card'
 
 export const dynamic = 'force-dynamic'
@@ -62,12 +64,22 @@ export const dynamic = 'force-dynamic'
  *
  * At the bottom right, the unpaired pop-up (Exponential launch, ticket 29):
  * who is waiting on the Admin, once a sign-in and once a day.
+ *
+ * Over the page, the onboarding modal (Exponential launch, ticket 27): by itself the
+ * first time this Admin lands here, and at `?onboarding=` when Restart onboarding asks.
  */
 
 export default async function OverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ card?: string; done?: string; error?: string; growth?: string; by?: string }>
+  searchParams: Promise<{
+    card?: string
+    done?: string
+    error?: string
+    growth?: string
+    by?: string
+    onboarding?: string
+  }>
 }) {
   const query = await searchParams
   // Whatever arrives in the address is whatever somebody typed there: an id or
@@ -90,6 +102,7 @@ export default async function OverviewPage({
   // concern* does. After the read and never instead of it.
   const words = card ? await readTheConcerns(card.concerns, admin) : []
   const now = new Date()
+  const restarted = query.onboarding === RESTARTED
   const outcome = careOutcomeMessage(query.done)
   const refusal = careRefusalMessage(query.error)
   const notice = refusal
@@ -261,6 +274,12 @@ export default async function OverviewPage({
       ) : null}
 
       {waiting ? <WaitingOnYouCard waiting={waiting} /> : null}
+
+      {/* A new key for each answer from the server, so one closed earlier on this same
+          page opens again when Restart onboarding asks for it. */}
+      {!card && (restarted || !admin.onboarding.opened) ? (
+        <OnboardingModal key={now.getTime()} admin={admin} restarted={restarted} now={now} />
+      ) : null}
     </AdminShell>
   )
 }

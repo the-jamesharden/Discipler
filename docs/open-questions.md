@@ -698,11 +698,10 @@ Added on 2026-11-04 by ticket 32, the Refer page's words being James's own:
   Subject: "A referral credit is waiting for you".
   It names both churches, both Stripe customers, the opaque referral ID, and one sentence of why.
 - A shared email domain sends a credit to review, except a public one such as `gmail.com` (James, 2026-11-04).
-  If James finds he is reviewing credits between strangers on the same free mail service, leaving those domains out is one line in `whyTheyLookLikeOne` in `src/domain/referral-credit.ts`.
 
 Also from ticket 32, for the Stripe steps below: the restricted key needs Invoices and Charges read, on top of what ticket 04 lists, and Customers write has to cover customer balance transactions.
 Nothing here has reached real Stripe, so a credit on a test clock on staging is the check: a church invited, its first real payment, 30 days, then a "Referral credit" on the inviting customer's next invoice.
-Ticket 32's review sends James an email and nothing more: he settles it in Stripe or on the church's invoice, and Discipler's row stays `in_review`.
+Ticket 32's review sends James an email: he settles it in Stripe or on the church's invoice, then marks it done with `npm run referral-review -- settle <credit id> credited|not-credited`.
 
 Added on 2026-11-04 by ticket 33, choices the screens did not draw:
 
@@ -745,6 +744,15 @@ Also from ticket 33, what only James can do in Stripe, and what only a sandbox c
 - Give the restricted key Customer Sessions, Customer Portal sessions and configurations, and read on Invoices and Payment Methods.
 - Nothing here has met real Stripe.
   A sandbox has to answer: whether Stripe's page offers a bank in the update step, which its documents say it cannot add by hand; how a schedule cancels and previews; whether the Payment Element shows the method on file; a bank restart; a past-due retry after a new method; how a bank's name is capitalized; and whether the amount the page confirms matches the charge.
+
+Added on 2026-11-04 by ticket 27, the few words the onboarding mock-ups do not draw, in `app/overview/onboarding/copy.ts`, `app/overview/tour/copy.ts` and `app/help/setup-videos.ts`:
+
+- The welcome window for an account with no full name: "Welcome", rather than "Welcome, {first name}".
+- The button that plays the video, read by screen readers: "Play James's welcome video".
+- The video's row in Help's Setup videos: "A welcome from James".
+- The tour's browser tab: "The 2-minute tour".
+- The tour's close button, read by screen readers: "Close the tour".
+- The tour's phone keeps the real composed check-in, whose four choices run A to D, where the mock-up's phone drew three.
 
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
 

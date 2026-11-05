@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { Cross } from '../icons'
+import { afterOnboardingCloses } from './onboarding/hold'
 
 /**
  * Where the browser keeps the last showing the card was shown in (Exponential
@@ -43,8 +44,11 @@ export const UnpairedPopUp = ({
 
   useEffect(() => {
     if (shownIn() === showing) return
-    remember(showing)
-    setOpen(true)
+    // Not behind the onboarding modal, where this showing would be spent unseen.
+    return afterOnboardingCloses(() => {
+      remember(showing)
+      setOpen(true)
+    })
   }, [showing])
 
   if (!open) return null

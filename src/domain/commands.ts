@@ -724,9 +724,9 @@ export type Command =
       readonly changedBy: string
     }
   /**
-   * An Admin has watched these setup steps tick, or been shown the badge at 100%
-   * (Exponential launch, ticket 26). Sent by the bar itself, and only when there was
-   * something new to play.
+   * An Admin has watched these setup steps tick, been shown the badge at 100%
+   * (Exponential launch, ticket 26), or had the onboarding modal open (ticket 27). Sent
+   * by the bar and the modal themselves, and only when there was something new.
    */
   | {
       readonly type: 'setup.mark_seen'
@@ -735,6 +735,17 @@ export type Command =
       readonly seenBy: string
       readonly steps: readonly SetupStep[]
       readonly badge: boolean
+      readonly onboarding: boolean
+    }
+  /**
+   * An Admin pressed Done on the tour's last step (Exponential launch, ticket 27), which
+   * is setup step 2. Leaving the tour earlier sends nothing.
+   */
+  | {
+      readonly type: 'setup.finish_tour'
+      readonly ministryId: MinistryId
+      /** The Admin's account, from the session and never from the page. */
+      readonly finishedBy: string
     }
   /**
    * The six ways an Admin edits one of the Ministry's two Intake forms (Pastor

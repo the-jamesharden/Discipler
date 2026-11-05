@@ -27,7 +27,8 @@
     "smoke:pages": "vite-node -c vitest.config.ts scripts/smoke-pages.ts",
     "email:check": "vite-node -c vitest.config.ts scripts/send-test-email.ts",
     "staging:text": "vite-node -c vitest.config.ts scripts/staging-text.ts",
-    "stripe:catalog": "vite-node -c vitest.config.ts scripts/stripe-catalog.ts"
+    "stripe:catalog": "vite-node -c vitest.config.ts scripts/stripe-catalog.ts",
+    "tour:capture": "vite-node -c vitest.config.ts scripts/capture-tour.ts"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^7.0.1",

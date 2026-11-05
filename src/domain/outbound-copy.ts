@@ -636,6 +636,27 @@ export const meetingQuestion = ({
     body: `${fillingInTheName(words.question, subject)} ${MEETING_REPLIES}`,
   })
 
+/**
+ * The first text of a test check-in, an Admin's own look at what their people get, as
+ * James wrote it (Exponential launch, spec, mock-up 3 decisions). The onboarding modal
+ * draws these words on its phone; ticket 28 sends them, and decides whether they carry
+ * the rates line.
+ */
+export const testCheckInQuestion = ({
+  ministryName,
+  leaderNoun,
+  participantNoun,
+}: {
+  readonly ministryName: string
+  readonly leaderNoun: string
+  readonly participantNoun: string
+}): string =>
+  composeMessage({
+    ministryName,
+    discloseOptOut: false,
+    body: `This is your test check-in, the same one your ${leaderNoun}s get. Did you meet with your ${participantNoun} this week? ${MEETING_REPLIES}`,
+  })
+
 export interface CheckInMessage {
   readonly ministryName: string
 }

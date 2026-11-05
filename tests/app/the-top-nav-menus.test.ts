@@ -18,7 +18,7 @@ const labels = (groups: readonly HelpMenuGroup[]) =>
 /** The page a path inside the app is served from. */
 // A page of its own, or a page of the Help center's library behind `/help/[slug]`.
 const hasAPage = (href: string) =>
-  existsSync(fileURLToPath(new URL(`../../app${href}/page.tsx`, import.meta.url))) ||
+  existsSync(fileURLToPath(new URL(`../../app${href.split('?')[0]}/page.tsx`, import.meta.url))) ||
   (href.startsWith('/help/') && helpPage(href.slice('/help/'.length)) !== null)
 
 describe('the Help menu', () => {
@@ -32,9 +32,9 @@ describe('the Help menu', () => {
     ])
   })
 
-  it('shows only what works today: the Help center, What’s new and Contact support', () => {
+  it('shows only what works today: the Help center, Restart onboarding, What’s new and Contact support', () => {
     expect(labels(liveMenu(HELP_MENU))).toEqual([
-      { label: 'Help and feedback', items: ['Help center', "What's new", 'Contact support'] },
+      { label: 'Help and feedback', items: ['Help center', 'Restart onboarding', "What's new", 'Contact support'] },
     ])
   })
 
@@ -54,7 +54,7 @@ describe('the Help menu', () => {
     }))
 
     expect(labels(liveMenu(landed))).toEqual([
-      { label: 'Help and feedback', items: ['Help center', "What's new", 'Contact support'] },
+      { label: 'Help and feedback', items: ['Help center', 'Restart onboarding', "What's new", 'Contact support'] },
       { label: 'Learn', items: ['Blog'] },
     ])
   })
