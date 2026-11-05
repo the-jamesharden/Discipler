@@ -765,6 +765,15 @@ Two more for ticket 37's limits, both choices rather than words:
   Room returns at the hour last week's texts went, or when somebody lifts the limit, so it is usually daytime and not always.
   The daily cap's hold waits for each church's morning, and this one could be made to, if James wants the same care for a limit few churches should reach.
 
+Added on 2026-11-04 by ticket 31, Ask Discipler, whose on-screen words are all James's from the mock-up.
+The drafts are the ones no screen shows:
+
+- The email to support@ when the guide stops, `askDisciplerSpendStopped` in `src/service/support-alerts.ts`.
+  Subject: "Ask Discipler has stopped answering".
+  Body: "Vercel's AI Gateway refused a question from Ask Discipler for spending in {month} (UTC): the project's monthly budget has been reached, or the team's AI Gateway credits have run out.", then "Until that changes, every Admin who asks is told "Sorry, I couldn't answer just now. Please try again in a minute." and the question does not count toward their day. Nothing else in Discipler is affected.", then "A budget resets on the first of the month, UTC. To start sooner, look at the budget and the credits under AI Gateway in Vercel.", then "This email is sent once a month."
+- Screen-reader labels, in `app/help/ask/copy.ts`, which nobody sees.
+- The instructions the model is given, in `app/help/ask/instructions.ts`, which no Admin reads but which shape every answer.
+
 ## Open: the check-in words' refusals and `Messages read as`
 
 Raised on 2026-11-03 by the Exponential launch, ticket 40.
@@ -887,7 +896,8 @@ What needs deciding: whether a public link is acceptable or the call needs a wai
 Raised on 2026-11-03 by the Exponential launch, ticket 24.
 Search lists an Ask Discipler entry that needs an address, and ticket 31 may build a circle with none.
 Results open over the page rather than hanging from the bar.
-What needs deciding: whether ticket 31 gives the circle an address or removes the entry, and whether results stay over the page.
+Ticket 31 built the circle with no address, so the entry in `app/search/pages.ts` stays undrawn: a row would need an address that opens the chat, and it would go nowhere on a deployment with the guide switched off.
+What needs deciding: whether search opens the chat, with a hash address and a little script, or the entry is removed, and whether results stay over the page.
 
 ## Resolved: the setup meter cannot reach 100% yet
 

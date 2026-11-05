@@ -34,6 +34,7 @@
     "@stripe/stripe-js": "^10.2.1",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
+    "ai": "7.0.162",
     "markdown-it": "15.0.3",
     "next": "^15.5.4",
     "pg": "^8.16.3",

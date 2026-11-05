@@ -1802,6 +1802,69 @@ export interface SharedNumbersNearCapacity {
   readonly day: string
 }
 
+/** What the model said to one question. */
+export type GuideModelAnswer =
+  | {
+      readonly outcome: 'answered'
+      readonly text: string
+      readonly usage: {
+        readonly inputTokens: number
+        readonly cachedInputTokens: number
+        readonly outputTokens: number
+      }
+    }
+  /** The gateway refused it for spending: past the monthly cap, or out of credits. */
+  | { readonly outcome: 'spent' }
+  | { readonly outcome: 'failed' }
+
+/**
+ * The model behind Ask Discipler (Exponential launch, ticket 31). It never throws: every
+ * way of not answering is one the Admin is told sorry for. It takes no tools and no ID,
+ * so nothing but these words can reach it.
+ */
+export interface GuideModel {
+  answer(request: {
+    readonly instructions: string
+    readonly history: readonly { readonly question: string; readonly answer: string }[]
+    readonly question: string
+  }): Promise<GuideModelAnswer>
+}
+
+/** Where Ask Discipler's chats are written (`~/service/ask-discipler`). */
+export interface AskDisciplerStore {
+  /**
+   * Counts the Admin's day under a lock and, with room, adds the question. Null at the
+   * limit. `history` is this sign-in's last answered exchanges, oldest first.
+   */
+  holdAPlace(request: {
+    readonly ministryId: string
+    readonly userId: string
+    readonly sessionId: string
+    readonly question: string
+    readonly at: Date
+    readonly most: number
+    readonly remembering: number
+  }): Promise<{
+    readonly id: string
+    readonly askedToday: number
+    readonly history: readonly { readonly question: string; readonly answer: string }[]
+  } | null>
+  keepAnswer(request: {
+    readonly ministryId: string
+    readonly userId: string
+    readonly id: string
+    readonly answer: string
+    readonly at: Date
+  }): Promise<void>
+  giveUpThePlace(request: { readonly ministryId: string; readonly userId: string; readonly id: string }): Promise<void>
+  setTucked(request: { readonly ministryId: string; readonly userId: string; readonly tucked: boolean }): Promise<void>
+  /** How many were deleted. */
+  deleteAskedBefore(before: Date): Promise<number>
+  /** True for the first to record this month, which is the one that tells support@. */
+  recordSpendStop(month: string, at: Date): Promise<boolean>
+  forgetSpendStop(month: string): Promise<void>
+}
+
 /**
  * What support@ is told about. One method per alert, so a message is never assembled
  * by a caller who does not know what it says.
@@ -1851,6 +1914,8 @@ export interface SupportAlerts {
   billingEventRefused(alert: BillingEventRefused): Promise<void>
   /** Words only from what was recorded, so a retry is the same message. */
   referralCreditForReview(review: ReferralCreditForReview): Promise<void>
+  /** The gateway refused Ask Discipler for spending. `month` is what makes it once. */
+  askDisciplerSpendStopped(alert: { readonly month: string }): Promise<void>
   /**
    * The texting gate could not read a church's access, so texts went unchecked
    * (Exponential launch, ticket 05). `day` is what makes the email once a day.
@@ -3143,6 +3208,12 @@ export interface SignedInAdmin {
    * same one read, for the Overview card and the Help menu's New tag on every page.
    */
   readonly whatsNewDismissed: readonly string[]
+
+  /**
+   * Whether they have tucked Ask Discipler into its tab (Exponential launch, ticket 31),
+   * from that same one read, so the bubble draws in its place on every page.
+   */
+  readonly askDisciplerTucked: boolean
 
   /**
    * Where they stand with their church's setup meter, which every page's document

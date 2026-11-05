@@ -5,6 +5,7 @@ import { CHANGE_YOUR_PASSWORD, SIGN_OUT } from './account/copy'
 import { BillingBanner, isReadOnly } from './billing-banner'
 import { BotanicalFrame } from './botanical'
 import { ADMIN_TABS, type AdminTab } from './admin-tabs'
+import { AskDiscipler } from './ask-discipler'
 import { ArrowLeft } from './icons'
 import { SearchBar } from './search/search'
 import { SetupMeter } from './setup-meter'
@@ -172,6 +173,8 @@ export const AdminShell = ({
       {isReadOnly(admin) ? null : <SetupMeter admin={admin} />}
 
       <main className={readOnly ? 'read-only' : undefined}>{children}</main>
+
+      <AskDiscipler admin={admin} />
     </div>
   )
 }
@@ -240,6 +243,7 @@ export const PageShell = ({
     {admin ?? banners ? <BillingBanner admin={(admin ?? banners)!} /> : null}
     {admin && !isReadOnly(admin) ? <SetupMeter admin={admin} /> : null}
     <main className={isReadOnly(admin) ? 'read-only' : undefined}>{children}</main>
+    {admin ? <AskDiscipler admin={admin} /> : null}
   </div>
 )
 

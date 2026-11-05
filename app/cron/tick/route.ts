@@ -14,6 +14,7 @@ import {
   getCommandService,
   getMinistryDirectory,
   sweepTheReferralCredits,
+  sweepAskDiscipler,
   sweepTheStripeEvents,
   sweepTheSupportSubmissions,
   sweepUnsavedUploads,
@@ -227,6 +228,17 @@ export async function GET(request: NextRequest) {
     supportSubmissions = 'failed'
   }
 
+  // Then Ask Discipler's chats older than the privacy policy promises to keep them
+  // (Exponential launch, ticket 31). Whether or not the guide is on: a chat is deleted on
+  // its day. Caught on its own, and logged by name alone.
+  let askDisciplerChats: number | 'failed'
+  try {
+    askDisciplerChats = await sweepAskDiscipler()
+  } catch (error) {
+    console.error(`Sweeping Ask Discipler's chats failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    askDisciplerChats = 'failed'
+  }
+
   // Then the one reminder to a church that left the payment step (Exponential launch,
   // ticket 18). Caught on its own, and logged by name alone: nothing it found is lost,
   // and the next pass that day asks again.
@@ -285,6 +297,7 @@ export async function GET(request: NextRequest) {
     referralCredits,
     over200,
     supportSubmissions,
+    askDisciplerChats,
     paymentReminders,
     trialEndings,
     newChurchLimits,

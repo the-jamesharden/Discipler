@@ -594,6 +594,11 @@ a.rel-card:hover { box-shadow: 0 3px 14px rgba(45, 80, 22, 0.12); }
 .unpaired .acts { display: flex; gap: 0.6rem; margin-top: 1rem; flex-wrap: wrap; }
 .unpaired .acts .btn { font-size: 0.95rem; padding: 0.55rem 1rem; }
 
+/* Above Ask Discipler's circle or its tab, wherever one is on the page, as mock-up 3 has it. */
+body:has(.ask-wrap, .ask-tab) .unpaired { bottom: 5.6rem; }
+/* Opening the chat hides it, and it is there again when the chat closes (ticket 31). */
+body:has(.ask-panel) .unpaired { display: none; }
+
 /* What's new and office hours (Exponential launch, ticket 30): side by side at the top
    of Overview, and one alone takes the row. */
 .news-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
@@ -610,6 +615,103 @@ a.rel-card:hover { box-shadow: 0 3px 14px rgba(45, 80, 22, 0.12); }
 @media (max-width: 760px) { .news-row { grid-auto-flow: row; } }
 @media (max-width: 560px) {
   .unpaired { left: 1rem; right: 1rem; bottom: 1rem; width: auto; max-width: none; }
+  body:has(.ask-wrap, .ask-tab) .unpaired { bottom: 5.1rem; }
+}
+
+/* ---- Ask Discipler ---- */
+
+/* The AI guide (Exponential launch, ticket 31), as mock-up 4 draws it (`.lavish/ai-guide/ai.css`). */
+.ask-wrap { position: fixed; right: 1.4rem; bottom: 1.4rem; z-index: 45; }
+.ask-bubble { position: relative; width: 3.4rem; height: 3.4rem; border-radius: 50%; background: var(--primary); color: #fff; display: grid; place-items: center; box-shadow: 0 8px 24px rgba(45, 80, 22, 0.35); cursor: pointer; border: 0; padding: 0; line-height: 0; overflow: visible; }
+.ask-bubble:hover, .ask-bubble.open { background: var(--primary-light); }
+.ask-bubble svg { width: 2.1rem; height: 2.1rem; display: block; }
+.ask-bubble .ai { position: absolute; top: -0.2rem; right: -0.2rem; background: var(--accent); color: #1e3a0e; font-size: 0.58rem; font-weight: 800; border-radius: 999px; padding: 0.08rem 0.32rem; border: 2px solid var(--bg); line-height: 1.3; }
+
+/* The label beside it: always showing until setup is done, on hover after. */
+.ask-label { position: fixed; right: 5.6rem; bottom: 2.05rem; z-index: 45; background: var(--surface); color: var(--primary); font-size: 0.92rem; font-weight: 700; border: 1px solid var(--border); border-radius: 999px; padding: 0.42rem 0.9rem; box-shadow: 0 8px 22px rgba(45, 80, 22, 0.16); white-space: nowrap; }
+.ask-label::after { content: ''; position: absolute; right: -6px; top: 50%; width: 10px; height: 10px; background: var(--surface); border-right: 1px solid var(--border); border-top: 1px solid var(--border); transform: translateY(-50%) rotate(45deg); }
+.ask-label.hover { opacity: 0; transform: translateX(6px); transition: opacity 0.2s, transform 0.2s; pointer-events: none; }
+.ask-wrap:hover ~ .ask-label.hover, .ask-wrap:focus-within ~ .ask-label.hover { opacity: 1; transform: none; }
+
+/* Tucked away: a slim tab on the right edge brings the bubble back. */
+.ask-tuck { position: absolute; top: -0.35rem; left: -0.35rem; width: 1.35rem; height: 1.35rem; padding: 0; border-radius: 50%; background: var(--surface); color: var(--text-light); border: 1px solid var(--border); display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12); opacity: 0; transition: opacity 0.2s; }
+.ask-tuck:hover { background: var(--surface); color: var(--text); }
+.ask-tuck svg { width: 0.7rem; height: 0.7rem; }
+.ask-wrap:hover .ask-tuck, .ask-tuck:focus-visible { opacity: 1; }
+/* A phone has no hover, and the minus has to be reachable all the same. */
+@media (hover: none) { .ask-tuck { opacity: 1; } }
+.ask-tab { position: fixed; right: 0; bottom: 1.9rem; z-index: 45; display: flex; align-items: center; gap: 0.3rem; background: var(--primary); color: #fff; border: 0; border-radius: 12px 0 0 12px; padding: 0.45rem 0.45rem 0.45rem 0.55rem; box-shadow: 0 6px 18px rgba(45, 80, 22, 0.3); cursor: pointer; }
+.ask-tab svg { width: 1.35rem; height: 1.35rem; }
+.ask-tab .chev { width: 0.8rem; height: 0.8rem; opacity: 0.8; }
+
+/* The panel opens above the bubble. */
+.ask-panel { position: fixed; right: 1.4rem; bottom: 5.6rem; z-index: 47; width: 24rem; height: min(36rem, calc(100vh - 7.5rem)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 18px 50px rgba(45, 80, 22, 0.24); overflow: hidden; animation: ask-rise 0.3s ease; line-height: 1.6; }
+@keyframes ask-rise { from { opacity: 0; transform: translateY(14px); } }
+.ask-head { display: flex; align-items: center; gap: 0.65rem; padding: 0.8rem 0.8rem 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+.ask-face { flex: none; position: relative; width: 2.3rem; height: 2.3rem; border-radius: 50%; background: var(--primary); color: #fff; display: grid; place-items: center; }
+.ask-face svg { width: 1.45rem; height: 1.45rem; }
+.ask-face .ai { position: absolute; top: -0.25rem; right: -0.35rem; background: var(--accent); color: #1e3a0e; font-size: 0.5rem; font-weight: 800; border-radius: 999px; padding: 0.04rem 0.26rem; border: 2px solid var(--surface); line-height: 1.3; }
+.ask-title { flex: 1; min-width: 0; }
+.ask-title strong { display: block; font-family: var(--serif); font-size: 1.2rem; color: var(--primary); line-height: 1.15; }
+.ask-title span { font-size: 0.78rem; color: var(--text-light); }
+.ask-icon { flex: none; background: transparent; border: 0; color: var(--text-light); border-radius: 8px; padding: 0.35rem; line-height: 0; cursor: pointer; }
+.ask-icon:hover { background: var(--bg); color: var(--text); }
+.ask-icon svg { width: 1.1rem; height: 1.1rem; }
+
+.ask-body { flex: 1; overflow-y: auto; padding: 1rem 1rem 0.6rem; display: flex; flex-direction: column; gap: 0.75rem; background: var(--bg); }
+.ask-hello { font-size: 0.95rem; line-height: 1.5; }
+.ask-next { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 12px; padding: 0.75rem 0.9rem; }
+.ask-next .k { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--amber-ink); }
+.ask-next .t { font-weight: 700; margin-top: 0.1rem; }
+.ask-next .row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+.ask-next .ask-meter { font-size: 0.78rem; color: var(--text-light); margin-top: 0.15rem; }
+.ask-starters { display: flex; flex-direction: column; gap: 0.4rem; }
+.ask-starters .k { font-size: 0.78rem; color: var(--text-light); font-weight: 600; }
+.ask-chip { text-align: left; font: inherit; font-size: 0.88rem; color: var(--primary); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.45rem 0.7rem; cursor: pointer; font-weight: 400; }
+.ask-chip:hover { border-color: var(--primary); background: var(--surface); }
+
+.ask-exchange { display: flex; flex-direction: column; gap: 0.75rem; }
+.ask-msg { max-width: 88%; font-size: 0.9rem; line-height: 1.5; overflow-wrap: anywhere; }
+.ask-msg.me { align-self: flex-end; background: var(--primary); color: #fff; border-radius: 14px 14px 4px 14px; padding: 0.5rem 0.8rem; white-space: pre-wrap; }
+.ask-msg.ai { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: 14px 14px 14px 4px; padding: 0.6rem 0.85rem; }
+.ask-msg.ai p + p, .ask-msg.ai p + ol, .ask-msg.ai ol + p, .ask-msg.ai p + ul, .ask-msg.ai ul + p { margin-top: 0.45rem; }
+.ask-msg.ai ol, .ask-msg.ai ul { padding-left: 1.2rem; margin: 0; }
+.ask-msg.ai li + li { margin-top: 0.2rem; }
+/* The model is told not to write headings. If it does, one stays the size of a sentence. */
+.ask-msg.ai h1, .ask-msg.ai h2, .ask-msg.ai h3, .ask-msg.ai h4, .ask-msg.ai h5, .ask-msg.ai h6 { font: inherit; font-weight: 700; color: inherit; margin: 0.45rem 0 0; }
+.ask-msg.ai pre { overflow-x: auto; }
+.ask-msg.ai a { color: var(--primary); font-weight: 600; }
+.ask-msg.ai .src { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.55rem; padding-top: 0.5rem; border-top: 1px solid var(--border); font-size: 0.8rem; }
+.ask-msg.ai .src svg { width: 0.95rem; height: 0.95rem; color: var(--text-light); flex: none; }
+.ask-msg.ai.limit { border-left: 4px solid var(--amber); }
+.ask-msg.ai.err { border-left: 4px solid var(--red-ink); }
+.ask-dots { align-self: flex-start; display: flex; gap: 0.3rem; background: var(--surface); border: 1px solid var(--border); border-radius: 14px 14px 14px 4px; padding: 0.7rem 0.85rem; }
+.ask-dots span { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--text-light); animation: ask-blink 1.2s infinite; }
+.ask-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ask-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ask-blink { 0%, 60%, 100% { opacity: 0.25; } 30% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ask-dots span { animation: none; opacity: 0.6; } .ask-panel { animation: none; } }
+
+.ask-foot { border-top: 1px solid var(--border); padding: 0.7rem 0.8rem 0.65rem; background: var(--surface); }
+.ask-box { display: flex; align-items: flex-end; gap: 0.5rem; border: 1px solid var(--border); border-radius: 12px; padding: 0.35rem 0.35rem 0.35rem 0.75rem; background: var(--surface); margin: 0; }
+.ask-box:focus-within { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(45, 80, 22, 0.12); }
+.ask-box textarea { flex: 1; width: auto; min-width: 0; border: 0; outline: 0; box-shadow: none; resize: none; font: inherit; font-size: 0.92rem; line-height: 1.45; padding: 0.3rem 0; margin: 0; min-height: 1.6rem; max-height: 6rem; background: transparent; color: var(--text); }
+.ask-box textarea:disabled { color: var(--text-light); background: transparent; }
+.ask-send { flex: none; width: 2.1rem; height: 2.1rem; padding: 0; border-radius: 9px; border: 0; background: var(--primary); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.ask-send:disabled { background: var(--cell); color: var(--text-light); cursor: default; }
+.ask-send svg { width: 1rem; height: 1rem; }
+.ask-warn { font-size: 0.76rem; color: var(--text-light); margin-top: 0.45rem; text-align: center; }
+.ask-left { font-size: 0.76rem; color: var(--text-light); text-align: right; margin-top: 0.15rem; }
+
+/* On a phone the panel fills the screen and the bubble steps aside. */
+@media (max-width: 760px) {
+  .ask-wrap { right: 1rem; bottom: 1rem; }
+  .ask-label { right: 5.1rem; bottom: 1.62rem; font-size: 0.86rem; }
+  .ask-panel { inset: 0; width: auto; height: auto; border-radius: 0; border: 0; }
+  .ask-panel ~ .ask-wrap, .ask-panel ~ .ask-label { display: none; }
+  /* Under 16px, iOS zooms the whole page when the box is pressed. */
+  .ask-box textarea { font-size: 1rem; }
+  body:has(.ask-panel) { overflow: hidden; }
 }
 
 /* ---- check-ins ---- */
