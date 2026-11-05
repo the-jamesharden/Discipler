@@ -782,6 +782,11 @@ The drafts are the ones no screen shows:
 - Screen-reader labels, in `app/help/ask/copy.ts`, which nobody sees.
 - The instructions the model is given, in `app/help/ask/instructions.ts`, which no Admin reads but which shape every answer.
 
+Raised on 2026-11-04 by the review of wave 4.
+A church plant's lines on the Settings card are drafts: "then free for your church plant year" and "Free for your church plant year, then $97 a month".
+While sign-up is shut the Help center still lists Referrals, which describes a header button that is not drawn then.
+Three things wait for James: whether an ended church's Leaders are read-only too (`middleware.ts` asks only about Admins, recommended yes), whether the em dashes in the live Intake form sentences in `src/domain/intake-form.ts` go (recommended yes), and whether "Sign in" stays the plain button while it is the only one on `/login` (recommended yes, as the spec says).
+
 ## Open: the check-in words' refusals and `Messages read as`
 
 Raised on 2026-11-03 by the Exponential launch, ticket 40.
