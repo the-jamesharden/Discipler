@@ -51,6 +51,21 @@ const post = async (address: string, fields: Record<string, string> = {}): Promi
   }
 }
 
+/**
+ * The card's title, its last word, "check-in", kept on one line. The tick narrows the
+ * title, which otherwise breaks at the hyphen and leaves "in" alone below. One span
+ * around it all, as the heading lays its children out side by side.
+ */
+export const TestCardTitle = () => {
+  const last = TEST_CARD_TITLE.lastIndexOf(' ') + 1
+  return (
+    <span>
+      {TEST_CARD_TITLE.slice(0, last)}
+      <span className="nowrap">{TEST_CARD_TITLE.slice(last)}</span>
+    </span>
+  )
+}
+
 const Tick = () => (
   <svg
     viewBox="0 0 24 24"
@@ -177,7 +192,7 @@ export const TestCheckInCard = ({
       {children}
       <h3>
         {done ? <Tick /> : null}
-        {TEST_CARD_TITLE}
+        <TestCardTitle />
       </h3>
       {shownPhone ? <p>{testCardBody(shownPhone, leaderNoun)}</p> : null}
 

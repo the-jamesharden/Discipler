@@ -155,6 +155,16 @@ describe('the cards', () => {
       )
     })
 
+    // The tick narrows the title, which broke at the hyphen and left "in" alone below.
+    it.each([
+      ['a US Admin whose step is ticked', drawn({ setup: meter(['test_check_in']) })],
+      ['an Admin whose phone it cannot text', drawn({}, { testCard: { phone: '+14165550142' } })],
+    ])('keeps "check-in" in its title on one line for %s', (_, html) => {
+      const card = html.slice(html.indexOf('id="test-check-in"'))
+      expect(card).toContain('is-done')
+      expect(card).toMatch(/<h3><svg[^]*?<\/svg><span>Send yourself a test <span class="nowrap">check-in<\/span><\/span><\/h3>/)
+    })
+
     it('asks an Admin from before sign-up to agree, above the button', () => {
       const words = wordsOf(drawn({}, { testCard: { needsAgreement: true } }))
       expect(words).toContain(

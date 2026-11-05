@@ -17,7 +17,6 @@ import {
   FOOT,
   onboardingTitle,
   TEAM_CARD,
-  TEST_CARD_TITLE,
   TEST_CARD_US_ONLY,
   TOUR_CARD,
   WELCOME_EYEBROW,
@@ -27,7 +26,7 @@ import {
   whatHappensNext,
 } from './copy'
 import { JAMES_PHOTO } from './james-photo'
-import { TestCheckInCard } from './test-check-in-card'
+import { TestCardTitle, TestCheckInCard } from './test-check-in-card'
 import { testCheckInRefusalMessage } from '../test-check-in/copy'
 import { videoPlayerFor } from './video'
 import { OnboardingWindow, WelcomeVideo } from './window'
@@ -136,7 +135,7 @@ export const OnboardingModal = ({
             {firstTextOnAPhone}
             <h3>
               <Tick />
-              {TEST_CARD_TITLE}
+              <TestCardTitle />
             </h3>
             <p>{TEST_CARD_US_ONLY}</p>
           </article>
