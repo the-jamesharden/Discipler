@@ -41,6 +41,7 @@ import type { PersonRemoval, PersonRestoration } from './removal'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
 import type { HeldImportRow, ImportRowAnswer, NewPerson, PhoneNumber } from './roster'
 import type { SetupStep } from './setup-meter'
+import type { TestCheckInEnding, TestCheckInId } from './test-check-in'
 import type { ShortName } from './short-name'
 
 /**
@@ -108,6 +109,11 @@ export interface OutboundMessageDraft {
    * to a compliance question.
    */
   readonly ratesLine: RatesLineOccasion
+  /**
+   * The test check-in this text belongs to, where it belongs to one (Exponential launch,
+   * ticket 28), so that a test that ends takes its unsent texts with it.
+   */
+  readonly testCheckInId?: TestCheckInId
 }
 
 /**
@@ -874,6 +880,54 @@ export interface NewLeaderMembership {
   readonly startedAt: Date
 }
 
+/** An Admin's agreement on the test check-in's card, kept as their consent. */
+export interface TestCheckInAgreement {
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  readonly decidedAt: Date
+}
+
+export interface NewTestCheckIn {
+  readonly id: TestCheckInId
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  /** The Admin's account: the daily limit is theirs. */
+  readonly sentBy: string
+  readonly phone: string
+  readonly openedAt: Date
+  readonly subject: string
+  readonly words: CheckInWords
+}
+
+/** A reply that moved a test on: what it said, and the question now open. */
+export interface TestCheckInAnswer {
+  readonly id: TestCheckInId
+  /** Null where the reply finished the test. */
+  readonly nextQuestion: CheckInQuestion | null
+  readonly askedAt: Date
+  readonly met: boolean | null
+  readonly satisfaction: Satisfaction | null
+}
+
+/**
+ * A test ending, named either by itself or by the phone it is on, because a real
+ * check-in gives notice to a phone and a household may share one. Any ending but
+ * `completed` also closes the test's unsent texts.
+ */
+export interface TestCheckInClosure {
+  readonly ministryId: MinistryId
+  readonly on: { readonly id: TestCheckInId } | { readonly phone: string }
+  readonly how: TestCheckInEnding
+  readonly at: Date
+}
+
+/** Every test whose question has been open since before this moment, as the tick finds them. */
+export interface TestCheckInSweep {
+  readonly ministryId: MinistryId
+  readonly askedNoLaterThan: Date
+  readonly at: Date
+}
+
 /**
  * What an Admin called a group and whether joining it asks. Both, always: it is
  * one form and one save, and a rename that landed while the switch was refused is
@@ -933,6 +987,12 @@ export type Effect =
   | { readonly kind: 'checkin.clarify'; readonly clarification: CheckInClarification }
   | { readonly kind: 'checkin.remind'; readonly reminder: CheckInReminder }
   | { readonly kind: 'checkin.close'; readonly closure: CheckInSequenceClosure }
+  | { readonly kind: 'testCheckIn.agree'; readonly agreement: TestCheckInAgreement }
+  | { readonly kind: 'testCheckIn.open'; readonly test: NewTestCheckIn }
+  | { readonly kind: 'testCheckIn.answer'; readonly answer: TestCheckInAnswer }
+  | { readonly kind: 'testCheckIn.clarify'; readonly id: TestCheckInId }
+  | { readonly kind: 'testCheckIn.end'; readonly ending: TestCheckInClosure }
+  | { readonly kind: 'testCheckIn.sweep'; readonly sweep: TestCheckInSweep }
   | { readonly kind: 'person.opt_out'; readonly optOut: PersonOptOut }
   | { readonly kind: 'person.remove'; readonly removal: PersonRemoval }
   | { readonly kind: 'person.restore'; readonly restoration: PersonRestoration }
@@ -1256,6 +1316,30 @@ export const departFromRelationship = (departure: ParticipantDeparture): Effect 
 export const assignMaterial = (assignment: MaterialAssignment): Effect => ({
   kind: 'material.assign',
   assignment,
+})
+
+export const recordTestCheckInAgreement = (agreement: TestCheckInAgreement): Effect => ({
+  kind: 'testCheckIn.agree',
+  agreement,
+})
+
+export const openTestCheckIn = (test: NewTestCheckIn): Effect => ({ kind: 'testCheckIn.open', test })
+
+export const answerTestCheckIn = (answer: TestCheckInAnswer): Effect => ({
+  kind: 'testCheckIn.answer',
+  answer,
+})
+
+export const clarifyTestCheckIn = (id: TestCheckInId): Effect => ({ kind: 'testCheckIn.clarify', id })
+
+export const endTestCheckIn = (ending: TestCheckInClosure): Effect => ({
+  kind: 'testCheckIn.end',
+  ending,
+})
+
+export const sweepTestCheckIns = (sweep: TestCheckInSweep): Effect => ({
+  kind: 'testCheckIn.sweep',
+  sweep,
 })
 
 export const openCheckInSequence = (sequence: NewCheckInSequence): Effect => ({

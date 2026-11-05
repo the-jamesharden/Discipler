@@ -34,6 +34,30 @@ export const TOUR_CARD = {
 
 export const TEST_CARD_TITLE = 'Send yourself a test check-in'
 
+/** The test check-in's card, as `.lavish/onboarding/s1-modal.html` to `s4-limit.html` word it. */
+export const testCardBody = (phone: string, leaderNoun: string): string =>
+  `We'll text ${phone} the questions your ${leaderNoun}s get each week.`
+export const SEND_TEST = 'Send test'
+export const SEND_ANOTHER = 'Send another'
+export const TEST_CARD_AGREEMENT =
+  'By sending, you agree to receive texts from Discipler at this number, including sign-in codes and test check-ins. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.'
+export const testCardVerify = (phone: string): string =>
+  `First, a quick check that this phone is yours. We texted a 6-digit code to ${phone}.`
+export const CODE = 'Code'
+export const CODE_LABEL = '6-digit code'
+export const TEXT_ME_A_NEW_CODE = 'Text me a new code'
+export const CONFIRM_AND_SEND = 'Confirm and send'
+export const testCardSent = {
+  lead: 'Sent.',
+  rest: (leaderNoun: string): string =>
+    `Answer it on your phone the way ${/^[aeiou]/i.test(leaderNoun) ? 'an' : 'a'} ${leaderNoun} would. Nothing from a test is counted.`,
+}
+export const testCardLeft = (left: number): string => `You can send ${left} more today.`
+/** Drafts for James: the mock-ups drew neither. */
+export const NEW_CODE_SENT = 'We texted a new code.'
+export const SOMETHING_WENT_WRONG =
+  "Something went wrong, and we couldn't tell if that worked. Please try again in a minute. Thank you!"
+
 export const TEAM_CARD = { title: 'Speak with the team directly!', zoom: 'Zoom', join: 'Join on Zoom' }
 
 export const WHAT_HAPPENS_NEXT = 'What happens next'

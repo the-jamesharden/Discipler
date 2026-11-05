@@ -45,14 +45,13 @@ describe('the setup meter words', () => {
     })
   })
 
-  /**
-   * Tickets 27 and 28 are not built, and no control goes nowhere. Each sets one line,
-   * and this test is the one that then tells them to change it.
-   */
-  it('offers no button for the test check-in while there is nowhere to go', () => {
+  it('sends Send test to the card in the onboarding modal', () => {
     const steps = view([]).steps
 
-    expect(steps.find(({ step }) => step === 'test_check_in')?.action).toBeNull()
+    expect(steps.find(({ step }) => step === 'test_check_in')?.action).toEqual({
+      button: 'Send test',
+      href: '/overview?onboarding=cards#test-check-in',
+    })
   })
 
   it('sends Start the tour to the tour', () => {
@@ -64,21 +63,22 @@ describe('the setup meter words', () => {
     })
   })
 
-  it('passes over a step nobody can do yet when it says what is next', () => {
+  it('says the first step not done is what is next', () => {
     expect(view([]).next).toBe('check_in_time')
     expect(view(['check_in_time']).next).toBe('tour')
-    expect(view(['check_in_time', 'tour']).next).toBe('roster')
-    expect(view(['check_in_time', 'tour', 'roster']).next).toBe('intake')
+    expect(view(['check_in_time', 'tour']).next).toBe('test_check_in')
+    expect(view(['check_in_time', 'tour', 'test_check_in']).next).toBe('roster')
   })
 
   it('takes the first step not done, whatever order they were done in', () => {
     expect(view(['roster', 'intake', 'relationship', 'accepted']).next).toBe('check_in_time')
   })
 
-  it('says nothing is next when only the step nobody can do yet is left', () => {
+  it('gives a church from before launch with only the tour and the test left a Next line', () => {
+    expect(view(['check_in_time', 'roster', 'intake', 'relationship', 'accepted']).next).toBe('tour')
     expect(
       view(['check_in_time', 'tour', 'roster', 'intake', 'relationship', 'accepted']).next,
-    ).toBeNull()
+    ).toBe('test_check_in')
   })
 
   it('has a badge only at 100%, with the church, its day and its hour', () => {

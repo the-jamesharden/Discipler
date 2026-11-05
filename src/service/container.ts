@@ -112,6 +112,7 @@ import { createDailyCap, type DailyCap } from './daily-cap'
 import { watchNewChurchLimits, type NewChurchLimitsOutcome } from './new-church-limits-watch'
 import { createEmailSender } from './email-sender'
 import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
+import { createTestCheckIn, type TestCheckIn } from './test-check-in'
 import { createPhoneCheck, type PhoneCheck } from './phone-check'
 import { createOpeningAChurch, type OpeningAChurch } from './opening-a-church'
 import { watchPaymentReminders, type PaymentReminderOutcome } from './payment-reminder-watch'
@@ -235,6 +236,7 @@ let supportSubmissions: PostgresSupportSubmissions | undefined
 let askDisciplerStore: PostgresAskDisciplerStore | undefined
 let askDiscipler: AskDiscipler | undefined
 let supportForm: SupportForm | undefined
+let testCheckIn: TestCheckIn | undefined
 let phoneChecks: PostgresPhoneChecks | undefined
 let phoneCheck: PhoneCheck | undefined
 let sharedNumbers: PostgresSharedNumbers | undefined
@@ -491,6 +493,22 @@ export const getPhoneCheck = (): PhoneCheck => {
     })
   }
   return phoneCheck
+}
+
+/**
+ * The test check-in's button (Exponential launch, ticket 28): the same commands, the
+ * same queue and the same phone check as everything else, so wherever texts are recorded
+ * rather than sent, so are its texts and its code.
+ */
+export const getTestCheckIn = (): TestCheckIn => {
+  if (!testCheckIn) {
+    testCheckIn = createTestCheckIn({
+      commands: getCommandService(),
+      phoneCheck: getPhoneCheck(),
+      clock: systemClock,
+    })
+  }
+  return testCheckIn
 }
 
 /**

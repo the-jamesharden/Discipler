@@ -946,6 +946,20 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async sweepOutstandingReplies(sweep) {
           stagedOutstandingReplySweeps.push(sweep)
         },
+        // The test check-in is driven against the real tables: its sweep runs on every tick,
+        // and nothing else that runs here opens one.
+        async testCheckInStanding() {
+          throw new Error('Not stubbed: testCheckInStanding')
+        },
+        async openTestCheckInOf() {
+          return null
+        },
+        async recordTestCheckInAgreement() {},
+        async openTestCheckIn() {},
+        async answerTestCheckIn() {},
+        async clarifyTestCheckIn() {},
+        async endTestCheckIn() {},
+        async sweepTestCheckIns() {},
       }
 
       const result = await work(unit)

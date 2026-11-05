@@ -1,5 +1,5 @@
 import { SETUP_STEPS, type SetupMeter, type SetupStep } from '~/domain/setup-meter'
-import { TOUR_ADDRESS } from './overview/onboarding/addresses'
+import { THE_TEST_CARD, TOUR_ADDRESS } from './overview/onboarding/addresses'
 import { IMPORT_DIALOG_ID } from './roster/import-copy'
 import { DAYS, hourLabel } from './settings/copy'
 
@@ -9,12 +9,9 @@ import { DAYS, hourLabel } from './settings/copy'
  * words `.lavish/onboarding/build.mjs` draws).
  *
  * **A step's button shows the moment it has an address, as the top nav's items do
- * (`./top-nav-menus`), so no control goes nowhere.** Ticket 28 sets one line below, and
- * records its fact with `testCheckInSent` from `~/domain/setup-meter`, and nothing else
- * about the bar changes.
- *
- * Until then that step is listed with no button, and "Next:" passes over it: a step
- * nobody can do yet is not the next thing to do.
+ * (`./top-nav-menus`), so no control goes nowhere.** A step with none would be listed
+ * with no button, and "Next:" would pass over it: a step nobody can do yet is not the
+ * next thing to do.
  *
  * Here rather than in the client component that draws them: a server page cannot read
  * a constant out of a client module.
@@ -30,7 +27,7 @@ interface StepCopy {
 const STEP_COPY: Record<SetupStep, StepCopy> = {
   check_in_time: { words: 'Confirm your check-in time', button: 'Edit settings', href: '/settings#check-in' },
   tour: { words: 'Take the 2-minute tour', button: 'Start the tour', href: TOUR_ADDRESS },
-  test_check_in: { words: 'Send yourself a test check-in', button: 'Send test', href: null }, // Ticket 28.
+  test_check_in: { words: 'Send yourself a test check-in', button: 'Send test', href: THE_TEST_CARD },
   roster: { words: 'Add people to your Roster', button: 'Add people', href: `/roster#${IMPORT_DIALOG_ID}` },
   intake: { words: 'Get your first Intake back', button: 'Share your link', href: '/intake-forms' },
   // The empty Overview says the same: "Pair someone from the Roster to begin."

@@ -18,6 +18,10 @@ import {
   OUTSTANDING_COLUMN,
   PENDING,
   sentOn,
+  TEST_CHECK_INS,
+  TEST_TAG,
+  testOutcome,
+  TESTS_ARE_NOT_COUNTED,
   THIS_WEEKS_CHECK_INS,
 } from './copy'
 
@@ -41,6 +45,9 @@ export const dynamic = 'force-dynamic'
  *
  * A concern answered to the three-answer question before the change is stored as
  * `concern`, as one answered D is, so it sits in the D column with them.
+ *
+ * Test check-ins come with the same read and sit in a list of their own below, because
+ * nothing about one is a relationship-week.
  */
 
 const Column = ({ checkIns }: { readonly checkIns: readonly CheckInThisWeek[] }) =>
@@ -85,7 +92,7 @@ export default async function CheckInsPage({
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { week, followUpCount, card, cardThisWeek } = page.page
+  const { week, tests, followUpCount, card, cardThisWeek } = page.page
 
   // Opening the card reads its Concerns, and records the reading as *Read the
   // concern* does. After the read and never instead of it.
@@ -168,6 +175,29 @@ export default async function CheckInsPage({
           </div>
         </div>
       </div>
+
+      {/* Its own card under the columns, and in no count, column or badge above: an Admin
+          trying the product is not a relationship (Exponential launch, ticket 28). */}
+      {tests.length > 0 ? (
+        <div className="card ci-tests">
+          <div className="card-head">
+            <h2 className="card-title">{TEST_CHECK_INS}</h2>
+            <span className="muted">{TESTS_ARE_NOT_COUNTED}</span>
+          </div>
+          <ul className="ci-test-list">
+            {tests.map((test) => (
+              <li key={test.id}>
+                <span className="ci-test-who">
+                  {test.adminName}
+                  <span className="pill paused">{TEST_TAG}</span>
+                </span>
+                <span>{testOutcome(test)}</span>
+                <span className="ci-when">{shortDate(test.openedAt)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {card ? (
         <PairCard

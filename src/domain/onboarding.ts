@@ -44,3 +44,7 @@ export const stepsDoneOf = (meter: SetupMeter): number =>
 
 /** Whether the church has finished the tour, which the modal's first card shows. */
 export const tourIsDone = (meter: SetupMeter): boolean => !meter.shown || meter.done.includes('tour')
+
+/** Whether the church has sent a test check-in, which the modal's second card shows. */
+export const testCheckInIsDone = (meter: SetupMeter): boolean =>
+  !meter.shown || meter.done.includes('test_check_in')

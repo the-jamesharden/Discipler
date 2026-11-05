@@ -160,21 +160,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the setup meter', () => {
       expect((await getPage('/settings', cookie)).html).toContain('id="check-in"')
     })
 
-    /**
-     * Ticket 28 is not built, so its step is listed so the count is honest, with no
-     * button to press, and "Next:" passes over it.
-     */
-    it('lists the test check-in with no button, and passes over it', async () => {
+    it('sends Send test, as what is next, to the card in the onboarding modal', async () => {
       await pressSave(ministry, cookie)
       await record(tourFinished({ ministryId: ministry.id, finishedBy: ministry.adminUserId, at: new Date() }))
 
       const { html } = await getPage('/overview', cookie)
       const bar = barOf(html)!
 
-      expect(bar).toContain('Send yourself a test check-in')
-      expect(bar).not.toContain('Send test')
-      expect(nextIn(html)).toBe('Add people to your Roster')
-      expect(bar).toContain('href="/roster#import"')
+      expect(nextIn(html)).toBe('Send yourself a test check-in')
+      expect(bar).toContain('Send test')
+      expect(bar).toContain('href="/overview?onboarding=cards#test-check-in"')
     })
 
     it('sends Start the tour to the tour, as what is next', async () => {
@@ -462,14 +457,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the setup meter', () => {
       expect(rows).toEqual([])
     })
 
-    it('offers no Next while only the unbuilt step is left, and no dead button', async () => {
+    it('offers the tour next, and then the test check-in, as what is left', async () => {
+      expect(nextIn((await getPage('/overview', cookie)).html)).toBe('Take the 2-minute tour')
+
       await record(tourFinished({ ministryId: ministry.id, finishedBy: ministry.adminUserId, at: new Date() }))
 
-      const bar = barOf((await getPage('/overview', cookie)).html)!
+      const { html } = await getPage('/overview', cookie)
+      const bar = barOf(html)!
 
-      expect(bar).not.toContain('next-line')
-      expect(bar).not.toContain('class="step done next"')
-      expect(bar).not.toContain('class="go"')
+      expect(nextIn(html)).toBe('Send yourself a test check-in')
+      expect(bar).toContain('href="/overview?onboarding=cards#test-check-in"')
     })
 
     it('plays everything for its Admin once, because nothing has been seen yet', async () => {

@@ -6,6 +6,7 @@ import type {
 } from '~/domain/intended-pairing'
 import type { IntendedPairingId } from '~/domain/ids'
 import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
+import type { OpenTestCheckIn, TestCheckInId, TestCheckInStanding } from '~/domain/test-check-in'
 import type { PairingRefusal } from '~/domain/errors'
 import type { SupportFormFields, SupportSubmission } from '~/domain/support-form'
 import type {
@@ -100,8 +101,13 @@ import type {
   PersonRenaming,
   RelationshipCancellation,
   RelationshipEnding,
+  NewTestCheckIn,
   SetupSeen,
   ShortNameChange,
+  TestCheckInAgreement,
+  TestCheckInAnswer,
+  TestCheckInClosure,
+  TestCheckInSweep,
   IntakeAnswersRemoval,
   IntakeFormSaving,
 } from '~/domain/effects'
@@ -228,6 +234,27 @@ export interface UnitOfWork {
    * and two answers that could, briefly, disagree about which Ministry is speaking.
    */
   ministryVoice(): Promise<MinistryVoice>
+  /**
+   * One Admin as a test check-in sees them (Exponential launch, ticket 28). To decide a
+   * send it is `locked`: their Person's lock and then the lock the tick takes, so a real
+   * check-in opening and a test being sent cannot each miss the other. To draw the card it
+   * is not, so that no page waits on a tick. All but `hasAccess`, which is
+   * `churchHasAccess`, and all but what their own conversation is waiting on, which is
+   * `checkInFor`.
+   */
+  testCheckInStanding(
+    sentBy: string,
+    how: { readonly locked: boolean },
+  ): Promise<Omit<TestCheckInStanding, 'hasAccess'>>
+  /** The test open for this Person, whether or not its hour is up. */
+  openTestCheckInOf(person: PersonId): Promise<OpenTestCheckIn | null>
+  /** Their agreement on the test's card, kept as their consent. */
+  recordTestCheckInAgreement(agreement: TestCheckInAgreement): Promise<void>
+  openTestCheckIn(test: NewTestCheckIn): Promise<void>
+  answerTestCheckIn(answer: TestCheckInAnswer): Promise<void>
+  clarifyTestCheckIn(id: TestCheckInId): Promise<void>
+  endTestCheckIn(ending: TestCheckInClosure): Promise<void>
+  sweepTestCheckIns(sweep: TestCheckInSweep): Promise<void>
   /**
    * Whether this church may text (Exponential launch, ticket 05), as the one answer
    * in `app.billing_state_of` gives it. True where the read failed, which is logged:
@@ -1602,6 +1629,11 @@ export type WithholdingReason =
    * others: a restart does not reopen the row, so nothing from before it goes.
    */
   | 'church_has_no_access'
+  /**
+   * The test check-in this text belonged to has ended (Exponential launch, ticket 28), so
+   * nothing more of it goes.
+   */
+  | 'test_check_in_ended'
 
 export interface QueuedMessage {
   readonly id: OutboundMessageId
@@ -3601,6 +3633,16 @@ export interface ThisWeeksCheckIns {
   readonly checkIns: readonly CheckInThisWeek[]
 }
 
+export interface TestCheckInThisWeek {
+  readonly id: string
+  readonly adminName: string
+  readonly openedAt: Date
+  readonly met: boolean | null
+  readonly satisfaction: Satisfaction | null
+  /** Whether it is still waiting on the Admin, as against ended or past its hour. */
+  readonly waiting: boolean
+}
+
 /**
  * This week's answer for the relationship whose card is open on Check-Ins, which
  * the card opens with in its band (Pastor feedback, ticket 09). Never the words
@@ -3628,6 +3670,11 @@ export interface CheckInsPage {
   readonly card: PairCard | null
   /** This week's answer for the card's relationship, or null where none came this week. */
   readonly cardThisWeek: ThisWeeksAnswer | null
+  /**
+   * This week's test check-ins, Admins trying the product (Exponential launch, ticket
+   * 28). Beside the week and not in it, so that no count can reach them.
+   */
+  readonly tests: readonly TestCheckInThisWeek[]
 }
 
 export interface CheckInsReader {

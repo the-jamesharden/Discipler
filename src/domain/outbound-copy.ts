@@ -638,23 +638,41 @@ export const meetingQuestion = ({
 
 /**
  * The first text of a test check-in, an Admin's own look at what their people get, as
- * James wrote it (Exponential launch, spec, mock-up 3 decisions). The onboarding modal
- * draws these words on its phone; ticket 28 sends them, and decides whether they carry
- * the rates line.
+ * James wrote it (Exponential launch, spec, mock-up 3 decisions), asking the church's own
+ * question about "your {participant noun}", which reads as James wrote it for a church
+ * that has not reworded it. The onboarding modal draws these words on its phone with
+ * `discloseOptOut` false, and ticket 28 sends them with it true, as a real opening
+ * question may carry the rates line.
  */
 export const testCheckInQuestion = ({
   ministryName,
   leaderNoun,
-  participantNoun,
+  subject,
+  words,
+  discloseOptOut,
 }: {
   readonly ministryName: string
   readonly leaderNoun: string
-  readonly participantNoun: string
+  /** Who `[name]` stands for: see `testCheckInSubject`. */
+  readonly subject: string
+  readonly words: CheckInWords
+  readonly discloseOptOut: boolean
 }): string =>
   composeMessage({
     ministryName,
+    discloseOptOut,
+    body: `This is your test check-in, the same one your ${leaderNoun}s get. ${fillingInTheName(words.question, subject)} ${MEETING_REPLIES}`,
+  })
+
+/** A test names nobody, so `[name]` in the church's words stands for this. */
+export const testCheckInSubject = (participantNoun: string): string => `your ${participantNoun}`
+
+/** The last text of a test, whichever way it was answered. James's, word for word. */
+export const testCheckInThanks = ({ ministryName }: { readonly ministryName: string }): string =>
+  composeMessage({
+    ministryName,
     discloseOptOut: false,
-    body: `This is your test check-in, the same one your ${leaderNoun}s get. Did you meet with your ${participantNoun} this week? ${MEETING_REPLIES}`,
+    body: 'Thank you! Glad you are getting to experience what Discipler can do for your ministry!!',
   })
 
 export interface CheckInMessage {

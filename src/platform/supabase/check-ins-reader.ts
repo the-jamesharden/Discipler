@@ -1,11 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { systemClock, type Clock } from '~/domain/clock'
 import { concernId, relationshipId, type MinistryId, type RelationshipId } from '~/domain/ids'
+import { testCheckInIsLive } from '~/domain/test-check-in'
 import { isoWeekOf } from '~/domain/week'
 import type {
   CheckInsPage,
   CheckInsReader,
   CheckInThisWeek,
+  TestCheckInThisWeek,
   ThisWeeksAnswer,
   ThisWeeksCheckIns,
 } from '~/service/ports'
@@ -17,6 +19,7 @@ import {
   byNames,
   historyOf,
   membersFrom,
+  satisfactionOf,
   type HistoryInputs,
   type RelationshipWeekAnswer,
 } from './relationship-history'
@@ -195,12 +198,42 @@ export const checkInsDocument = (
 ): [page: string, args?: Readonly<Record<string, unknown>>] =>
   card === null ? ['check_ins_page'] : ['check_ins_card_page', { card_relationship_id: card }]
 
+/**
+ * This week's test check-ins, newest first (Exponential launch, ticket 28). Which week
+ * is `isoWeekOf`'s to say, as for every row on the tab, and whether one is still waiting
+ * is the test's own rule, so a test past its hour reads as over before the tick has
+ * closed it.
+ */
+const testsThisWeek = (doc: PageDocument, timeZone: string | null, now: Date): readonly TestCheckInThisWeek[] => {
+  if (!timeZone) return []
+  const week = isoWeekOf(now, timeZone)
+  return list(doc, 'test_check_ins').flatMap((row): readonly TestCheckInThisWeek[] => {
+    const id = text(row.id)
+    const opened = text(row.opened_at)
+    const asked = text(row.asked_at)
+    if (!id || !opened || !asked) return []
+    const openedAt = new Date(opened)
+    if (isoWeekOf(openedAt, timeZone) !== week) return []
+    return [
+      {
+        id,
+        adminName: text(row.full_name) ?? '',
+        openedAt,
+        met: typeof row.met === 'boolean' ? row.met : null,
+        satisfaction: satisfactionOf(row.satisfaction),
+        waiting: row.ended_at === null && testCheckInIsLive({ askedAt: new Date(asked) }, now),
+      },
+    ]
+  })
+}
+
 /** The tab, the badge's number and the card the address names, out of one document. */
 export const checkInsPageFrom = (doc: PageDocument, clock: Clock): CheckInsPage => {
   const history = historyOf(doc)
   const card = pairCardFrom(doc, history, clock)
   return {
     week: checkInsFrom(history, clock),
+    tests: testsThisWeek(doc, history.timeZone, clock.now()),
     followUpCount: careNeededFrom(history, clock).length,
     card,
     cardThisWeek: card

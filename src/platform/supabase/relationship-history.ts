@@ -330,7 +330,7 @@ const SATISFACTIONS: readonly Satisfaction[] = ['outstanding', 'good', 'okay', '
  * that quietly left it out of every bucket would be a wrong number on a screen
  * built to show that number.
  */
-const satisfactionOf = (value: unknown): Satisfaction | null => {
+export const satisfactionOf = (value: unknown): Satisfaction | null => {
   if (value === null || value === undefined) return null
   const known = SATISFACTIONS.find((candidate) => candidate === value)
   if (!known) {
