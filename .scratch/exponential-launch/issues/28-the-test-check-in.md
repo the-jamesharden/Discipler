@@ -127,7 +127,7 @@ The real numbers are what each church's Admin sees on their first sign-in after 
 **For James.**
 
 - SAU BCM's Admin has a Canadian phone, so pressing Send test reads "We can only text codes to US mobile numbers..." and their church cannot reach 100% or the badge unless an Admin with a US phone sends one.
-  It is in `docs/open-questions.md` under *how an Admin with a non-US phone gets a test check-in*.
+  It is in `docs/open-questions.md` under *how an Admin with a non-US phone gets a test check-in*, which James settled on 2026-11-05: the step counts as done for that Admin.
 - The draft words are in `docs/open-questions.md` under *sign-up's numbers and wording*.
 - The first press on production is the first code through the real Verify service, as ticket 09 says, and no real code or text has been sent in this build.
 

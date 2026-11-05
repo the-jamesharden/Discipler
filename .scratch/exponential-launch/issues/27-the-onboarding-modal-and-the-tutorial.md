@@ -105,6 +105,7 @@ The modal opens over it on an Admin's first sign-in, so that Admin's confetti wo
 16. Check-in dates inside the captured pages are frozen at capture time, so the tour says "Sent Nov 2" until someone recaptures.
 17. The phone sits at 8.5rem from the right rather than the mock-up's 6rem, because at 1440 wide the Next button covered its reply bubbles.
     The camera's third stop no longer goes down past the top of the page, which left bare paper under the bar.
+18. A church whose subscription has ended does not have the modal open by itself, because it can do nothing the modal offers, and Restart onboarding still opens it (James, 2026-11-05).
 
 **Draft words for James** are in `docs/open-questions.md` under *sign-up's numbers and wording*.
 

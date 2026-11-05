@@ -488,12 +488,14 @@ Raised on 2026-10-31 by the Exponential launch, ticket 09.
 The mock-up drew only the card asking for the code, so the refusal sentences in `app/account/phone/copy.ts` are drafts.
 What needs deciding: whether to approve or reword them.
 
-## Open: how an Admin with a non-US phone gets a test check-in
+## Resolved: how an Admin with a non-US phone gets a test check-in
 
 Raised on 2026-10-31 by the Exponential launch, ticket 09.
 A non-US number is refused before Twilio is called, and the SAU BCM Admin's phone is Canadian, so that Admin cannot be checked or sent a test check-in.
-What needs deciding: whether that stands, or that one Admin needs another way.
-Ticket 28 made this bite: step 3 of the setup bar is the test check-in, so until it is decided that church reaches 100% and its badge only if an Admin with a US phone sends one.
+Ticket 28 made this bite: step 3 of the setup bar is the test check-in, so that church could reach 100% and its badge only if an Admin with a US phone sent one.
+James decided on 2026-11-05 that step 3 counts as done for an Admin whose own phone is outside the US (`setupMeterOf` in `src/domain/setup-meter.ts`), and their card says test check-ins can only text US numbers for now.
+An Admin with no phone on file is not counted, since adding one is something they can fix.
+The onboarding card's line for that Admin is a draft, listed under *sign-up's numbers and wording*.
 
 ## Open: Supabase Auth's own password settings on production
 
@@ -669,6 +671,7 @@ Added on 2026-11-04 by ticket 28, inside the approved test check-in card, in `ap
 - A request that never came back: "Something went wrong, and we couldn't tell if that worked. Please try again in a minute. Thank you!"
 - The list on Check-Ins: its heading "Test check-ins", beside it "Admins trying it out. Nothing from a test is counted.", and on each row the Test tag with "Met, outstanding", "Met, good", "Met, okay", "Met, concern", "Met", "Didn't meet", "Waiting for a reply" or "No reply".
 - A church with no access to texting reads the sentence every other surface uses, `app/texting-gate-copy.ts`.
+- Added on 2026-11-05, the card of an Admin whose own phone is outside the US, in `app/overview/onboarding/copy.ts`: "Test check-ins can only text US numbers for now, so this step is done for you."
 
 Added on 2026-11-04 by ticket 21, two checks only production can answer, neither of them a sentence:
 
@@ -733,6 +736,7 @@ Also from ticket 33, drafts inside the approved Billing screens, in `app/setting
 - The line under its buttons, in place of "These open Stripe's secure billing page, then bring you back here.": "Update payment method opens Stripe's secure billing page, then brings you back here."
 - The offers: "Church plant year" with "Free for your first year, through {date}", and "First month free" with "Your first paid month is free, through {date}".
 - The next bill's note for those two: "Free for your church plant year, then {price}" and "{price}, less your first month free".
+- Added on 2026-11-05, the Settings line in a trial when the first yearly bill is not the yearly price: "Free trial until {date}, then {first bill} for your first year, then {price} a year · {payment method}".
 - An ended church: the row "Ended" with its date and "Check-ins have stopped. Everything is still here.", and Restart Discipler in the Payment method card.
 - A bill: "Year from {month and year}" for a yearly bill, and "Processing" for a bank debit still on its way.
 - A failed payment with no retry to come: "{amount}, not yet paid" and "Everything keeps running in the meantime."

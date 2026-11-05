@@ -25,7 +25,7 @@
 
 - About a person: "I can't see anyone in your church, so I can't answer about a particular person or relationship. Their row on Check-Ins shows every answer they have sent.", followed by the help page that fits.
 - The 31st question: "That's 30 questions today, the most for one day. You can ask again tomorrow. The Help center has every answer I give, any time.", with the box greyed and reading "You can ask again tomorrow".
-- A failed answer: "Sorry, I couldn't answer just now. Please try again in a minute."; it does not count toward the 30.
+- A failed answer: "Sorry, I couldn't answer just now. Please try again in a minute."; it does not count toward the 30 unless the model may have been paid for it (see the Comments' decisions).
 
 ## The rule
 
@@ -126,13 +126,14 @@ No Anthropic key is used, and none should be added.
   The alternative was to wait for a 31st try, which matches "The 31st question" more literally and costs the Admin a question typed for nothing.
 - One table, a row per question and answer, with a chat being the rows of one sign-in's `session_id`.
   The alternative was a chat table and a message table, with nothing to say on the chat row.
-- A failed answer deletes its row, so it does not count.
+- A failed answer that nothing was paid for deletes its row, so it does not count: a 402, a clear refusal from the gateway, or a missing or refused credential.
+  An answer the model was paid for costs a question, one cut off or declined included, and so do a timeout and a connection lost after sending, since nothing proves they were not paid for (James, 2026-11-05, replacing the first build's rule that every failed answer was free).
   A process that dies between asking and answering leaves its row counted, which costs one question and is never shown, rather than holding a lock while a vendor thinks.
 - The last 10 exchanges of a chat go along with each question.
   The alternative was all of them, and a sign-in can last a year, so each question would cost more than the last.
 - A question over 1,000 characters is stopped by the box, and the server treats one that gets past as a failed answer, uncounted.
   The alternative was new refusal words for a case no Admin can reach by typing.
-- Low effort, at most 2,048 tokens, 45 seconds and one retry, and an answer cut off or declined by the model is a failed answer.
+- Low effort, at most 2,048 tokens, 45 seconds and one retry, and an answer cut off or declined by the model is a failed answer that still costs a question.
   The alternative was to show part of an answer.
 - Any 402, budget or credits alike, sends the one email, recorded per UTC month in an operator-only table, and a send that fails takes the record back so the next question tries again.
   The alternative was to rely on the email vendor's own idempotency, which lasts a day.
