@@ -692,6 +692,15 @@ Also from ticket 22, three things to check on production before anybody relies o
 - `RESEND_API_KEY` and `RESEND_EMAIL_DOMAIN`, or the page says "Email sent." and the only sign that nothing went is `A reset email for link ... did not go` in the log.
 - The link shows on the sign-in page whether or not sign-up is open, so until sign-up opens it answers "Email sent." to everybody and sends nobody anything, because nobody's account holds an address yet.
 
+Added on 2026-11-04 by ticket 27, the few words the onboarding mock-ups do not draw, in `app/overview/onboarding/copy.ts`, `app/overview/tour/copy.ts` and `app/help/setup-videos.ts`:
+
+- The welcome window for an account with no full name: "Welcome", rather than "Welcome, {first name}".
+- The button that plays the video, read by screen readers: "Play James's welcome video".
+- The video's row in Help's Setup videos: "A welcome from James".
+- The tour's browser tab: "The 2-minute tour".
+- The tour's close button, read by screen readers: "Close the tour".
+- The tour's phone keeps the real composed check-in, whose four choices run A to D, where the mock-up's phone drew three.
+
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
 
 ## Open: the check-in words' refusals and `Messages read as`
