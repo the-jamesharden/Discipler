@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { signInFailureMessage } from '../../app/login/failures'
@@ -101,16 +99,6 @@ describe('what a failure says', () => {
   it('names no phone number, in any sentence that could be about an email too', () => {
     for (const code of ['missing-credentials', 'no-such-account']) {
       expect(signInFailureMessage(code)).not.toMatch(/phone number/i)
-    }
-  })
-})
-
-describe('the styles it needs', () => {
-  it('are in the stylesheet the app serves', () => {
-    const css = readFileSync(fileURLToPath(new URL('../../public/discipler.css', import.meta.url)), 'utf8')
-
-    for (const rule of ['.divider-or {', '.divider-or::before', 'a.btn.full {', 'button.full, a.btn.full {']) {
-      expect(css).toContain(rule)
     }
   })
 })

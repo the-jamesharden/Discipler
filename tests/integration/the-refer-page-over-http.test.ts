@@ -45,6 +45,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the Refer page', () => {
     const { response, html } = await getPage('/refer', cookie, signUpOpenUrl)
     expect(response.status).toBe(200)
 
+    // No box to type in, no list and no draft: the link is read-only and nothing composes.
+    expect(html).not.toContain('<textarea')
+    expect(html).not.toContain('mailto:')
+    expect(/<input[^>]*readOnly=""[^>]*>/.test(html)).toBe(true)
+
     const words = html.replace(SEPARATE, '')
     const order = [
       'Know a church that would love Discipler? Share your link.',

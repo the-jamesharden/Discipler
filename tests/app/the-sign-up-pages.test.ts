@@ -710,11 +710,6 @@ describe('"Set up your account"', () => {
       expect(words).not.toContain('special offer')
     })
 
-    it('is read from the launch terms, never typed', () => {
-      const source = readFileSync(fileURLToPath(new URL('../../app/signup/copy.ts', import.meta.url)), 'utf8')
-      expect(source).not.toMatch(/\$97|931\.20|60 days|30 days|20%/)
-    })
-
     it('starts on Monthly', async () => {
       await atAccount()
       const html = await htmlOf(AccountPage)

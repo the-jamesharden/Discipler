@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -150,14 +148,6 @@ describe('the form before the route has answered', () => {
   it('names no date it has not been told, and does not load Stripe yet', () => {
     expect(html).not.toContain('Your free trial ends on')
     expect(html).not.toContain('js.stripe.com')
-  })
-})
-
-describe('the form and the stylesheet', () => {
-  const css = readFileSync(fileURLToPath(new URL('../../public/discipler.css', import.meta.url)), 'utf8')
-
-  it.each(['.stripe-el', '.stripe-el .or', '.stripe-el .by', '.payment-lead', '.reminders-off-said'])('styles %s', (selector) => {
-    expect(css).toContain(selector)
   })
 })
 

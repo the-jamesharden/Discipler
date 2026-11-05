@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import Stripe from 'stripe'
 import { describe, expect, it } from 'vitest'
 import { REFERRAL_CREDIT_HELD_DAYS, TRIAL_DAYS } from '~/domain/launch-terms'
@@ -46,15 +44,6 @@ describe('the words', () => {
     expect(referralNote('Riverside Chapel', 'app.trydiscipler.com/r/k7m2qp9xab')).toBe(
       'Hi! At Riverside Chapel we use Discipler to keep our discipleship relationships meeting week to week, and I think your church would love it. Sign up with our link and your first paid month is free: app.trydiscipler.com/r/k7m2qp9xab',
     )
-  })
-
-  it('hold no box to type in, no list and no draft', () => {
-    const page = readFileSync(fileURLToPath(new URL('../../app/refer/page.tsx', import.meta.url)), 'utf8')
-    const link = readFileSync(fileURLToPath(new URL('../../app/refer/your-link.tsx', import.meta.url)), 'utf8')
-
-    expect(page + link).not.toContain('<textarea')
-    expect(page + link).not.toContain('mailto:')
-    expect(link).toContain('readOnly')
   })
 })
 
