@@ -169,7 +169,7 @@ describe('the referral credit', { timeout: 60_000 }, () => {
       inbox: billing.inbox,
       records: billing.records,
       stripe: fake.stripe,
-      trials: {} as StripeTrials,
+      trials: { firstBillSetsCustomersDefault: async () => false } as unknown as StripeTrials,
       alerts: {} as SupportAlerts,
       clock,
       creditOnEvent: (entry, church, customerId) => creditOnStripeEvent(work, entry, church, customerId),
