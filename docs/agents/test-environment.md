@@ -130,7 +130,8 @@ Staging's Stripe is a Stripe sandbox (test mode), whose webhook endpoint is stag
 - A late or out-of-order event: resend an older `customer.subscription.updated` after a newer one; the webhook re-reads the subscription, so the church's state must not move.
 - Time passing (a trial ending, a renewal, a failed payment): create the customer on a Stripe test clock in the sandbox and advance the clock; the events it produces arrive at staging like any other.
 - `stripe trigger <event>` makes objects that belong to no church on staging, so the webhook should refuse them; it is a test of the refusal, not of a sign-up.
-- Only Stripe's published addresses may reach the webhook route on staging and production (`docs/stripe-webhook-addresses.md`), so a request sent by hand gets a 400 before its signature is read.
+- Once its Firewall rule is on, only Stripe's published addresses reach the webhook route (`docs/stripe-webhook-addresses.md`), so a request sent by hand is stopped before the route.
+  Without the rule the signature check refuses it.
 - `stripe listen --forward-to` is for a server on this machine only: it signs with a secret of its own that staging does not hold, so its events are refused there.
 
 ## Other facts

@@ -38,8 +38,8 @@ The build lists 120 routes as dynamic, `/_not-found` included, the two icons as 
 The three inline scripts of Discipler's own are gone: Settings' preview is the client component `app/settings/live-preview.tsx`, which now also works after a client navigation, where the inline script never ran, and the two drags are `public/scripts/goal-drag.js` and `form-editor-drag.js`.
 
 **The webhook.**
-`/stripe/webhook` refuses any address not on Stripe's published list before it reads the signature, on production and staging, with a 400 and a log line that holds no address.
-`docs/stripe-webhook-addresses.md` holds the list's two homes, the Firewall rule, and what a wrong list looks like.
+Only the Vercel Firewall rule turns other addresses away, and the route's signature check is what proves an event is Stripe's.
+`docs/stripe-webhook-addresses.md` holds the rule, the list, and what a wrong list looks like.
 
 **The limits on a new church.**
 `NEW_CHURCH_LIMITS` in `src/domain/launch-terms.ts` is 300 people, 1,500 texts a week and 30 days (Q81).
@@ -69,9 +69,10 @@ The reminder 7 days before a trial ends is ticket 33's, whose worktree holds `sr
    It is the one directive that bit (see below), and dropping it is the alternative, which leaves an injected form free to post anywhere.
 4. **`frame-src` includes `https://www.youtube-nocookie.com` and `https://www.loom.com` ahead of ticket 27**, whose onboarding plays James's video in a frame.
    That video's address is empty until it is recorded, so leaving this to the merge would have broken it silently, long after anybody was looking.
-5. **The webhook gate in the app as well as the Firewall rule.**
-   The Firewall rule is a Vercel change, which this ticket may not make, and a rule by itself cannot be tested here.
-   The alternative is the Firewall alone, with one list to keep and no proof in the suite.
+5. **The Firewall rule alone, with no webhook gate in the app (James, 2026-11-05, replacing the first build's gate).**
+   A second copy of the list in the code would have gone live before the Log-first check, and a Stripe address it missed would have stopped billing with no error on any page.
+   The signature check already refuses everybody else, so the rule only saves the function's work.
+   The cost is that the suite proves nothing about the address check; the Log-then-Deny step on the real project is its only proof.
 6. **The limits hold every church in its first 30 days from `ministry.opened`, however it was opened.**
    The alternative is only self-signed-up churches, which would let a church opened by hand past with no reason to.
    I did not read production, so I do not know whether any church there opened inside the last 30 days.
@@ -133,7 +134,7 @@ The page's real `@stripe/react-stripe-js` components mounted through it, and und
 The real Payment Element, Express Checkout, Apple Pay, Google Pay, Link and 3D Secure are checked only by reading `docs.stripe.com/security/guide`.
 The first thing to look at on staging, with a sandbox key, is `/signup/payment`'s console, then a 3D Secure test card.
 
-Also unobserved: the webhook gate on a real Vercel deployment, where `tests/app/the-stripe-webhook-addresses.test.ts` drives the route with a forwarded address and no real Stripe event has come through it, and HSTS on the real domain.
+Also unobserved: the Firewall rule itself, which James adds by hand, and any real Stripe event through it.
 
 ### For James
 
