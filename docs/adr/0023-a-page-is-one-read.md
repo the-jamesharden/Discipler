@@ -53,14 +53,18 @@ A page function returns rows; every rule that turns rows into what a page shows 
 The cost is that a tab which shows only the badge still reads the whole history, and the history is unbounded.
 The document size is measured in the edge log after the deploy; a page document over 256 KB is answered by bounding the history to the window the derivation needs, never by a count computed in SQL.
 
-The setup meter is one of two exceptions, recorded here so that nothing joins them unrecorded.
+The setup meter is one of three exceptions, recorded here so that nothing joins them unrecorded.
 `app.setup_meter_of` answers each of its seven steps in SQL, with an `exists` probe for each, on every Admin page.
 Deriving them in the domain would put the church's whole history into every Admin page's document, for a bar most churches finish with, and that history is the unbounded thing this decision is careful about.
 The probes count nothing and turn no rows into what a page shows: each returns whether a fact is stored, and the domain still derives the percentage, the next step and what the bar draws from those answers.
 It is `security definer` for its own stated reason, that as the invoker a second Admin's Roster row would read as somebody who is not an Admin, and it answers only for a church the session administers.
 The cost is that what each step reads lives in a migration, so changing a step is a migration and not a domain change.
 
-The other exception is a page that reads Stripe.
+The second is the test check-in's card in the onboarding modal.
+An Overview that opens the modal reads it as a second read, over the command's connection, because what it says is what that command would refuse, read the way the command reads it.
+It happens once for an Admin, and again only when they press Restart onboarding, so no Overview after that pays for it.
+
+The third is a page that reads Stripe.
 Billing, its restart page and the Billing card in Settings ask for the church's Stripe customer over the trusted connection, as a second read.
 A Stripe ID is kept out of everything an Admin's session can read: `ministry_billing` has no policy and no grant, and `BillingState` holds none.
 Putting one in a document would widen what a caller may read, which the rule about privilege below forbids.

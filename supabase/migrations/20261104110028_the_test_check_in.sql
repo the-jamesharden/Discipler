@@ -117,7 +117,7 @@ comment on column outbound_message.withheld_reason is
 -- answering the church whose shared number it texted, as there.
 --
 -- Whether its hour is up is the domain's to say, against the injected clock.
-create function app.sender_of_open_test(candidate_phone text, texted_number text default null)
+create function app.sender_of_open_test(candidate_phone text, texted_number text, lapsed_by timestamptz)
 returns table (ministry_id uuid, person_id uuid)
 language sql
 stable
@@ -128,9 +128,10 @@ as $$
     from public.test_check_in t
    where t.phone = candidate_phone
      and t.ended_at is null
+     and t.asked_at > lapsed_by
      and (
        (select count(*) from public.test_check_in other
-         where other.phone = candidate_phone and other.ended_at is null) = 1
+         where other.phone = candidate_phone and other.ended_at is null and other.asked_at > lapsed_by) = 1
        and (
          texted_number is null
          or not exists (select 1
@@ -151,15 +152,16 @@ as $$
      );
 $$;
 
-revoke execute on function app.sender_of_open_test(text, text) from public, anon, authenticated, service_role;
-grant execute on function app.sender_of_open_test(text, text) to discipler_command;
+revoke execute on function app.sender_of_open_test(text, text, timestamptz) from public, anon, authenticated, service_role;
+grant execute on function app.sender_of_open_test(text, text, timestamptz) to discipler_command;
 
 -- ---------------------------------------------------------------------------
 -- Check-Ins shows them, apart
 -- ---------------------------------------------------------------------------
 
--- The history it always answered, with the latest tests beside it. Enough to cover a
--- week for any church's Admins at the daily limit; which of them fall in this week is
+-- The history it always answered, with the latest tests beside it. Enough for ten Admins
+-- at the daily limit for a week; past that the oldest drop off this one list, which
+-- counts nothing. Which of them fall in this week is
 -- `isoWeekOf`'s to say in the reader, as for every row on the tab. `app.history_page`
 -- is untouched, because a test is in nothing the Overview or Follow-Up derives from.
 create or replace function public.check_ins_page()
@@ -193,7 +195,7 @@ begin
                  join public.person p on p.id = t.person_id
                 where t.ministry_id = (doc -> 'admin' ->> 'ministry_id')::uuid
                 order by t.opened_at desc
-                limit 60) latest),
+                limit 210) latest),
       '[]'::jsonb
     )
   );

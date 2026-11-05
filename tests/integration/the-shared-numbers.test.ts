@@ -138,17 +138,17 @@ describe('The shared numbers', () => {
     const fromRiverside = await queue.sendingNumberFor(riverside.id, both.phone, at)
     const fromNorthgate = await queue.sendingNumberFor(northgate.id, both.phone, at)
 
-    expect(await inbound.resolveSender(both.phone, fromRiverside)).toEqual({
+    expect(await inbound.resolveSender(both.phone, fromRiverside, new Date())).toEqual({
       ministryId: riverside.id,
       personId: both.atRiverside,
     })
-    expect(await inbound.resolveSender(both.phone, fromNorthgate)).toEqual({
+    expect(await inbound.resolveSender(both.phone, fromNorthgate, new Date())).toEqual({
       ministryId: northgate.id,
       personId: both.atNorthgate,
     })
     // Nothing says which church a text to neither number, or to no number, is for.
-    expect(await inbound.resolveSender(both.phone, await addASharedNumber())).toBeNull()
-    expect(await inbound.resolveSender(both.phone, null)).toBeNull()
+    expect(await inbound.resolveSender(both.phone, await addASharedNumber(), new Date())).toBeNull()
+    expect(await inbound.resolveSender(both.phone, null, new Date())).toBeNull()
   })
 
   describe('for a caller that names no number', () => {
@@ -184,8 +184,8 @@ describe('The shared numbers', () => {
     const only = personId(await addPerson(riverside, 'Ruth Callan', { phone }))
 
     const expected = { ministryId: riverside.id, personId: only }
-    expect(await inbound.resolveSender(phone, null)).toEqual(expected)
-    expect(await inbound.resolveSender(phone, await addASharedNumber())).toEqual(expected)
+    expect(await inbound.resolveSender(phone, null, new Date())).toEqual(expected)
+    expect(await inbound.resolveSender(phone, await addASharedNumber(), new Date())).toEqual(expected)
   })
 
   it('leaves the other church’s texts running after a STOP to one church’s number', async () => {
@@ -193,7 +193,7 @@ describe('The shared numbers', () => {
     const fromRiverside = await queue.sendingNumberFor(riverside.id, both.phone, at)
     await queue.sendingNumberFor(northgate.id, both.phone, at)
 
-    const sender = await inbound.resolveSender(both.phone, fromRiverside)
+    const sender = await inbound.resolveSender(both.phone, fromRiverside, new Date())
     if (!sender) throw new Error('the STOP was placed with nobody')
     await service().execute({ type: 'sms.inbound', ...sender, body: 'STOP' })
 
@@ -221,7 +221,7 @@ describe('The shared numbers', () => {
     const fromRiverside = await queue.sendingNumberFor(riverside.id, leader.phone, at)
     await queue.sendingNumberFor(northgate.id, leader.phone, at)
 
-    const sender = await inbound.resolveSender(leader.phone, fromRiverside)
+    const sender = await inbound.resolveSender(leader.phone, fromRiverside, new Date())
     if (!sender) throw new Error('the reply was placed with nobody')
     await service().execute({ type: 'sms.inbound', ...sender, body: '1' })
 

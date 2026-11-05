@@ -211,13 +211,16 @@ const testsThisWeek = (doc: PageDocument, timeZone: string | null, now: Date): r
     const id = text(row.id)
     const opened = text(row.opened_at)
     const asked = text(row.asked_at)
-    if (!id || !opened || !asked) return []
+    const adminName = text(row.full_name)
+    if (!id || !opened || !asked || adminName === null || row.ended_at === undefined) {
+      throw new Error('The page document holds a test check-in this reader cannot read')
+    }
     const openedAt = new Date(opened)
     if (isoWeekOf(openedAt, timeZone) !== week) return []
     return [
       {
         id,
-        adminName: text(row.full_name) ?? '',
+        adminName,
         openedAt,
         met: typeof row.met === 'boolean' ? row.met : null,
         satisfaction: satisfactionOf(row.satisfaction),

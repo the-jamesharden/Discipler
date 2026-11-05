@@ -10,7 +10,7 @@ import type { CheckInQuestion } from '~/domain/check-in'
 import { checkInWordsInForce, type CheckInWords } from '~/domain/check-in-words'
 import { TEST_CARD_CONSENT_VERSION } from '~/domain/consent'
 import { TEST_CHECK_INS_PER_DAY } from '~/domain/launch-terms'
-import { testCheckInId } from '~/domain/test-check-in'
+import { testCheckInId, testCheckInsLapsedBy } from '~/domain/test-check-in'
 import { isParticipationStatus } from '~/domain/participation'
 import { GENDERS, isOneOf } from '~/domain/intake'
 import type { PoolClient } from 'pg'
@@ -4395,7 +4395,7 @@ export const createPostgresInboundReader = (
   const pool = new pg.Pool({ connectionString })
 
   return {
-    async resolveSender(fromPhone: string, toNumber: string | null): Promise<InboundSender | null> {
+    async resolveSender(fromPhone: string, toNumber: string | null, now: Date): Promise<InboundSender | null> {
       const client = await pool.connect()
       try {
         // Inside a transaction, like every other read here. `set local` outside
@@ -4405,9 +4405,11 @@ export const createPostgresInboundReader = (
         await client.query('set local role discipler_command')
         // An open test first: a reply to it has one meaning, even from a phone two people
         // on a Roster share, which resolves to nobody below (Exponential launch, ticket 28).
+        // Only while it can take a reply. Past the hour the text is handled as with no test,
+        // whether or not the sweep has written the ending yet.
         const { rows: answering } = await client.query<{ ministry_id: string; person_id: string }>(
-          `select ministry_id, person_id from app.sender_of_open_test($1, $2)`,
-          [fromPhone, toNumber],
+          `select ministry_id, person_id from app.sender_of_open_test($1, $2, $3)`,
+          [fromPhone, toNumber, testCheckInsLapsedBy(now)],
         )
         const { rows } = answering[0]
           ? { rows: answering }

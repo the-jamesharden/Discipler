@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { systemClock } from '~/domain/clock'
 import { signedByTwilio } from '~/platform/twilio/inbound-signature'
 import {
   getCommandService,
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
   // the relationship as gone silent. `.scratch/shared-numbers` tickets 01 to 03 are
   // what close it, within one church; a phone in two churches is no longer that
   // case, because each church texts it from its own shared number.
-  const sender = await getInboundReader().resolveSender(from, typeof to === 'string' ? to : null)
+  const sender = await getInboundReader().resolveSender(from, typeof to === 'string' ? to : null, systemClock.now())
   if (!sender) return acknowledged()
 
   await getCommandService().execute({

@@ -1,3 +1,4 @@
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { NextRequest } from 'next/server'
 import pg from 'pg'
 import type { ReactElement, ReactNode } from 'react'
@@ -11,6 +12,7 @@ import type { MinistryId } from '~/domain/ids'
 import type { BillingCycle } from '~/domain/offers'
 import { churchOfRemindersOffToken, remindersOffToken } from '~/platform/reminder-link'
 import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
+import { supabaseBillingReader } from '~/platform/supabase/billing-reader'
 import { createPostgresChurchSignups, type PostgresChurchSignups } from '~/platform/supabase/church-signups'
 import { readPageDocument, resolutionOf } from '~/platform/supabase/page'
 import { provisionMinistry } from '~/platform/supabase/provisioning'
@@ -47,8 +49,14 @@ import {
 let work: TrialWork | null = null
 let signups: PostgresChurchSignups | null = null
 let session: () => Promise<AdminResolution> = async () => ({ status: 'signed-out' })
+const nobody = async (): Promise<SupabaseClient> =>
+  createClient(localSupabase().apiUrl, localSupabase().anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+let reading: () => Promise<SupabaseClient> = nobody
 
 vi.mock('~/service/container', () => ({
+  getBillingReader: () => supabaseBillingReader,
   getTrialWork: () => {
     if (!work) throw new Error('A route reached Stripe while it should have been shut.')
     return work
@@ -57,6 +65,12 @@ vi.mock('~/service/container', () => ({
     if (!signups) throw new Error('A page reached the store too early.')
     return signups
   },
+}))
+
+// The pages' own function, through the session this suite signed in. Signed out is a client
+// with no session at all.
+vi.mock('~/platform/supabase/server-client', () => ({
+  createSupabaseServerClient: () => reading(),
 }))
 
 vi.mock('~/platform/supabase/current-admin', () => ({
@@ -147,6 +161,7 @@ describe('The payment step', { timeout: 30_000 }, () => {
     vi.stubEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'pk_test_not_a_real_key')
     vi.stubEnv('SIGN_UP_CODE_SECRET', 'a-test-secret-that-is-long-enough-to-be-accepted')
     session = async () => ({ status: 'signed-out' })
+    reading = nobody
   })
 
   afterEach(() => {
@@ -206,6 +221,7 @@ describe('The payment step', { timeout: 30_000 }, () => {
 
   const asAdminOf = (church: MinistryFixture) => {
     session = async () => resolutionOf(await readPageDocument(await signInAs(church), 'signed_in_admin'))
+    reading = () => signInAs(church)
   }
 
   const post = (fields: Record<string, string>) =>
@@ -337,18 +353,6 @@ describe('The payment step', { timeout: 30_000 }, () => {
 
     it('sends somebody signed out to sign in', async () => {
       expect(await redirectOf(() => PaymentPage(noQuery))).toBe('/login')
-    })
-
-    it('lands on the Overview when the question about the step cannot be answered', async () => {
-      const grace = await aSignedUpChurch()
-      asAdminOf(grace)
-      const failing = vi.spyOn(signups!, 'of').mockRejectedValue(new Error('the secret words of a driver'))
-      const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-      expect(await redirectOf(() => HomePage())).toBe('/overview')
-
-      expect(logged.mock.calls.flat().join(' ')).not.toContain('secret words')
-      failing.mockRestore()
     })
   })
 

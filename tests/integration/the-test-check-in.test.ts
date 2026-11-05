@@ -76,7 +76,7 @@ describe('the test check-in', { timeout: 60_000 }, () => {
 
   /** As `app/sms/inbound/route.ts` does: who it is from, then the command, then the send. */
   const texts = async (body: string, from: string = ministry.adminPhone) => {
-    const sender = await inbound.resolveSender(from, null)
+    const sender = await inbound.resolveSender(from, null, clock.now())
     if (!sender) throw new Error(`Nobody resolved for ${from}`)
     await service().execute({ type: 'sms.inbound', ministryId: sender.ministryId, personId: sender.personId, body })
     await drain()
@@ -492,14 +492,25 @@ describe('the test check-in', { timeout: 60_000 }, () => {
   describe('whose reply it is', () => {
     it('finds the test on a phone two people on the Roster share, which resolves to nobody else', async () => {
       await addPerson(ministry, 'Sam Shared', { phone: ministry.adminPhone })
-      expect(await inbound.resolveSender(ministry.adminPhone, null), 'as it was before').toBeNull()
+      expect(await inbound.resolveSender(ministry.adminPhone, null, clock.now()), 'as it was before').toBeNull()
 
       await verified()
       await drain()
-      expect(await inbound.resolveSender(ministry.adminPhone, null)).toEqual({ ministryId: ministry.id, personId: person })
+      expect(await inbound.resolveSender(ministry.adminPhone, null, clock.now())).toEqual({ ministryId: ministry.id, personId: person })
 
       await texts('2')
-      expect(await inbound.resolveSender(ministry.adminPhone, null), 'and as it is after').toBeNull()
+      expect(await inbound.resolveSender(ministry.adminPhone, null, clock.now()), 'and as it is after').toBeNull()
+    })
+
+    it('handles a text past the hour as with no test, before the sweep has written the ending', async () => {
+      await addPerson(ministry, 'Sam Shared', { phone: ministry.adminPhone })
+      await verified()
+      await drain()
+      expect(await inbound.resolveSender(ministry.adminPhone, null, clock.now())).not.toBeNull()
+
+      clock.advanceBy(hours(TEST_CHECK_IN_OPEN_HOURS))
+
+      expect(await inbound.resolveSender(ministry.adminPhone, null, clock.now()), 'nobody, as with no test').toBeNull()
     })
 
     it('looks to the number texted when a phone has a test open in two churches', async () => {
@@ -520,8 +531,8 @@ describe('the test check-in', { timeout: 60_000 }, () => {
         [other.id, other.adminPersonId, other.adminUserId, phone, ministry.id],
       )
 
-      expect(await inbound.resolveSender(phone, first)).toEqual({ ministryId: ministry.id, personId: person })
-      expect(await inbound.resolveSender(phone, null), 'no way to tell which').toBeNull()
+      expect(await inbound.resolveSender(phone, first, clock.now())).toEqual({ ministryId: ministry.id, personId: person })
+      expect(await inbound.resolveSender(phone, null, clock.now()), 'no way to tell which').toBeNull()
     })
   })
 

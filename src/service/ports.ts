@@ -1038,9 +1038,10 @@ export interface InboundReader {
   /**
    * `toNumber` is the shared number the text was sent to, Twilio's `To`. A phone in
    * one church resolves without it; a phone in two is placed with the church that
-   * texts it from that number, and with nobody when there is none.
+   * texts it from that number, and with nobody when there is none. `now` is what says
+   * whether a test open on that phone can still take a reply.
    */
-  resolveSender(fromPhone: string, toNumber: string | null): Promise<InboundSender | null>
+  resolveSender(fromPhone: string, toNumber: string | null, now: Date): Promise<InboundSender | null>
 }
 
 export interface EffectStore {
