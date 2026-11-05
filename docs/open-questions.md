@@ -692,6 +692,48 @@ Also from ticket 22, three things to check on production before anybody relies o
 - `RESEND_API_KEY` and `RESEND_EMAIL_DOMAIN`, or the page says "Email sent." and the only sign that nothing went is `A reset email for link ... did not go` in the log.
 - The link shows on the sign-in page whether or not sign-up is open, so until sign-up opens it answers "Email sent." to everybody and sends nobody anything, because nobody's account holds an address yet.
 
+Added on 2026-11-04 by ticket 33, choices the screens did not draw:
+
+- An approved church plant gets no trial-ending email, because it is not about to be charged.
+  The alternative is a differently worded email, which would need its words.
+- A church on a schedule, which is every church with an offer, cannot cancel on Stripe's billing page: "Customers can't update or cancel subscriptions that currently have an update scheduled with a subscription schedule."
+  So Cancel subscription asks on Billing itself.
+  The alternative is to release the schedule first, which loses the offers Keep my subscription has to put back.
+- Whether Link stays a payment method is still open.
+  The page is right either way: a Link payer sees the badge "LINK", the word "Link" and no details under it, and the Settings line names Link too.
+- A church whose free month was refused is told nothing on Billing, because the mock-up draws no such state.
+
+Also from ticket 33, drafts inside the approved Billing screens, in `app/settings/billing/copy.ts`:
+
+- The bank payer's line, new wording from the ticket: "To use a different bank account, email support@trydiscipler.com."
+- The question for a church on a schedule: "Cancel your subscription? It would end on {date}.", "Check-ins keep going until then. After that they stop, and everything stays here to read.", with "Yes, cancel my subscription" and "Never mind".
+- The line under its buttons, in place of "These open Stripe's secure billing page, then bring you back here.": "Update payment method opens Stripe's secure billing page, then brings you back here."
+- The offers: "Church plant year" with "Free for your first year, through {date}", and "First month free" with "Your first paid month is free, through {date}".
+- The next bill's note for those two: "Free for your church plant year, then {price}" and "{price}, less your first month free".
+- An ended church: the row "Ended" with its date and "Check-ins have stopped. Everything is still here.", and Restart Discipler in the Payment method card.
+- A bill: "Year from {month and year}" for a yearly bill, and "Processing" for a bank debit still on its way.
+- A failed payment with no retry to come: "{amount}, not yet paid" and "Everything keeps running in the meantime."
+- No method on file: "No payment method on file".
+- Stripe not answering: "We couldn't load your plan from Stripe just now. Please try again in a moment." and "We couldn't open Stripe's billing page just now. Please try again in a moment."
+- No Subscription that began: "No subscription yet", "Finish setting up" and "No bills yet."
+
+Also from ticket 33, drafts inside the approved restart page:
+
+- While the webhook is on its way: "Restarting Discipler...", then "This is taking longer than usual." and the link "Go to Billing".
+- A payment that failed: "That didn't go through, and you weren't charged. Please try again." and "We couldn't charge that just now. Please try again, or use another card or bank account."
+- No Stripe: "We can't take a payment here just now. Please try again in a moment."
+- A referral credit: "Your referral credit takes {amount} off today.", and where it covers the whole bill, "Your referral credit covers today, so nothing is charged." with "You can change or cancel any time in Settings, Billing."
+- The hint above the Payment Element: "Use the card or bank account on file, or add another."
+
+Also from ticket 33, what only James can do in Stripe, and what only a sandbox can answer:
+
+- Add `customer.updated` and `subscription_schedule.updated` to the webhook endpoint, which now listens for fifteen events.
+- Rerun the catalog, which now creates the billing page's configuration.
+  Until then Update payment method says Stripe's billing page could not be opened.
+- Give the restricted key Customer Sessions, Customer Portal sessions and configurations, and read on Invoices and Payment Methods.
+- Nothing here has met real Stripe.
+  A sandbox has to answer: whether Stripe's page offers a bank in the update step, which its documents say it cannot add by hand; how a schedule cancels and previews; whether the Payment Element shows the method on file; a bank restart; a past-due retry after a new method; how a bank's name is capitalized; and whether the amount the page confirms matches the charge.
+
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
 
 ## Open: the check-in words' refusals and `Messages read as`

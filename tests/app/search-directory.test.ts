@@ -53,6 +53,7 @@ describe('with nothing typed', () => {
     ])
     expect(directory[1]!.rows.map((each) => each.label)).toEqual([
       'Settings',
+      'Billing',
       'Intake forms',
       'Change your password',
     ])

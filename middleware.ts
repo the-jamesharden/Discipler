@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { backFromARefusal, changesTheChurchsWork } from '~/domain/read-only'
 import { supabaseCredentials } from '~/platform/supabase/credentials'
 
 /**
@@ -14,6 +15,12 @@ import { supabaseCredentials } from '~/platform/supabase/credentials'
  * behind a valid token still exists is the page's question, answered in
  * `src/platform/supabase/session.ts` -- the middleware runs on prefetches too, and
  * a question asked here would be asked once per link on the screen.
+ *
+ * It is also where an ended church's read-only pages are enforced (Exponential launch,
+ * ticket 33), because every route is behind it and a route added later cannot forget. That
+ * does ask a question, but only for a request that would change a church's work, and those
+ * are never prefetched. A read that fails lets the request through: the database behind it
+ * is then the route's problem, and nobody loses their work to a question about billing.
  */
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -45,7 +52,22 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  await supabase.auth.getClaims()
+  const { data: claims } = await supabase.auth.getClaims()
+
+  if (claims?.claims && changesTheChurchsWork(request.method, request.nextUrl.pathname)) {
+    const { data, error } = await supabase.rpc('signed_in_admin')
+    if (error) console.error(`Asking whether a church has ended failed: ${error.code ?? 'unknown'}`)
+    if ((data as { billing?: { standing?: unknown } } | null)?.billing?.standing === 'ended') {
+      // Compared with the Host the browser asked for, because behind `next start` or a proxy
+      // `request.url` can name an address the browser never used.
+      const refused = NextResponse.redirect(
+        new URL(backFromARefusal(request.headers.get('referer'), request.headers.get('host')), request.url),
+        { status: 303 },
+      )
+      for (const cookie of response.cookies.getAll()) refused.cookies.set(cookie)
+      return refused
+    }
+  }
 
   return response
 }

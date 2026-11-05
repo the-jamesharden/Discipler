@@ -263,6 +263,47 @@ describe('the default payment method', () => {
   })
 })
 
+describe('following the customer’s default', () => {
+  const answers = (subscription: Record<string, unknown>, chosen: string | null) =>
+    answering(({ path, method }) => {
+      if (path === '/v1/customers/cus_1') {
+        return { id: 'cus_1', object: 'customer', invoice_settings: { default_payment_method: chosen } }
+      }
+      if (path === '/v1/subscriptions/sub_1') return subscription
+      if (method === 'POST' && path.startsWith('/v1/subscription_schedules/')) return { id: 'sub_sched_1' }
+      return undefined
+    })
+
+  it('moves a Subscription holding the old one, and its schedule', async () => {
+    const { asked, trials } = answers(
+      aSubscription({ default_payment_method: 'pm_old', schedule: 'sub_sched_1' }),
+      'pm_new',
+    )
+
+    expect(await trials.followCustomersDefault('cus_1', 'sub_1')).toBe(true)
+
+    const posted = asked.filter(({ method }) => method === 'POST')
+    expect(posted.map(({ path, body }) => [path, Object.fromEntries(body)])).toEqual([
+      ['/v1/subscriptions/sub_1', { default_payment_method: 'pm_new' }],
+      ['/v1/subscription_schedules/sub_sched_1', { 'default_settings[default_payment_method]': 'pm_new' }],
+    ])
+  })
+
+  it('changes nothing where they already agree, so a retried event does nothing', async () => {
+    const { asked, trials } = answers(aSubscription({ default_payment_method: 'pm_new' }), 'pm_new')
+
+    expect(await trials.followCustomersDefault('cus_1', 'sub_1')).toBe(false)
+    expect(asked.some(({ method }) => method === 'POST')).toBe(false)
+  })
+
+  it('changes nothing where the customer has no default', async () => {
+    const { asked, trials } = answers(aSubscription({ default_payment_method: 'pm_old' }), null)
+
+    expect(await trials.followCustomersDefault('cus_1', 'sub_1')).toBe(false)
+    expect(asked.some(({ method }) => method === 'POST')).toBe(false)
+  })
+})
+
 describe('the phases after the free days', () => {
   const aSchedule = {
     id: 'sub_sched_1',
@@ -513,13 +554,13 @@ describe('the catalog', () => {
   it('creates everything in an empty account, with the product named as James said', async () => {
     const { asked, client } = answering(({ method, path }) => {
       if (method === 'POST') return { id: 'made', object: path.split('/').at(-1) }
-      if (path === '/v1/prices') return list()
+      if (path === '/v1/prices' || path === '/v1/billing_portal/configurations') return list()
       return undefined
     })
 
     const result = await createCatalog(client)
 
-    expect(result.created).toHaveLength(1 + 4 + 4)
+    expect(result.created).toHaveLength(1 + 4 + 4 + 1)
     expect(result.different).toEqual([])
 
     const product = asked.find(({ method, path }) => method === 'POST' && path === '/v1/products')!
@@ -544,10 +585,63 @@ describe('the catalog', () => {
       '7760',
       '100',
     ])
+
+    // Stripe's billing page as the spec has it: reached only from Billing, and no plan switching.
+    const portal = asked.find(({ method, path }) => method === 'POST' && path === '/v1/billing_portal/configurations')!
+    expect(Object.fromEntries(portal.body)).toMatchObject({
+      'metadata[discipler]': 'billing_portal',
+      'login_page[enabled]': 'false',
+      'features[subscription_update][enabled]': 'false',
+      'features[customer_update][enabled]': 'false',
+      'features[payment_method_update][enabled]': 'true',
+      'features[invoice_history][enabled]': 'true',
+      'features[subscription_cancel][enabled]': 'true',
+      'features[subscription_cancel][mode]': 'at_period_end',
+      'features[subscription_cancel][proration_behavior]': 'none',
+    })
+  })
+
+  it('reports a billing page that lets a church switch its plan', async () => {
+    const { asked, client } = answering(({ method, path }) => {
+      if (method === 'POST') return { id: 'made', object: 'x' }
+      if (path === '/v1/billing_portal/configurations') {
+        return list({
+          id: 'bpc_1',
+          object: 'billing_portal.configuration',
+          metadata: { discipler: 'billing_portal' },
+          login_page: { enabled: false },
+          features: {
+            payment_method_update: { enabled: true },
+            subscription_cancel: { enabled: true, mode: 'at_period_end' },
+            subscription_update: { enabled: true },
+          },
+        })
+      }
+      if (path === '/v1/prices') return list()
+      return undefined
+    })
+
+    const result = await createCatalog(client)
+
+    expect(result.different).toEqual(['billing_portal'])
+    expect(asked.some(({ method, path }) => method === 'POST' && path.includes('billing_portal'))).toBe(false)
   })
 
   it('adds nothing to an account that has it all, and reports what differs', async () => {
     const { asked, client } = answering(({ path, query }) => {
+      if (path === '/v1/billing_portal/configurations') {
+        return list({
+          id: 'bpc_1',
+          object: 'billing_portal.configuration',
+          metadata: { discipler: 'billing_portal' },
+          login_page: { enabled: false },
+          features: {
+            payment_method_update: { enabled: true },
+            subscription_cancel: { enabled: true, mode: 'at_period_end' },
+            subscription_update: { enabled: false },
+          },
+        })
+      }
       if (path === '/v1/prices') {
         const key = query.get('lookup_keys[0]')!
         const cents = { discipler_up_to_the_limit_monthly: 9_700, discipler_up_to_the_limit_yearly: 93_120, discipler_above_the_limit_monthly: 14_700, discipler_above_the_limit_yearly: 1 }[key]
@@ -575,7 +669,7 @@ describe('the catalog', () => {
     const result = await createCatalog(client)
 
     expect(result.created).toEqual([])
-    expect(result.alreadyThere).toHaveLength(9)
+    expect(result.alreadyThere).toHaveLength(10)
     expect(result.different).toEqual(['discipler_above_the_limit_yearly'])
     expect(asked.every(({ method }) => method === 'GET')).toBe(true)
   })

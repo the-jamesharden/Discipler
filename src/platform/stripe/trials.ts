@@ -17,15 +17,15 @@ import { factsOf, stripeClient } from './billing'
  * A list, against Stripe's usual advice, because the spec's list is a rule and a
  * Dashboard setting is one nobody reviews.
  */
-const ACCEPTED_PAYMENT_METHODS = ['card', 'link', 'us_bank_account'] as const
+export const ACCEPTED_PAYMENT_METHODS = ['card', 'link', 'us_bank_account'] as const
 
 /** By instant bank sign-in only, never by microdeposits (spec, Billing). */
-const instantBankSignIn = (): Stripe.SubscriptionCreateParams.PaymentSettings.PaymentMethodOptions.UsBankAccount => ({
+export const instantBankSignIn = (): Stripe.SubscriptionCreateParams.PaymentSettings.PaymentMethodOptions.UsBankAccount => ({
   verification_method: 'instant',
   financial_connections: { permissions: ['payment_method'] },
 })
 
-const priceIdOf = async (client: Stripe, cycle: BillingCycle): Promise<string> => {
+export const priceIdOf = async (client: Stripe, cycle: BillingCycle): Promise<string> => {
   const { lookupKey } = startingPrice(cycle)
   const { data } = await client.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 })
   const price = data[0]
@@ -41,11 +41,11 @@ type PhaseDiscount = Stripe.SubscriptionScheduleUpdateParams.Phase.Discount
 const fingerprintOf = (method: Stripe.PaymentMethod): string | null =>
   method.card?.fingerprint ?? method.us_bank_account?.fingerprint ?? null
 
-const idOfExpandable = (value: string | { readonly id: string } | null | undefined): string | null =>
+export const idOfExpandable = (value: string | { readonly id: string } | null | undefined): string | null =>
   typeof value === 'string' ? value : (value?.id ?? null)
 
 /** A running phase's discounts, said again as an update has to say them. */
-const discountsKept = (phase: Stripe.SubscriptionSchedule.Phase): Stripe.Emptyable<PhaseDiscount[]> => {
+export const discountsKept = (phase: Stripe.SubscriptionSchedule.Phase): Stripe.Emptyable<PhaseDiscount[]> => {
   const kept = (phase.discounts ?? []).flatMap((held): PhaseDiscount[] => {
     const coupon = idOfExpandable(held.coupon)
     if (coupon) return [{ coupon }]
@@ -132,6 +132,30 @@ export const createStripeTrials = (client: () => Stripe = stripeClient): StripeT
 
     await stripe.subscriptions.update(subscriptionId, { default_payment_method: method.id })
     return { fingerprint: fingerprintOf(method) }
+  },
+
+  async followCustomersDefault(customerId, subscriptionId) {
+    const stripe = client()
+    const [customer, subscription] = await Promise.all([
+      stripe.customers.retrieve(customerId),
+      stripe.subscriptions.retrieve(subscriptionId),
+    ])
+    if (customer.deleted) return false
+    const chosen = idOfExpandable(customer.invoice_settings?.default_payment_method)
+    const held = idOfExpandable(subscription.default_payment_method)
+    // Only a Subscription holding one of its own needs telling; the rest follow the customer.
+    if (!chosen || !held || chosen === held) return false
+
+    await stripe.subscriptions.update(subscriptionId, { default_payment_method: chosen })
+    // A schedule made from the Subscription copied its default into its own settings, and
+    // would put the old one back at its next phase.
+    const scheduleId = idOfExpandable(subscription.schedule)
+    if (scheduleId) {
+      await stripe.subscriptionSchedules.update(scheduleId, {
+        default_settings: { default_payment_method: chosen },
+      })
+    }
+    return true
   },
 
   async schedulePhases(subscriptionId, phases: readonly PaidPhase[]) {

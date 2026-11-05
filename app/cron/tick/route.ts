@@ -4,6 +4,7 @@ import type { MinistryId } from '~/domain/ids'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import type { SettledPairings } from '~/service/command-service'
 import type { PaymentReminderOutcome } from '~/service/payment-reminder-watch'
+import type { TrialEndingOutcome } from '~/service/trial-ending-watch'
 import type { StripeEventSweep } from '~/service/stripe-events'
 import type { SupportSweep } from '~/service/support-form'
 import {
@@ -17,6 +18,7 @@ import {
   watchTheOver200Churches,
   watchThePaymentReminders,
   watchTheSharedNumbers,
+  watchTheTrialEndings,
   watchTheTwilioBalance,
 } from '~/service/container'
 
@@ -219,6 +221,15 @@ export async function GET(request: NextRequest) {
     paymentReminders = 'failed'
   }
 
+  // The email a week before a trial ends (Exponential launch, ticket 33), the same way.
+  let trialEndings: TrialEndingOutcome | 'no_stripe' | 'failed'
+  try {
+    trialEndings = await watchTheTrialEndings()
+  } catch (error) {
+    console.error(`Watching the trial endings failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    trialEndings = 'failed'
+  }
+
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries
   // a non-2xx, and retrying the whole run to recover one Ministry would re-drain
   // every other one -- the outcomes say what happened instead, per Ministry, where
@@ -245,6 +256,7 @@ export async function GET(request: NextRequest) {
     over200,
     supportSubmissions,
     paymentReminders,
+    trialEndings,
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,
       error: one.error,

@@ -159,6 +159,11 @@ export const processStripeEvent = async (
   // write that fails: the sweep comes back for this, and finds the record already there.
   if (recorded.subscription) {
     await settleConfirmedTrial(work, church, customerId, recorded.subscription)
+    // Stripe's billing page sets the customer's default only (ticket 33). Repeating this
+    // changes nothing, so a retry is safe.
+    if (entry.type === 'customer.updated' && isConfirmedAndLive(recorded.subscription)) {
+      await work.trials.followCustomersDefault(customerId, recorded.subscription.id)
+    }
   }
 
   await inbox.finish(eventId, { outcome: 'recorded', church }, clock.now())

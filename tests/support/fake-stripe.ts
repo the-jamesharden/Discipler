@@ -17,6 +17,7 @@ export const aFakeStripe = (clock: { now(): Date }) => {
     canceled: [] as string[],
     scheduled: [] as { subscriptionId: string; phases: readonly PaidPhase[] }[],
     defaults: [] as string[],
+    followedDefaults: [] as { customerId: string; subscriptionId: string }[],
   }
   const state = { failScheduling: false, failOpening: false }
 
@@ -77,6 +78,10 @@ export const aFakeStripe = (clock: { now(): Date }) => {
     async confirmDefaultPaymentMethod(subscriptionId) {
       calls.defaults.push(subscriptionId)
       return { fingerprint: fingerprints.get(subscriptionId) ?? null }
+    },
+    async followCustomersDefault(customerId, subscriptionId) {
+      calls.followedDefaults.push({ customerId, subscriptionId })
+      return false
     },
     async schedulePhases(subscriptionId, phases) {
       if (state.failScheduling) throw new Error('Stripe is down')

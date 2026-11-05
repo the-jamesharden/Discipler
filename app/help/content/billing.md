@@ -42,10 +42,12 @@ Every offer ends if your subscription ends.
 
 The Billing card in [Settings](/help/settings) shows your plan, your trial or next payment, and your card or bank.
 **Open billing** shows the full picture: any offer or credit in force, and your past invoices.
-To update your payment method or cancel, Discipler opens Stripe's own billing page at the right step.
+To update your payment method, Discipler opens Stripe's own billing page at the right step.
+To cancel, Billing either does the same or, where an offer is scheduling your bills, asks you there.
 
 Card and bank details are only ever typed on Stripe's forms.
-Discipler keeps only the card's brand and last four digits, and Stripe's fingerprint of the card or bank account.
+Discipler keeps only Stripe's IDs and Stripe's fingerprint of the card or bank account.
+Billing reads the card's brand and last four digits from Stripe each time you open it.
 The fingerprint does not show the number, and is how Discipler checks that one card or bank account does not claim the same offer twice.
 A bank account is added by signing in to your bank through Stripe.
 To change to a different bank account, write to [support@trydiscipler.com](mailto:support@trydiscipler.com).

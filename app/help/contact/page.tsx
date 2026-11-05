@@ -39,6 +39,7 @@ export default async function ContactSupportPage({
       title={CONTACT_SUPPORT}
       subtitle={CONTACT_SUBTITLE}
       back={isAdmin ? { href: '/', label: BACK_TO_DISCIPLER } : { href: '/help', label: HELP_CENTER }}
+      {...(resolution.status === 'admin' ? { banners: resolution.admin } : {})}
       actions={
         resolution.status === 'admin' ? (
           <AdminNav admin={resolution.admin} />
