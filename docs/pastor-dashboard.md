@@ -219,7 +219,6 @@ The last Next reads Done, and only Done counts the tour as taken.
 
 Until setup is done, a slim bar titled "Jumpstart discipleship" sits under the tabs on every Admin page, showing "{n}% complete · {done} of 7", a thin progress line, and "Next: {step}" with that step's button.
 Resting the pointer on it, focusing it, or tapping it on a phone grows it to show all seven steps as checkboxes nobody can click.
-The bar is not drawn on production until the tutorial and the test check-in ship (`src/platform/setup-meter-switch.ts`).
 
 The seven steps belong to the church, shared by every Admin, and never go down:
 

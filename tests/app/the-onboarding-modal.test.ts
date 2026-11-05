@@ -1,6 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
+import type { TestCheckInCard as TestCheckInCardData } from '~/service/test-check-in'
 import { OnboardingModal } from '../../app/overview/onboarding/modal'
 import { welcomeTitle, whatHappensNext } from '../../app/overview/onboarding/copy'
 import { videoPlayerFor } from '../../app/overview/onboarding/video'
@@ -18,6 +19,8 @@ import type { SignedInAdmin } from '~/service/ports'
  * are James's (Exponential launch, ticket 27). When it opens and what it records is
  * `tests/integration/the-onboarding-over-http.test.ts`.
  */
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => undefined }) }))
 
 vi.mock('next/link', () => ({
   default: ({ href, children, className }: { href: string; children: unknown; className?: string }) =>
@@ -51,12 +54,26 @@ const anAdmin = (over: Partial<SignedInAdmin> = {}): SignedInAdmin =>
     ...over,
   }) as SignedInAdmin
 
-const drawn = (over: Partial<SignedInAdmin> = {}, props: { restarted?: boolean; videoUrl?: string } = {}) =>
+const aTestCard = (over: Partial<TestCheckInCardData> = {}): TestCheckInCardData => ({
+  phone: '+13185550142',
+  needsAgreement: false,
+  sentToday: 0,
+  left: 3,
+  refusal: null,
+  firstText: 'Riverside Chapel via Discipler: This is your test check-in.',
+  ...over,
+})
+
+const drawn = (
+  over: Partial<SignedInAdmin> = {},
+  props: { restarted?: boolean; videoUrl?: string; testCard?: Partial<TestCheckInCardData> } = {},
+) =>
   renderToStaticMarkup(
     createElement(OnboardingModal, {
       admin: anAdmin(over),
       restarted: props.restarted ?? false,
       now: new Date('2026-11-04T12:00:00Z'),
+      testCard: aTestCard(props.testCard),
       videoUrl: props.videoUrl ?? '',
     }),
   )
@@ -129,20 +146,43 @@ describe('the cards', () => {
     expect(after).toContain('is-done')
   })
 
-  it("shows the real first text on the phone, in the church's words", () => {
-    const html = drawn({
-      onboarding: {
-        opened: false,
-        checkIn: { day: 1, hour: 9 },
-        leaderNoun: 'shepherd',
-        participantNoun: 'sheep',
-        readsAs: 'Pastor Dan',
-      },
+  describe('the test check-in card', () => {
+    it('shows the first text it is handed on the phone, and offers the test', () => {
+      const words = wordsOf(drawn())
+      expect(words).toContain('Riverside Chapel via Discipler: This is your test check-in.')
+      expect(words).toContain(
+        "Send yourself a test check-in We'll text (318) 555-0142 the questions your mentors get each week. Send test",
+      )
     })
-    expect(wordsOf(html)).toContain(
-      'Pastor Dan via Discipler: This is your test check-in, the same one your shepherds get. Did you meet with your sheep this week? Reply 1 for yes, 2 for no.',
-    )
-    expect(wordsOf(html)).toContain('Send yourself a test check-in')
+
+    it('asks an Admin from before sign-up to agree, above the button', () => {
+      const words = wordsOf(drawn({}, { testCard: { needsAgreement: true } }))
+      expect(words).toContain(
+        'By sending, you agree to receive texts from Discipler at this number, including sign-in codes and test check-ins. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help. Send test',
+      )
+    })
+
+    it('says nothing of an agreement to one who has given it', () => {
+      expect(wordsOf(drawn())).not.toContain('By sending, you agree')
+    })
+
+    it('says how many are left once this Admin has sent one today', () => {
+      const html = drawn({ setup: meter(['test_check_in']) }, { testCard: { sentToday: 1, left: 2 } })
+      expect(wordsOf(html)).toContain('You can send 2 more today. Send another')
+      expect(html).toContain('onb-card test is-done')
+    })
+
+    it('opens at the daily limit with its sentence and the button shut, as drawn', () => {
+      const html = drawn({}, { testCard: { sentToday: 3, left: 0, refusal: 'test_check_in.limit_reached' } })
+      expect(wordsOf(html)).toContain(
+        "You've sent three test check-ins today. Please try again tomorrow. If something isn't working, please email support@trydiscipler.com and we'll help. Thank you! Send test",
+      )
+      expect(html).toMatch(/<button[^>]*disabled[^>]*>Send test/)
+    })
+
+    it('has an address the bar can send it to', () => {
+      expect(drawn()).toContain('id="test-check-in"')
+    })
   })
 
   it('says office hours with no Next and no button while there is no date', () => {

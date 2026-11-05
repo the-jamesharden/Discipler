@@ -493,6 +493,7 @@ What needs deciding: whether to approve or reword them.
 Raised on 2026-10-31 by the Exponential launch, ticket 09.
 A non-US number is refused before Twilio is called, and the SAU BCM Admin's phone is Canadian, so that Admin cannot be checked or sent a test check-in.
 What needs deciding: whether that stands, or that one Admin needs another way.
+Ticket 28 made this bite: step 3 of the setup bar is the test check-in, so until it is decided that church reaches 100% and its badge only if an Admin with a US phone sends one.
 
 ## Open: Supabase Auth's own password settings on production
 
@@ -657,6 +658,17 @@ Added on 2026-11-04 by ticket 19, the emails for James to word and the sentences
 - Decline to the church, sent only with `--email`, with the same subject.
   Body: "Thank you for telling us about {church}. We aren't able to offer your church the free year for church plants. Your subscription carries on just as it is. If you have any questions, or something has changed, just reply to this email."
 - An answer refused by the server, which the button normally prevents: "Please enter your launch date, or planned launch date.", "Please enter your sending or partner church.", "Please enter your average weekly attendance.", "Please enter your lead pastor's name.", and, only for a hand-made request, "One of your church plant answers is too long. Please shorten it."
+
+Added on 2026-11-04 by ticket 28, inside the approved test check-in card, in `app/overview/test-check-in/copy.ts`, `app/overview/onboarding/copy.ts` and `app/check-ins/copy.ts`:
+
+- A phone that replied STOP: "This phone has opted out of texts from Discipler, so we can't send a test. Reply START to any of our texts, then try again. Thank you!"
+- An Admin whose latest decision about texts is no: "You've told us not to text this phone, so we can't send a test. If that's changed, please email support@trydiscipler.com and we'll help. Thank you!"
+- An Admin with no phone on their own Roster row: "There's no phone on your own Roster row, so we have nowhere to send a test. Please add one on the Roster, then try again. Thank you!"
+- A press from a screen that did not show the agreement, which the card normally prevents: "Please read the line above the button, then press it again. Thank you!"
+- After "Text me a new code": "We texted a new code."
+- A request that never came back: "Something went wrong, and we couldn't tell if that worked. Please try again in a minute. Thank you!"
+- The list on Check-Ins: its heading "Test check-ins", beside it "Admins trying it out. Nothing from a test is counted.", and on each row the Test tag with "Met, outstanding", "Met, good", "Met, okay", "Met, concern", "Met", "Didn't meet", "Waiting for a reply" or "No reply".
+- A church with no access to texting reads the sentence every other surface uses, `app/texting-gate-copy.ts`.
 
 Added on 2026-11-04 by ticket 21, two checks only production can answer, neither of them a sentence:
 
@@ -917,8 +929,7 @@ What needs deciding: whether search opens the chat, with a hash address and a li
 Raised on 2026-11-03 by the Exponential launch, ticket 26.
 Steps 2 and 3, the tour and the test check-in, wait for tickets 27 and 28, so every church stays below 100%, and a church with only those left has no "Next:" line, though the spec says "always showing".
 SAU BCM will read 5 of 7, and an Admin's first sign-in plays every finished step's confetti at once.
-James decided on 2026-11-03 that the bar waits for them: `SETUP_METER_ON` stays unset on production until 27 and 28 ship.
-Until then `getting-started.md`, `settings.md` and `test-check-in.md` in the help pages describe a bar that is not drawn.
+James decided on 2026-11-03 that the bar waits for them, and ticket 28 removed the switch when it shipped, so nothing needs setting on production.
 
 ## Open: Leaders on the support form
 

@@ -63,7 +63,12 @@ export const OnboardingWindow = ({
   const box = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    box.current?.focus()
+    box.current?.focus({ preventScroll: true })
+    // The bar's Send test comes here for this card. The address's own scrolling does not
+    // reach inside a window that was not on the page when it ran.
+    if (window.location.hash) {
+      document.querySelector(window.location.hash)?.scrollIntoView({ block: 'center' })
+    }
     if (!firstOpening) return
     // Keepalive so it lands if the Admin has already moved on. A failure costs nothing
     // but a second opening next time.
@@ -76,11 +81,15 @@ export const OnboardingWindow = ({
 
   useEffect(() => {
     if (open) return
-    sayOnboardingClosed()
     // So a reload does not bring it back, and leaving the rest of the address alone.
     const address = new URL(window.location.href)
     address.searchParams.delete('onboarding')
+    address.hash = ''
     window.history.replaceState(null, '', address)
+    // A task later, because the test check-in's card asks for a refresh on hearing this,
+    // and the router loses one asked for around that address change. Before it, the change
+    // discards the refresh; just after, the change settles a moment later on top of it.
+    window.setTimeout(sayOnboardingClosed, 0)
   }, [open])
 
   useEffect(() => {

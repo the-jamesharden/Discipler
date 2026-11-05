@@ -748,6 +748,28 @@ export type Command =
       readonly finishedBy: string
     }
   /**
+   * An Admin pressed a test check-in's button on a card that showed the agreement
+   * (Exponential launch, ticket 28): "By sending, you agree to receive texts from
+   * Discipler at this number". Their own consent, kept apart from the send, because a
+   * first press sends a code rather than the test.
+   */
+  | {
+      readonly type: 'test_check_in.agree'
+      readonly ministryId: MinistryId
+      /** The Admin's account, from the session and never from the page. */
+      readonly sentBy: string
+    }
+  /**
+   * An Admin sends themselves a test check-in (Exponential launch, ticket 28). The phone
+   * is the one on their own Roster row, which is the only phone this can ever text.
+   */
+  | {
+      readonly type: 'test_check_in.send'
+      readonly ministryId: MinistryId
+      /** The Admin's account, from the session and never from the page. */
+      readonly sentBy: string
+    }
+  /**
    * The six ways an Admin edits one of the Ministry's two Intake forms (Pastor
    * feedback, ticket 11). Each is saved as it is made and is live at once: the
    * form is saved as a new version, which everybody who opens it from then on is

@@ -190,9 +190,9 @@ export APP_URL="http://127.0.0.1:$PORT"
 # The webhook's signing secret, for the server below and the tests that sign for it.
 # Real secrets stay out of a test run: a process's environment beats `.env.local`.
 export STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-whsec_locked_tests_only}"
-# The setup meter's bar is off on production until tickets 27 and 28 ship, and is what its
-# suite tests.
-export SETUP_METER_ON=true
+# Texts and Verify codes are recorded, not sent, whatever `.env.local` says: a suite over
+# HTTP presses a real test check-in's button, and nothing here may text a real phone.
+export MESSAGE_TRANSPORT=record
 # Ask Discipler is off on production until AI Gateway has its budget, and its suite tests it.
 # No suite over HTTP asks the model anything, and this environment holds no gateway credential.
 export ASK_DISCIPLER_ON=true

@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import { testCheckInQuestion } from '~/domain/outbound-copy'
-import { stepsDoneOf, tourIsDone } from '~/domain/onboarding'
+import { stepsDoneOf, testCheckInIsDone, tourIsDone } from '~/domain/onboarding'
 import { upcomingOfficeHours } from '~/domain/office-hours'
 import type { SignedInAdmin } from '~/service/ports'
+import type { TestCheckInCard as TestCardData } from '~/service/test-check-in'
+import { phoneShown } from '../../account/phone/copy'
 import { NEXT_OFFICE_HOURS, speakWithTheTeamLine } from '../../help/office-hours'
 import { WELCOME_VIDEO_TITLE, WELCOME_VIDEO_URL } from '../../help/setup-videos'
 import { VideoCamera } from '../../icons'
@@ -15,7 +16,6 @@ import {
   FOOT,
   onboardingTitle,
   TEAM_CARD,
-  TEST_CARD_TITLE,
   TOUR_CARD,
   WELCOME_EYEBROW,
   welcomeLede,
@@ -24,13 +24,16 @@ import {
   whatHappensNext,
 } from './copy'
 import { JAMES_PHOTO } from './james-photo'
+import { TestCheckInCard } from './test-check-in-card'
+import { testCheckInRefusalMessage } from '../test-check-in/copy'
 import { videoPlayerFor } from './video'
 import { OnboardingWindow, WelcomeVideo } from './window'
 
 /**
  * The onboarding modal (Exponential launch, ticket 27;
  * `.lavish/onboarding/s0-welcome.html` and `s1-modal.html`). It reads nothing: all of it
- * came with the page's one read, or is a file in the repo.
+ * came with the page's one read, or is a file in the repo, but for what the test check-in's
+ * card says of this one Admin, which the page reads only when this is going to open.
  *
  * The first time it opens for an Admin, James's welcome video comes first, while there is
  * one. Restart onboarding, and the end of the tour, go straight to the cards.
@@ -61,11 +64,13 @@ export const OnboardingModal = ({
   admin,
   restarted,
   now,
+  testCard,
   videoUrl = WELCOME_VIDEO_URL,
 }: {
   readonly admin: SignedInAdmin
   readonly restarted: boolean
   readonly now: Date
+  readonly testCard: TestCardData
   /** The repo file's address, or a test's. */
   readonly videoUrl?: string
 }) => {
@@ -114,23 +119,29 @@ export const OnboardingModal = ({
           </Link>
         </article>
 
-        {/* The card's sentence, its agreement, its Verify step and its button are ticket
-            28's, and go here above the foot of the card. */}
-        <article className="onb-card test">
+        <TestCheckInCard
+          phoneShown={testCard.phone ? phoneShown(testCard.phone) : null}
+          needsAgreement={testCard.needsAgreement}
+          left={testCard.left}
+          sentToday={testCard.sentToday}
+          stepDone={testCheckInIsDone(setup)}
+          refusalAtFirst={testCard.refusal ? testCheckInRefusalMessage(testCard.refusal) : null}
+          refusalKind={
+            testCard.refusal === 'test_check_in.limit_reached'
+              ? 'limit'
+              : testCard.refusal === 'test_check_in.no_phone'
+                ? 'no_phone'
+                : null
+          }
+          leaderNoun={onboarding.leaderNoun}
+        >
           <div className="thumb thumb-phone" aria-hidden="true">
             <div className="mini-phone">
               <div className="notch" />
-              <p className="bubble">
-                {testCheckInQuestion({
-                  ministryName: onboarding.readsAs,
-                  leaderNoun: onboarding.leaderNoun,
-                  participantNoun: onboarding.participantNoun,
-                })}
-              </p>
+              <p className="bubble">{testCard.firstText}</p>
             </div>
           </div>
-          <h3>{TEST_CARD_TITLE}</h3>
-        </article>
+        </TestCheckInCard>
 
         <article className="onb-card">
           <div className="thumb thumb-james" aria-hidden="true">

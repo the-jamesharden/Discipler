@@ -83,9 +83,9 @@ jobs:
             echo "TWILIO_AUTH_TOKEN=ci-only-twilio-auth-token"
             echo "CRON_SECRET=ci-only-cron-secret"
             echo "STRIPE_WEBHOOK_SECRET=whsec_ci_only"
-            echo "SETUP_METER_ON=true"
             echo "ASK_DISCIPLER_ON=true"
             echo "SIGN_UP_OPEN_URL=http://127.0.0.1:3001"
+            echo "MESSAGE_TRANSPORT=record"
           } >> "$GITHUB_ENV"
 
       - name: Typecheck

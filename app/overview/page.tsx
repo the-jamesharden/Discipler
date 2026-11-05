@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { relationshipIdFrom } from '~/domain/ids'
 import { checkInRates, ratedTotal } from '~/domain/overview'
-import { getOverviewReader } from '~/service/container'
+import { getOverviewReader, getTestCheckIn } from '~/service/container'
 import { careOutcomeMessage, careRefusalMessage } from '../follow-up/copy'
 import { readTheConcerns } from '../pair-card/open'
 import { PairCard } from '../pair-card/pair-card'
@@ -278,7 +278,13 @@ export default async function OverviewPage({
       {/* A new key for each answer from the server, so one closed earlier on this same
           page opens again when Restart onboarding asks for it. */}
       {!card && (restarted || !admin.onboarding.opened) ? (
-        <OnboardingModal key={now.getTime()} admin={admin} restarted={restarted} now={now} />
+        <OnboardingModal
+          key={now.getTime()}
+          admin={admin}
+          restarted={restarted}
+          now={now}
+          testCard={await getTestCheckIn().card(admin)}
+        />
       ) : null}
     </AdminShell>
   )

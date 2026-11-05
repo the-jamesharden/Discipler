@@ -737,6 +737,16 @@ a.ci-card:hover, a.ci-card:focus-visible { border-color: var(--primary-light); b
 /* A D whose Concern is still unresolved; its words are never on the list. */
 a.ci-card.d { border-left: 3px solid var(--red-concern); }
 .ci-when { font-size: 0.76rem; color: var(--text-light); }
+/* Admins trying the product: quiet, under the columns, and counted in nothing above. */
+.ci-tests { margin-top: 1.25rem; }
+ul.ci-test-list { list-style: none; margin: 0; padding: 0; font-size: 0.88rem; }
+ul.ci-test-list li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 0.25rem 1rem; align-items: baseline; padding: 0.55rem 0; border-top: 1px solid var(--border); }
+ul.ci-test-list li:first-child { border-top: 0; }
+.ci-test-who .pill { margin-left: 0.5rem; }
+@media (max-width: 720px) {
+  ul.ci-test-list li { grid-template-columns: minmax(0, 1fr) auto; }
+  ul.ci-test-list li > :nth-child(2) { grid-row: 2; grid-column: 1 / -1; }
+}
 
 /* ---- suggestions ---- */
 
@@ -1805,13 +1815,16 @@ details.pc-member[open] .pc-chev { transform: rotate(180deg); }
   .setup:hover .steps { padding-top: 0.8rem; }
   .setup:hover:not(:focus-within):not(.open), .setup:hover:not(:focus-within):not(.open) .more, .setup:hover:not(:focus-within):not(.open) .steps { transition-delay: 0.4s; }
 }
+/* Too narrow for the seven side by side, as Settings' column is even at 1280 wide, they wrap, so no step is cut off or out of sight. */
 @container (max-width: 860px) {
-  .setup .steps { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 9.5rem; overflow-x: auto; padding-bottom: 0.3rem; }
+  .setup .steps { grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); }
 }
 @container (max-width: 720px) {
   .setup .setup-line { flex-wrap: wrap; gap: 0.4rem 0.7rem; }
   .setup .setup-line strong { font-size: 0.92rem; }
-  .setup .next-line { margin-left: 0; width: 100%; }
+  .setup .next-line { margin-left: 0; width: 100%; justify-content: space-between; }
+  /* Its instruction is all of it, so it wraps rather than cutting itself short. */
+  .setup .next-line span { white-space: normal; overflow: visible; }
 }
 @media (prefers-reduced-motion: reduce) {
   .setup, .setup .more, .setup .mini > div, .setup .step .txt > span:first-child { transition: none; }
@@ -1843,6 +1856,19 @@ body:has(.onb-bg) .badge-bg { display: none; }
 .onb-card h3 svg { width: 1.05rem; height: 1.05rem; color: var(--primary); flex: none; }
 .onb-card > p { font-size: 0.86rem; color: var(--text-light); margin: 0.25rem 0 0.8rem; line-height: 1.45; }
 .onb-card .onb-go { margin-top: auto; align-self: flex-start; }
+/* The test check-in's card: anything extra sits above its button. */
+.onb-card p.fine { font-size: 0.72rem; color: var(--text-light); line-height: 1.4; margin: 0 0 0.7rem; }
+.onb-card .toast { margin: 0 0 0.8rem; box-shadow: none; font-size: 0.82rem; line-height: 1.5; padding: 0.65rem 0.8rem; }
+.onb-ok { display: flex; gap: 0.5rem; align-items: flex-start; background: #eef5e8; border: 1px solid #cddcbf; border-radius: 8px; padding: 0.6rem 0.7rem; font-size: 0.83rem; margin-bottom: 0.5rem; }
+.onb-ok svg { width: 1rem; height: 1rem; color: var(--primary); flex: none; margin-top: 0.15rem; }
+.onb-ok p { margin: 0; }
+.onb-card .verify-form { display: flex; flex-direction: column; flex: 1; }
+.onb-card .verify { margin-bottom: 0.8rem; }
+.onb-card .verify p { font-size: 0.83rem; margin: 0; }
+.onb-card .verify p.fine { font-size: 0.72rem; color: var(--text-light); margin-top: 0.3rem; }
+.onb-card .verify .code { display: flex; align-items: center; gap: 0.5rem; margin: 0.55rem 0; font-size: 0.8rem; font-weight: 600; color: var(--text-light); }
+.onb-card .verify .code input { width: 100%; min-width: 0; padding: 0.45rem 0.6rem; border: 1px solid var(--primary); border-radius: 6px; font: inherit; font-size: 1.05rem; letter-spacing: 0.3em; color: var(--text); }
+.onb-card .verify .small-link { display: block; margin-top: 0.1rem; padding: 0; background: none; border: 0; font: inherit; font-size: 0.78rem; color: var(--primary); text-decoration: underline; cursor: pointer; }
 .onb-card .thumb { position: relative; height: 128px; border-radius: 8px; overflow: hidden; background: var(--bg); border: 1px solid var(--border); }
 .onb-card .thumb-shot img { display: block; width: 116%; max-width: none; height: auto; }
 .onb-card .thumb-phone { background: linear-gradient(160deg, #eef3e8, #f5f1eb); display: grid; place-items: end center; }

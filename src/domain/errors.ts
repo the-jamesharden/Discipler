@@ -5,6 +5,7 @@ import type { IntakeFormRefusal } from './intake-form'
 import type { MinistrySettingsRefusal } from './ministry-settings'
 import type { RemovalRefusal } from './removal'
 import type { ShortNameRefusal } from './short-name'
+import type { TestCheckInRefusal } from './test-check-in'
 
 /**
  * Refusals travel as codes, never as prose. The same rule the sign-in page follows:
@@ -770,5 +771,13 @@ export class PasswordResetRefused extends Error {
   constructor(readonly refusal: PasswordResetRefusal) {
     super(refusal)
     this.name = 'PasswordResetRefused'
+  }
+}
+
+/** Why a test check-in did not go (Exponential launch, ticket 28). The card words each. */
+export class TestCheckInRefused extends Error {
+  constructor(readonly refusal: TestCheckInRefusal) {
+    super(refusal)
+    this.name = 'TestCheckInRefused'
   }
 }

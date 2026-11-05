@@ -223,7 +223,6 @@ const Badge = ({
 
 export const SetupMeterBar = ({ view }: { readonly view: SetupMeterView }) => {
   const bar = useRef<HTMLElement>(null)
-  const list = useRef<HTMLOListElement>(null)
   const pointer = useRef('')
   const [open, setOpen] = useState(false)
   // Steps to draw unticked for now, because their tick is still to come.
@@ -234,15 +233,6 @@ export const SetupMeterBar = ({ view }: { readonly view: SetupMeterView }) => {
   const nextStep = view.steps.find(({ step }) => step === view.next) ?? null
   const hasBadge = view.badge !== null
   const unseen = view.unseen.join(',')
-
-  /** Slides a phone's row of steps across to one of them. */
-  const showInRow = (step: SetupStep | null) => {
-    const row = list.current
-    const item = step ? row?.querySelector<HTMLElement>(`[data-step="${step}"]`) : null
-    if (row && item) row.scrollLeft = item.offsetLeft - row.offsetLeft - 8
-  }
-
-  useEffect(() => showInRow(view.next), [view.next])
 
   useEffect(() => {
     // The badge says all of it at once, with every step marked seen as it plays.
@@ -269,7 +259,6 @@ export const SetupMeterBar = ({ view }: { readonly view: SetupMeterView }) => {
         window.setTimeout(() => {
           setWaiting((still) => new Set([...still].filter((other) => other !== step)))
           setPopping((now) => new Set([...now, step]))
-          showInRow(step)
 
           const canvas = bar.current?.querySelector('canvas')
           const box = bar.current?.querySelector(`[data-step="${step}"] .box`)?.getBoundingClientRect()
@@ -291,10 +280,7 @@ export const SetupMeterBar = ({ view }: { readonly view: SetupMeterView }) => {
         }, OPENING_MS + index * BETWEEN_POPS_MS),
       )
       const fold = window.setTimeout(
-        () => {
-          setOpen(false)
-          showInRow(view.next)
-        },
+        () => setOpen(false),
         OPENING_MS + toPlay.length * BETWEEN_POPS_MS + LINGER_MS,
       )
       timers = [...pops, fold]
@@ -360,7 +346,7 @@ export const SetupMeterBar = ({ view }: { readonly view: SetupMeterView }) => {
         </div>
         <div className="more">
           <div>
-            <ol className="steps" ref={list}>
+            <ol className="steps">
               {view.steps.map(({ step, words, done, action }) => {
                 const ticked = done && !waiting.has(step)
                 const classes = [

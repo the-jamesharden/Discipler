@@ -203,10 +203,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     expect(Number.isInteger(outcome.awaitingANumber)).toBe(true)
     // The capacity watch ran once on the pass, whatever it found.
     expect(outcome.capacity).not.toBe('failed')
-    // A local server has no Twilio account to read, so this is the balance read
-    // failing: reported, and everything above went on regardless. It proves too that
-    // the read never reached the real Twilio from here.
-    expect(outcome.twilioBalance).toBe('failed')
+    // This server records its texts, so it has no Twilio account to read. Reported and
+    // not `failed`, and it proves too that the read never reached the real Twilio from here.
+    expect(outcome.twilioBalance).toBe('no_account')
     // So did the sweep of the Stripe events (Exponential launch, ticket 03).
     expect(outcome.stripeEvents).not.toBe('failed')
     // A local server has no Stripe to ask which price is the first, so the over-200

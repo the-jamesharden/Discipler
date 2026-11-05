@@ -9,9 +9,8 @@ import { setupMeterView } from './setup-meter-copy'
  * launch, ticket 31). Everything it draws came with the page's one read
  * (`docs/adr/0023-a-page-is-one-read.md`); the chat is read when it is opened.
  *
- * Before the church reaches 100% it leads with the next setup step. That reads the
- * church's progress and not whether the bar is drawn, so `SETUP_METER_ON` does not change
- * it. An Admin who has seen the badge reads as done, whichever way they got there.
+ * Before the church reaches 100% it leads with the next setup step. An Admin who has
+ * seen the badge reads as done, whichever way they got there.
  */
 const setupFor = (admin: SignedInAdmin): AskDisciplerSetup | null => {
   if (!admin.setup.shown || admin.setup.done.length === SETUP_STEPS.length) return null

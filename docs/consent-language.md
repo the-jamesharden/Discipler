@@ -43,6 +43,8 @@ It is not an Intake: it does not change the Admin's Participation Status, and be
 
 An Admin from before sign-up has no such consent.
 The test check-in's card shows them the same sentence with "By sending" in place of "By continuing", above its button, and sending is their agreement.
+It is recorded as soon as they press, before the first text of any kind goes, because the sentence names sign-in codes as well, with `source = 'ministry_setup'` and a version of its own, `TEST_CARD_CONSENT_VERSION` in `src/domain/consent.ts`.
+An Admin with an open opt-out, or whose latest decision about texts is no, is refused and pressing changes neither: a later Intake's no wins over this, as it wins over sign-up's.
 
 This is different wording from Statement 1, so it is recorded with a version identifier of its own, `SIGN_UP_CONSENT_VERSION` in `src/domain/consent.ts`, never one of the identifiers on this page.
 Its time is when "Continue" was pressed on the email and phone page for that phone: a resend keeps it, and pressing it again with a different phone moves it, since the consent is for that number.
