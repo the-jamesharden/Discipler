@@ -415,6 +415,8 @@ export const EMAIL_KINDS = {
   billingEventRefused: 'support',
   /** The texting gate could not read a church's access, and texts went on unchecked (ticket 05). */
   textingGateUnread: 'support',
+  /** The AI Gateway refused Ask Discipler for spending, once a month (ticket 31). */
+  askDisciplerSpendStopped: 'support',
   /** A church-plant application, with no approve link in it (ticket 19). */
   churchPlantApplication: 'founders',
   /** Sign-up's 6-digit code, and the notice sent instead when the address has an account (ticket 11). */

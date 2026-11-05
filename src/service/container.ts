@@ -111,6 +111,12 @@ import { watchOver200Churches, type Over200WatchOutcome } from './over-200-watch
 import { createEmailSupportAlerts } from './support-alerts'
 import { createForgotPassword, type ForgotPassword } from './forgot-password'
 import { createSupportForm, type SupportForm, type SupportSweep } from './support-form'
+import { createAskDiscipler, type AskDiscipler } from './ask-discipler'
+import { createGatewayGuideModel } from '~/platform/ai-gateway/guide-model'
+import {
+  createPostgresAskDisciplerStore,
+  type PostgresAskDisciplerStore,
+} from '~/platform/supabase/ask-discipler-store'
 import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
 import type {
   ChurchSignups,
@@ -197,6 +203,8 @@ let ministryDirectory: PostgresMinistryDirectory | undefined
 let messageTransport: MessageTransport | undefined
 let emailSender: EmailSender | undefined
 let supportSubmissions: PostgresSupportSubmissions | undefined
+let askDisciplerStore: PostgresAskDisciplerStore | undefined
+let askDiscipler: AskDiscipler | undefined
 let supportForm: SupportForm | undefined
 let phoneChecks: PostgresPhoneChecks | undefined
 let phoneCheck: PhoneCheck | undefined
@@ -541,6 +549,26 @@ export const getSupportForm = (): SupportForm => {
   return supportForm
 }
 
+/**
+ * Ask Discipler (Exponential launch, ticket 31). Writes on the trusted connection, into
+ * `discipler_command` for one church at a time; the gateway's credential is its own.
+ */
+export const getAskDiscipler = (): AskDiscipler => {
+  if (!askDiscipler) {
+    askDisciplerStore = createPostgresAskDisciplerStore(commandDatabaseUrl())
+    askDiscipler = createAskDiscipler({
+      store: askDisciplerStore,
+      model: createGatewayGuideModel(),
+      alerts: getSupportAlerts(),
+      clock: systemClock,
+    })
+  }
+  return askDiscipler
+}
+
+/** The tick's deleting of chats kept long enough. It throws when the database does, and the tick catches it. */
+export const sweepAskDiscipler = (): Promise<number> => getAskDiscipler().sweep()
+
 /** The tick's pass over the form's two tables. It throws when the database does, and the tick catches it. */
 export const sweepTheSupportSubmissions = (): Promise<SupportSweep> => getSupportForm().sweep()
 
@@ -748,6 +776,9 @@ export const closeCommandService = async (): Promise<void> => {
   const signUps = pendingSignups
   const billed = postgresBilling
   const submissions = supportSubmissions
+  const askedQuestions = askDisciplerStore
+  askDisciplerStore = undefined
+  askDiscipler = undefined
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -792,6 +823,7 @@ export const closeCommandService = async (): Promise<void> => {
   await signUps?.close()
   await billed?.close()
   await submissions?.close()
+  await askedQuestions?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)

@@ -67,6 +67,7 @@ describe('the Admin tabs answer in one read', () => {
         person_id: ministry.adminPersonId,
         full_name: ministry.adminName,
         whats_new_dismissed: [],
+        ask_discipler_tucked: false,
       })
     }
   })

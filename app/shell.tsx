@@ -4,6 +4,7 @@ import type { SignedInAdmin } from '~/service/ports'
 import { CHANGE_YOUR_PASSWORD, SIGN_OUT } from './account/copy'
 import { BotanicalFrame } from './botanical'
 import { ADMIN_TABS, type AdminTab } from './admin-tabs'
+import { AskDiscipler } from './ask-discipler'
 import { ArrowLeft } from './icons'
 import { SearchBar } from './search/search'
 import { SetupMeter } from './setup-meter'
@@ -162,6 +163,8 @@ export const AdminShell = ({
       <SetupMeter admin={admin} />
 
       <main>{children}</main>
+
+      <AskDiscipler admin={admin} />
     </div>
   )
 }
@@ -226,6 +229,7 @@ export const PageShell = ({
     </header>
     {admin ? <SetupMeter admin={admin} /> : null}
     <main>{children}</main>
+    {admin ? <AskDiscipler admin={admin} /> : null}
   </div>
 )
 

@@ -42,6 +42,7 @@ describe('the routing', () => {
     ['twilioSpendPassed'],
     ['over200FollowUp'],
     ['deliverabilityCheck'],
+    ['askDisciplerSpendStopped'],
   ] as const)('sends %s to support@', (kind) => {
     expect(openEnvelope({ kind, subject, body, once: 'x' }).to).toEqual([
       'support@trydiscipler.com',
@@ -71,6 +72,7 @@ describe('the routing', () => {
     // A kind with no route here would be a kind nobody decided the inbox of.
     expect(Object.keys(EMAIL_KINDS).sort()).toEqual(
       [
+        'askDisciplerSpendStopped',
         'billingEventRefused',
         'bugReport',
         'churchPlantApplication',

@@ -24,7 +24,9 @@ import { matching, termsOf, type DirectoryGroup, type DirectoryRow } from './mat
  *   Contact support, Setup videos, Blog) is listed the moment `helpMenuFor` gives it an
  *   address, so tickets 25, 27 and 30 change nothing here. Office hours has one only
  *   while there is a next call, so the pages are worked out when they are asked for.
- * - **Ask Discipler (ticket 31)** sets `href` on its entry below, if it has an address.
+ * - **Ask Discipler** has no address: ticket 31 built a circle on every Admin page, so
+ *   its entry below stays undrawn until James says what it should do. See
+ *   `docs/open-questions.md`, *search once Ask Discipler ships*.
  * - **A new tab** is added to `ADMIN_TABS` and is listed with it. **A new page of any
  *   other kind** is one more entry here, under the heading it belongs with.
  *
@@ -115,7 +117,7 @@ export const directoryPages = (officeHours: UpcomingOfficeHours | null): readonl
   {
     heading: HEADINGS.help,
     label: 'Ask Discipler',
-    href: null, // Ticket 31.
+    href: null, // A circle with no address. See the note at the top of this file.
     where: WHERE.help,
     icon: 'help',
   },

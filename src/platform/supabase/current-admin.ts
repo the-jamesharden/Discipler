@@ -43,3 +43,15 @@ export const adminEmailFromToken = async (): Promise<string | null> => {
   const email = data?.claims.email
   return typeof email === 'string' && email !== '' ? email : null
 }
+
+/**
+ * The sign-in the signed-in session's token belongs to, which is what makes a chat one
+ * chat (Exponential launch, ticket 31): it stays the same while the Admin stays signed
+ * in, through every refresh of the token, and a new sign-in has a new one.
+ */
+export const signInFromToken = async (): Promise<string | null> => {
+  const supabase = await createSupabaseServerClient()
+  const { data } = await supabase.auth.getClaims()
+  const session = data?.claims.session_id
+  return typeof session === 'string' && session !== '' ? session : null
+}

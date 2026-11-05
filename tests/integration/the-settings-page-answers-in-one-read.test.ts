@@ -55,6 +55,7 @@ describe('the settings page answers in one read', () => {
         person_id: riverside.adminPersonId,
         full_name: riverside.adminName,
         whats_new_dismissed: [],
+        ask_discipler_tucked: false,
       },
       billing: OUTSIDE_STRIPE,
       // The setup meter's own document (ticket 26), proved in `the-setup-meter-over-http`.

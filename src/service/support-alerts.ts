@@ -131,6 +131,22 @@ This email is sent once for each month a church stays above the limit.`,
     })
   },
 
+  // Nothing in it but the month, so a retry is the same email.
+  async askDisciplerSpendStopped({ month }) {
+    await sender.send({
+      kind: 'askDisciplerSpendStopped',
+      subject: emailSubject`Ask Discipler has stopped answering`,
+      body: emailBody`Vercel's AI Gateway refused a question from Ask Discipler for spending in ${EmailField.line(month)} (UTC): the project's monthly budget has been reached, or the team's AI Gateway credits have run out.
+
+Until that changes, every Admin who asks is told "Sorry, I couldn't answer just now. Please try again in a minute." and the question does not count toward their day. Nothing else in Discipler is affected.
+
+A budget resets on the first of the month, UTC. To start sooner, look at the budget and the credits under AI Gateway in Vercel.
+
+This email is sent once a month.`,
+      once: `ask-discipler-spend-stopped:${month}`,
+    })
+  },
+
   // The event's ID is all anybody needs: it opens in the Stripe Dashboard, and it
   // keeps a church's details out of an inbox.
   async billingEventRefused({ eventId, eventType, refusal }) {

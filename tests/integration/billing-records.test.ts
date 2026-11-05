@@ -111,6 +111,7 @@ describe('Billing records and the Stripe webhook', () => {
         told.push(alert)
       },
       async textingGateUnread() {},
+      async askDisciplerSpendStopped() {},
     }
     work = {
       inbox: billing.inbox,

@@ -14,9 +14,10 @@ export const words = (html: string): string => html.replace(/<!-- -->/g, '')
 
 /** The list's item about one name, as markup: from its `<li` to the next. */
 export const itemAbout = (html: string, name: string): string | undefined => {
-  // The list only, never a card open over it.
+  // The list only: never a card open over it, or what the shell draws after the page.
   const card = html.indexOf('data-testid="pair-card"')
-  return words(card < 0 ? html : html.slice(0, card))
+  const end = card < 0 ? html.indexOf('</main>') : card
+  return words(end < 0 ? html : html.slice(0, end))
     .split('<li')
     .slice(1)
     .find((candidate) => candidate.includes(name))
