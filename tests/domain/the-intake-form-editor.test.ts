@@ -59,7 +59,7 @@ describe('every Ministry’s preset is today’s form', () => {
     expect(mentorAndMentee.intro).toBeNull()
     expect(mentorAndMentee.thankYou).toBeNull()
     expect(said(mentorAndMentee)).toEqual([
-      ['Welcome — let’s get you connected.', ['I’m joining as…']],
+      ['Welcome - let’s get you connected.', ['I’m joining as…']],
       ['Tell us a little about yourself.', ['Age range', 'Gender']],
       ['A bit about your experience.', ['Have you mentored someone before?']],
       // Beside the first-time page, its twin (Suggestions beyond the one-to-one,
@@ -67,7 +67,7 @@ describe('every Ministry’s preset is today’s form', () => {
       ['One more about how you’d be paired.', ['Open to mentoring two mentees together if needed']],
       ['When are you generally available to meet?', ['When could you meet?']],
       [
-        'Nearly there — how we reach you, and what you are hoping for.',
+        'Nearly there - how we reach you, and what you are hoping for.',
         ['What are you hoping for?', 'Your name', 'Mobile number', 'Email'],
       ],
     ])
@@ -86,7 +86,7 @@ describe('every Ministry’s preset is today’s form', () => {
       ['Tell us a little about yourself.', ['Age range', 'Gender']],
       ['When are you generally available to meet?', ['When could you meet?']],
       ['Which group would you like to join?', ['Which group would you like to join?']],
-      ['Nearly there — how we reach you.', ['Your name', 'Mobile number', 'Email']],
+      ['Nearly there - how we reach you.', ['Your name', 'Mobile number', 'Email']],
     ])
     expect(questionOn(groups, 'goalId')).toBeUndefined()
     expect(questionOn(groups, 'side')).toBeUndefined()
@@ -100,7 +100,7 @@ describe('every Ministry’s preset is today’s form', () => {
       'Sometimes one mentor walks with two people at once. Either answer is fine.',
     )
     expect(questionOn(mentorAndMentee, 'availability')?.hint).toBe(
-      'Select every hour that could work — not just your best one.',
+      'Select every hour that could work - not just your best one.',
     )
     expect(questionOn(mentorAndMentee, 'goalId')?.hint).toBe('Choose the one that fits best.')
     expect(questionOn(mentorAndMentee, 'gender')?.hint).toBeNull()
@@ -515,7 +515,7 @@ describe('an edit, through the boundary', () => {
     })
     expect(history(renamed.effects)[0]).toMatchObject({
       type: 'intake_form.page_renamed',
-      payload: { pageId: 'welcome', from: 'Welcome — let’s get you connected.', to: 'Welcome' },
+      payload: { pageId: 'welcome', from: 'Welcome - let’s get you connected.', to: 'Welcome' },
     })
 
     const thanked = edit({
@@ -553,7 +553,7 @@ describe('an edit, through the boundary', () => {
         ministryId: ministry,
         form: 'discipleship',
         pageId: 'welcome',
-        name: 'Welcome — let’s get you connected.',
+        name: 'Welcome - let’s get you connected.',
         editedBy: 'admin-user',
       }).effects,
     ).toEqual([])

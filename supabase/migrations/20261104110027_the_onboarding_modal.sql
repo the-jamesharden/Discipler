@@ -80,6 +80,17 @@ begin
     'seen', to_jsonb(own.setup_steps_seen),
     'day', church.checkin_day,
     'hour', church.checkin_hour,
+    -- This Admin's own number, or null. `setupMeterOf` counts the test step as done for a
+    -- number Discipler cannot send a Verify code to, since that Admin can never send one.
+    'own_phone', (
+      select p.phone from public.person p
+       where p.ministry_id = target
+         and p.user_id = (select auth.uid())
+         and not exists (
+           select 1 from public.person_removal r where r.person_id = p.id and r.restored_at is null
+         )
+       limit 1
+    ),
     'done', jsonb_build_object(
       'check_in_time', exists (
         select 1 from public.ministry_event e

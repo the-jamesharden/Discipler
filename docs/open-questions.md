@@ -797,7 +797,11 @@ The drafts are the ones no screen shows:
 Raised on 2026-11-04 by the review of wave 4.
 A church plant's lines on the Settings card are drafts: "then free for your church plant year" and "Free for your church plant year, then $97 a month".
 While sign-up is shut the Help center still lists Referrals, which describes a header button that is not drawn then.
-Three things wait for James: whether an ended church's Leaders are read-only too (`middleware.ts` asks only about Admins, recommended yes), whether the em dashes in the live Intake form sentences in `src/domain/intake-form.ts` go (recommended yes), and whether "Sign in" stays the plain button while it is the only one on `/login` (recommended yes, as the spec says).
+James decided the rest on 2026-11-05.
+The lines above stay as drafts, and Referrals stays in the Help center while sign-up is shut.
+An ended church's Leaders need nothing: their only write is `/account`, which stays open.
+The five em dashes in the preset form sentences in `src/domain/intake-form.ts` are gone; stored form versions keep theirs, because a version never changes.
+"Sign in" stays the plain button while it is the only one on `/login`, as the spec says.
 
 ## Open: the check-in words' refusals and `Messages read as`
 

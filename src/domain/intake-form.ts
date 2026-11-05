@@ -396,7 +396,7 @@ const PRESETS: Readonly<Record<IntakePath, IntakeForm>> = {
     intro: null,
     thankYou: null,
     pages: [
-      page('welcome', 'Welcome — let’s get you connected.', [ask('side', 'I’m joining as…')]),
+      page('welcome', 'Welcome - let’s get you connected.', [ask('side', 'I’m joining as…')]),
       page('about-you', 'Tell us a little about yourself.', [
         ask('ageBand', 'Age range'),
         ask('gender', 'Gender'),
@@ -419,10 +419,10 @@ const PRESETS: Readonly<Record<IntakePath, IntakeForm>> = {
       ]),
       page('availability', 'When are you generally available to meet?', [
         ask('availability', 'When could you meet?', {
-          hint: 'Select every hour that could work — not just your best one.',
+          hint: 'Select every hour that could work - not just your best one.',
         }),
       ]),
-      page('last', 'Nearly there — how we reach you, and what you are hoping for.', [
+      page('last', 'Nearly there - how we reach you, and what you are hoping for.', [
         ask('goalId', 'What are you hoping for?', { hint: 'Choose the one that fits best.' }),
         ask('fullName', 'Your name'),
         ask('phone', 'Mobile number'),
@@ -442,13 +442,13 @@ const PRESETS: Readonly<Record<IntakePath, IntakeForm>> = {
       ]),
       page('availability', 'When are you generally available to meet?', [
         ask('availability', 'When could you meet?', {
-          hint: 'Select every hour that could work — not just your best one.',
+          hint: 'Select every hour that could work - not just your best one.',
         }),
       ]),
       page('your-group', 'Which group would you like to join?', [
         ask('groupId', 'Which group would you like to join?'),
       ]),
-      page('last', 'Nearly there — how we reach you.', [
+      page('last', 'Nearly there - how we reach you.', [
         ask('fullName', 'Your name'),
         ask('phone', 'Mobile number'),
         ask('email', 'Email', { required: false }),

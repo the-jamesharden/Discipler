@@ -232,6 +232,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the setup meter', () => {
       expect(countIn(html)).toBe('29% complete · 2 of 7')
     })
 
+    it('ticks the test step for an Admin whose phone cannot receive a Verify code, and only for them', async () => {
+      expect(tickedIn((await getPage('/overview', cookie)).html)).toEqual([])
+
+      await pool.query(`update person set phone = '+14165550142' where id = $1`, [ministry.adminPersonId])
+
+      expect(tickedIn((await getPage('/overview', cookie)).html)).toEqual(['test_check_in'])
+    })
+
     it('shows "43% complete · 3 of 7" for a church with three steps done', async () => {
       await pressSave(ministry, cookie)
       await addPerson(ministry, 'Mark Wilson', { intake: false })

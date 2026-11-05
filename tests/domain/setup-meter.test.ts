@@ -22,6 +22,7 @@ const answer = (done: readonly SetupStep[], seen: readonly SetupStep[] = []) => 
   seen,
   day: 1,
   hour: 9,
+  own_phone: '+12125550142' as string | null,
 })
 
 describe('the setup meter', () => {
@@ -60,6 +61,36 @@ describe('the setup meter', () => {
 
   it('carries the check-in day and hour the badge words', () => {
     expect(setupMeterOf(answer([]))).toMatchObject({ checkIn: { day: 1, hour: 9 } })
+  })
+
+  describe('for an Admin whose phone cannot receive a Verify code', () => {
+    const CANADIAN = '+14165550142'
+
+    it('counts the test step as done, in its place, and as new to them', () => {
+      const meter = setupMeterOf({ ...answer(['check_in_time', 'roster']), own_phone: CANADIAN })
+
+      expect(meter).toMatchObject({
+        done: ['check_in_time', 'test_check_in', 'roster'],
+        unseen: ['check_in_time', 'test_check_in', 'roster'],
+      })
+    })
+
+    it('reaches every step, so a live church is not stuck below 100%', () => {
+      const allButTheTest = SETUP_STEPS.filter((step) => step !== 'test_check_in')
+
+      expect(setupMeterOf({ ...answer(allButTheTest), own_phone: CANADIAN })).toMatchObject({ done: SETUP_STEPS })
+    })
+
+    it('leaves the step undone for an Admin on a US phone, or with no phone on file', () => {
+      expect(setupMeterOf(answer([]))).toMatchObject({ done: [] })
+      expect(setupMeterOf({ ...answer([]), own_phone: null })).toMatchObject({ done: [] })
+    })
+
+    it('raises on an answer that does not say, rather than reading it as a US phone', () => {
+      const { own_phone: _phone, ...rest } = answer([])
+
+      expect(() => setupMeterOf(rest)).toThrow(/phone/)
+    })
   })
 
   it('is not shown to an Admin who has seen the badge', () => {
