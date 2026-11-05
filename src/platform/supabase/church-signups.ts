@@ -15,22 +15,8 @@ export interface PostgresChurchSignups extends ChurchSignups {
   close(): Promise<void>
 }
 
-/**
- * Whether a Subscription of this church ever really began, as `everBegan` in
- * `src/service/open-trial.ts` reads it from Stripe: its card or bank account was
- * confirmed, and it was not merely an opening that ended with nothing saved.
- */
-const BEGAN = `exists (
-  select 1
-    from billing_event e
-    left join trial_opening o on o.stripe_subscription_id = e.stripe_subscription_id
-   where e.ministry_id = s.ministry_id
-     and e.subscription_status is not null
-     and not e.awaiting_payment_method
-     and (o.stripe_subscription_id is null
-          or o.settled_at is not null
-          or e.subscription_status in ('trialing', 'active', 'past_due'))
-)`
+/** One definition, which the page functions read too: `app.subscription_ever_began`. */
+const BEGAN = 'app.subscription_ever_began(s.ministry_id)'
 
 export const createPostgresChurchSignups = (connectionString: string): PostgresChurchSignups => {
   const pool = new pg.Pool({ connectionString })

@@ -375,7 +375,7 @@ describe('Ask Discipler', () => {
     const readChat = async (client: Awaited<ReturnType<typeof signInAs>>) => {
       const { data, error } = await client.rpc('ask_discipler_page')
       if (error) throw new Error(error.message)
-      return data as { session: string; chat: { question: string; answer: string }[]; asked_today: number }
+      return data as { session: string; chat: { question: string; answer: string }[]; asked_today: { asked_at: string }[] }
     }
 
     it('carries on while the Admin stays signed in, and a new sign-in opens an empty one', async () => {
@@ -388,13 +388,13 @@ describe('Ask Discipler', () => {
 
       const read = await readChat(first)
       expect(read.chat.map((one) => one.question)).toEqual(['Asked in the first sign-in'])
-      expect(read.asked_today).toBe(1)
+      expect(read.asked_today).toHaveLength(1)
 
       const second = await signInAs(ministry)
       const fresh = await readChat(second)
       expect(fresh.chat).toEqual([])
       // A fresh chat is not a fresh day.
-      expect(fresh.asked_today).toBe(1)
+      expect(fresh.asked_today).toHaveLength(1)
 
       // And the first is still there for the sign-in that holds it.
       expect((await readChat(first)).chat).toHaveLength(1)
@@ -416,7 +416,7 @@ describe('Ask Discipler', () => {
 
       const read = await readChat(client)
       expect(read.chat).toEqual([])
-      expect(read.asked_today).toBe(1)
+      expect(read.asked_today).toHaveLength(1)
     })
 
     it('is readable only by its author, even in the same church', async () => {

@@ -84,6 +84,8 @@ jobs:
             echo "CRON_SECRET=ci-only-cron-secret"
             echo "STRIPE_WEBHOOK_SECRET=whsec_ci_only"
             echo "SETUP_METER_ON=true"
+            echo "ASK_DISCIPLER_ON=true"
+            echo "SIGN_UP_OPEN_URL=http://127.0.0.1:3001"
           } >> "$GITHUB_ENV"
 
       - name: Typecheck
@@ -97,6 +99,8 @@ jobs:
           set -euo pipefail
           npm start > app.log 2>&1 &
           echo "APP_PID=$!" >> "$GITHUB_ENV"
+          # The same build with sign-up open, for what only exists then, such as the Refer page.
+          SIGN_UP_OPEN=true npx next start -p 3001 > app-open.log 2>&1 &
 
       # The end-to-end suite drives the app over HTTP. It refuses to skip under CI,
       # so an app that never came up has to fail here, loudly, rather than turn
@@ -109,8 +113,8 @@ jobs:
               echo "The application process exited before it started serving."
               exit 1
             fi
-            if curl -sf -o /dev/null "$APP_URL/login"; then
-              echo "The application is serving on $APP_URL."
+            if curl -sf -o /dev/null "$APP_URL/login" && curl -sf -o /dev/null "$SIGN_UP_OPEN_URL/login"; then
+              echo "The application is serving on $APP_URL and, with sign-up open, on $SIGN_UP_OPEN_URL."
               exit 0
             fi
             sleep 1

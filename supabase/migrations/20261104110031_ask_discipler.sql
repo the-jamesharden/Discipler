@@ -160,12 +160,13 @@ begin
           and q.answer is not null),
       '[]'::jsonb
     ),
-    'asked_today', (
-      select count(*)::int
-        from public.ask_discipler_question q
-       where q.user_id = uid
-         and q.ministry_id = ministry
-         and q.asked_at >= app.start_of_local_day(now(), zone)
+    'asked_today', coalesce(
+      (select jsonb_agg(jsonb_build_object('asked_at', q.asked_at) order by q.asked_at, q.id)
+         from public.ask_discipler_question q
+        where q.user_id = uid
+          and q.ministry_id = ministry
+          and q.asked_at >= app.start_of_local_day(now(), zone)),
+      '[]'::jsonb
     )
   );
 end;

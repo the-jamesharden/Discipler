@@ -22,7 +22,7 @@ If the token verifies but names no held session the document says `signed-out` a
 If the session administers no Ministry it says `not-an-admin` and carries no ministry data.
 The shell's Follow-Up badge is handed in by every page from that document, so the shell never reads on its own.
 The same goes for the Admin's name, which the top nav draws on every Admin page, and the What's new entries they have dismissed, which its New tag follows: each is one more field of `app.page_session()`, which every page function starts from.
-So too the setup meter under the tabs, whose steps are read by `app.setup_meter_of` inside that same call; once an Admin has seen its badge that function answers from their own membership row and reads no history.
+So too the setup meter under the tabs, whose steps are read by `app.setup_meter_of` inside that same call; once an Admin has seen its badge that function answers from their own membership row and their church's row, which the onboarding modal draws, and reads no history.
 
 ## Context
 
@@ -53,12 +53,18 @@ A page function returns rows; every rule that turns rows into what a page shows 
 The cost is that a tab which shows only the badge still reads the whole history, and the history is unbounded.
 The document size is measured in the edge log after the deploy; a page document over 256 KB is answered by bounding the history to the window the derivation needs, never by a count computed in SQL.
 
-The setup meter is the one exception, recorded here so it stays the only one.
+The setup meter is one of two exceptions, recorded here so that nothing joins them unrecorded.
 `app.setup_meter_of` answers each of its seven steps in SQL, with an `exists` probe for each, on every Admin page.
 Deriving them in the domain would put the church's whole history into every Admin page's document, for a bar most churches finish with, and that history is the unbounded thing this decision is careful about.
 The probes count nothing and turn no rows into what a page shows: each returns whether a fact is stored, and the domain still derives the percentage, the next step and what the bar draws from those answers.
 It is `security definer` for its own stated reason, that as the invoker a second Admin's Roster row would read as somebody who is not an Admin, and it answers only for a church the session administers.
 The cost is that what each step reads lives in a migration, so changing a step is a migration and not a domain change.
+
+The other exception is a page that reads Stripe.
+Billing, its restart page and the Billing card in Settings ask for the church's Stripe customer over the trusted connection, as a second read.
+A Stripe ID is kept out of everything an Admin's session can read: `ministry_billing` has no policy and no grant, and `BillingState` holds none.
+Putting one in a document would widen what a caller may read, which the rule about privilege below forbids.
+The read is one primary key, made only on the way to Stripe's own calls, which cost many times more.
 
 A page function names the functions it composes at runtime, and Postgres records no dependency for a name in a body.
 A later migration that drops or re-signatures `roster` applies cleanly, and `roster_page` fails at its first call; a `language sql` body is checked when it is created and never again, so it breaks the same way.

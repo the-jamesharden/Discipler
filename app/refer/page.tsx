@@ -3,6 +3,7 @@ import { referralLinkShown } from '~/domain/referrals'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import { getReferReader } from '~/service/container'
 import { AdminShell, NotAnAdmin } from '../shell'
+import { holdWhileSignUpIsShut } from '../signup/standing'
 import { GiftOpen } from '../icons'
 import { REFER } from './copy'
 import { YourLink } from './your-link'
@@ -16,8 +17,12 @@ export const dynamic = 'force-dynamic'
  *
  * The page's document holds the code and nothing about any church the code ever brought,
  * so nothing here could show one.
+ *
+ * A 404 while sign-up is shut, like the button that opens it: its link would answer 404 too.
  */
 export default async function ReferPage() {
+  holdWhileSignUpIsShut()
+
   const resolution = await getReferReader().readReferPage()
 
   if (resolution.status === 'not-an-admin') return <NotAnAdmin title={REFER.title} />

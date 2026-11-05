@@ -24,7 +24,7 @@ export async function GET() {
         question: text(row.question) ?? '',
         reply: guideReply(text(row.answer) ?? ''),
       })),
-      questionsLeft: questionsLeftAfter(typeof doc.asked_today === 'number' ? doc.asked_today : 0),
+      questionsLeft: questionsLeftAfter(list(doc, 'asked_today').length),
     }),
   )
 

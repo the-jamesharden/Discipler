@@ -44,7 +44,7 @@ export default async function RestartPage({
 }: {
   searchParams: Promise<{ redirect_status?: string }>
 }) {
-  const resolution = await getBillingReader().readBillingPage()
+  const resolution = await getBillingReader().readRestartPage()
 
   if (resolution.status === 'not-an-admin') return <NotAnAdmin title={RESTART.title} />
   if (resolution.status === 'signed-out') redirect('/login')

@@ -140,7 +140,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the top nav', () => {
     ]) {
       expect(head, notYet).not.toContain(notYet)
     }
-    expect(head).toContain('href="/refer"')
+    // Only while sign-up is open: `the-refer-page-over-http.test.ts`.
+    expect(head).not.toContain('href="/refer"')
     // No control anywhere in the nav is a link to nowhere.
     expect(head).not.toContain('href="#"')
   })

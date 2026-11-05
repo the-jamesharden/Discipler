@@ -2309,10 +2309,20 @@ export interface BillingPage {
   readonly timeZone: string
   readonly cadence: { readonly day: number; readonly hour: number }
   readonly followUpCount: number
+  /** What the church chose when it signed itself up, or null: it did not. */
+  readonly signup: ChurchSignup | null
+}
+
+/** What `/` and the payment step need to know about the payment step. */
+export interface PaymentStepPage {
+  readonly signup: ChurchSignup | null
 }
 
 export interface BillingReader {
   readBillingPage(): Promise<AdminPage<BillingPage>>
+  readRestartPage(): Promise<AdminPage<BillingPage>>
+  readHomePage(): Promise<AdminPage<PaymentStepPage>>
+  readPaymentStepPage(): Promise<AdminPage<PaymentStepPage>>
 }
 
 /** A church whose trial is about to end, as the seven-day watch reads it (ticket 33). */

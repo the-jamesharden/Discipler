@@ -122,11 +122,20 @@ const offerNote = (offer: OfferInForce, timeZone: string): string => {
   }
 }
 
+/**
+ * The offer the next bill falls under. Not simply the first: a church plant approved after a
+ * paid bill still has the phase it is paying in, which ends on the day of that next bill.
+ */
+const offerOnTheNextBill = (picture: BillingPicture): OfferInForce | undefined => {
+  const next = picture.nextPayment
+  return next ? picture.offers.find((offer) => offer.endsAt > next.at) : picture.offers[0]
+}
+
 /** How the next bill is made up, under its amount. */
 const billNote = (picture: BillingPicture): string => {
   const next = picture.nextPayment
   if (next && next.cents !== next.fullCents) return `${moneyOf(next.fullCents)}, less your referral credit`
-  const offer = picture.offers[0]?.kind
+  const offer = offerOnTheNextBill(picture)?.kind
   if (offer === 'exponential') return `${everyCycle(picture)}, ${EXPONENTIAL_OFFER.discountPercent}% off your first year`
   if (offer === 'plant_year') return `Free for your church plant year, then ${everyCycle(picture)}`
   if (offer === 'first_free_month') return `${everyCycle(picture)}, less your first month free`
@@ -297,13 +306,16 @@ export const settingsLine = (picture: BillingPicture, timeZone: string): string 
   if (picture.endedAt) return BILLING.banner.ended
   if (picture.cancelsAt) return `Ends ${longDate(picture.cancelsAt, timeZone)} · ${method}`
   if (picture.failed) return `${BILLING.banner.due} · ${method}`
+  const plantYear = offerOnTheNextBill(picture)?.kind === 'plant_year'
   if (picture.trial && next) {
-    const after =
-      next.fullCents === 0
+    const after = plantYear
+      ? 'free for your church plant year'
+      : next.fullCents === 0
         ? 'your first paid month free'
         : `${moneyOf(next.fullCents)} a ${picture.cycle}`
     return `Free trial until ${longDate(picture.trial.endsAt, timeZone)}, then ${after} · ${method}`
   }
+  if (plantYear) return `Free for your church plant year, then ${everyCycle(picture)} · ${method}`
   if (next) return `${everyCycle(picture)} · next payment ${longDate(next.at, timeZone)} · ${method}`
   return `${everyCycle(picture)} · ${method}`
 }

@@ -4,6 +4,7 @@ import { referralLinkShown } from '~/domain/referrals'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getReferralLinks } from '~/service/container'
+import { whileSignUpIsShut } from '../../signup/answer'
 
 /**
  * "Get a new link" (Exponential launch, ticket 32): the old code is retired, so the old link
@@ -17,6 +18,9 @@ const wantsJson = (request: NextRequest): boolean =>
   request.headers.get('accept')?.includes('application/json') === true
 
 export async function POST(request: NextRequest) {
+  const shut = whileSignUpIsShut()
+  if (shut) return shut
+
   const admin = await currentAdmin()
   if (!admin) {
     return wantsJson(request)

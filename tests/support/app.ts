@@ -115,7 +115,13 @@ export const signInAs = async (
 export const signIn = async (ministry: MinistryFixture) =>
   signInAs({ phone: ministry.adminPhone, password: ministry.adminPassword })
 
-export const getPage = async (path: string, cookie: string) => {
-  const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual', headers: { cookie } })
+/**
+ * The same build with sign-up open (`scripts/locked-tests.sh`), for what only exists then.
+ * `baseUrl` runs with it shut, as production does.
+ */
+export const signUpOpenUrl = process.env.SIGN_UP_OPEN_URL ?? ''
+
+export const getPage = async (path: string, cookie: string, server = baseUrl) => {
+  const response = await fetch(`${server}${path}`, { redirect: 'manual', headers: { cookie } })
   return { response, html: await response.text() }
 }

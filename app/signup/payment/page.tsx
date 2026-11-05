@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { adminEmailFromToken, resolveAdmin } from '~/platform/supabase/current-admin'
+import { adminEmailFromToken } from '~/platform/supabase/current-admin'
+import { getBillingReader } from '~/service/container'
 import { Centred } from '../../shell'
 import { CREATE_AN_ACCOUNT } from '../copy'
 import { SignUpProgress, type SearchParams } from '../parts'
@@ -23,11 +24,11 @@ export const generateMetadata = titleWhileOpen(PAYMENT_PAGE.title)
 export default async function PaymentPage({ searchParams }: { searchParams: SearchParams }) {
   holdWhileSignUpIsShut()
 
-  const resolution = await resolveAdmin()
+  const resolution = await getBillingReader().readPaymentStepPage()
   if (resolution.status === 'signed-out') redirect('/login')
   if (resolution.status !== 'admin') redirect('/')
 
-  const signup = await paymentStepOf(resolution.admin)
+  const signup = paymentStepOf(resolution.admin, resolution.page.signup)
   if (!signup) redirect('/')
 
   const { redirect_status: redirectStatus } = await searchParams

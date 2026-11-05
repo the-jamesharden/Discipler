@@ -6,7 +6,7 @@ import {
   localSupabase,
   type MinistryFixture,
 } from '../support/local-supabase'
-import { baseUrl, getPage, signIn, signInAs, skipUnlessAppIsRunning } from '../support/app'
+import { baseUrl, getPage, signIn, signInAs, signUpOpenUrl, skipUnlessAppIsRunning } from '../support/app'
 
 /**
  * The Refer page and "Get a new link" (Exponential launch, ticket 32) on a real server,
@@ -39,10 +39,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Refer page', () => {
   })
 
   it('is what the header\'s button opens, in the mock-up\'s words and order, with the church\'s link', async () => {
-    const { html: overview } = await getPage('/overview', cookie)
+    const { html: overview } = await getPage('/overview', cookie, signUpOpenUrl)
     expect(overview).toContain('href="/refer"')
 
-    const { response, html } = await getPage('/refer', cookie)
+    const { response, html } = await getPage('/refer', cookie, signUpOpenUrl)
     expect(response.status).toBe(200)
 
     const words = html.replace(SEPARATE, '')
@@ -73,7 +73,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Refer page', () => {
   it('replaces the link at once for the page\'s script, and the old one stops being live', async () => {
     const old = await liveCode()
 
-    const response = await fetch(`${baseUrl}/refer/new-link`, {
+    const response = await fetch(`${signUpOpenUrl}/refer/new-link`, {
       method: 'POST',
       headers: { cookie, accept: 'application/json' },
     })
@@ -82,13 +82,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the Refer page', () => {
     const made = await liveCode()
     expect(made).not.toBe(old)
     expect(((await response.json()) as { link: string }).link).toMatch(new RegExp(`/r/${made}$`))
-    expect((await getPage('/refer', cookie)).html).toContain(`/r/${made}`)
+    expect((await getPage('/refer', cookie, signUpOpenUrl)).html).toContain(`/r/${made}`)
   })
 
   it('works as a plain form with no script', async () => {
     const old = await liveCode()
 
-    const response = await fetch(`${baseUrl}/refer/new-link`, {
+    const response = await fetch(`${signUpOpenUrl}/refer/new-link`, {
       method: 'POST',
       headers: { cookie },
       redirect: 'manual',
@@ -102,8 +102,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Refer page', () => {
   it('sends somebody signed out to sign in, and changes nothing', async () => {
     const before = await liveCode()
 
-    const page = await fetch(`${baseUrl}/refer`, { redirect: 'manual' })
-    const posted = await fetch(`${baseUrl}/refer/new-link`, {
+    const page = await fetch(`${signUpOpenUrl}/refer`, { redirect: 'manual' })
+    const posted = await fetch(`${signUpOpenUrl}/refer/new-link`, {
       method: 'POST',
       headers: { accept: 'application/json' },
     })
@@ -118,8 +118,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Refer page', () => {
     const session = await signInAs(leader)
     const before = await liveCode()
 
-    const { html } = await getPage('/refer', session.cookie)
-    const posted = await fetch(`${baseUrl}/refer/new-link`, {
+    const { html } = await getPage('/refer', session.cookie, signUpOpenUrl)
+    const posted = await fetch(`${signUpOpenUrl}/refer/new-link`, {
       method: 'POST',
       headers: { cookie: session.cookie, accept: 'application/json' },
     })
@@ -131,10 +131,34 @@ describe.skipIf(skipUnlessAppIsRunning)('the Refer page', () => {
   })
 
   it('opens sign-up from its link', async () => {
-    const code = await liveCode()
-    const response = await fetch(`${baseUrl}/r/${code}`, { redirect: 'manual' })
+    const response = await fetch(`${signUpOpenUrl}/r/${await liveCode()}`, { redirect: 'manual' })
 
-    // Shut in this suite's server unless sign-up is open; either way nothing is said of the code.
-    expect([307, 404]).toContain(response.status)
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toContain('/signup')
+  })
+
+  describe('while sign-up is shut, as it is on production until launch', () => {
+    it('offers nobody a link that would answer 404', async () => {
+      const code = await liveCode()
+
+      const { html: overview } = await getPage('/overview', cookie)
+      expect(overview).toContain('/settings')
+      expect(overview).not.toContain('href="/refer"')
+
+      expect((await getPage('/refer', cookie)).response.status).toBe(404)
+      expect((await fetch(`${baseUrl}/r/${code}`, { redirect: 'manual' })).status).toBe(404)
+    })
+
+    it('makes no new link', async () => {
+      const before = await liveCode()
+
+      const response = await fetch(`${baseUrl}/refer/new-link`, {
+        method: 'POST',
+        headers: { cookie, accept: 'application/json' },
+      })
+
+      expect(response.status).toBe(404)
+      expect(await liveCode()).toBe(before)
+    })
   })
 })

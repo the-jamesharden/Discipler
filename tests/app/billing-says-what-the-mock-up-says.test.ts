@@ -156,6 +156,39 @@ describe('the Settings card', () => {
   })
 })
 
+describe('a church plant', () => {
+  const YEAR_ENDS = noon('2027-12-30')
+  const PLANT = { kind: 'plant_year', endsAt: YEAR_ENDS } as const
+  const FREE = { cents: 0, fullCents: 0, at: noon('2026-12-30') }
+
+  it('is not told its year is a first free month, while its trial runs', () => {
+    expect(settingsLine(aPicture({ offers: [PLANT], nextPayment: FREE }), ZONE)).toBe(
+      'Free trial until December 30, 2026, then free for your church plant year · Visa ending 4242',
+    )
+  })
+
+  it('is told its year is free once the trial is over', () => {
+    const picture = aPicture({ status: 'active', trial: null, offers: [PLANT], nextPayment: FREE })
+    expect(settingsLine(picture, ZONE)).toBe('Free for your church plant year, then $97 a month · Visa ending 4242')
+  })
+
+  it('approved after a paid bill reads the year, not the phase it is paying in', () => {
+    const paying = { kind: 'exponential', endsAt: FREE.at } as const
+    const picture = aPicture({ status: 'active', trial: null, offers: [paying, PLANT], nextPayment: FREE })
+    expect(settingsLine(picture, ZONE)).toBe('Free for your church plant year, then $97 a month · Visa ending 4242')
+  })
+
+  it('leaves a referred church its first free month', () => {
+    const picture = aPicture({
+      offers: [{ kind: 'first_free_month', endsAt: noon('2027-01-30') }],
+      nextPayment: FREE,
+    })
+    expect(settingsLine(picture, ZONE)).toBe(
+      'Free trial until December 30, 2026, then your first paid month free · Visa ending 4242',
+    )
+  })
+})
+
 describe('past bills', () => {
   const bill = (changes: Partial<PastBill>): PastBill => ({
     at: noon('2027-02-28'),

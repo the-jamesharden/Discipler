@@ -155,8 +155,7 @@ export default async function BillingPage({
   const query = await searchParams
   const { timeZone, followUpCount } = page
   const read = await readBilling(admin.ministryId, new Date())
-  const offerThePaymentStep =
-    read.kind === 'none' && (await paymentStepOf(admin).catch(() => null)) !== null
+  const offerThePaymentStep = read.kind === 'none' && paymentStepOf(admin, page.signup) !== null
   // `billing-past-due.html` draws the failed payment once, in the box below and with no banner.
   const saysThePaymentFailed = read.kind === 'read' && read.picture.failed !== null && !read.picture.cancelsAt
 

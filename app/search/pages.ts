@@ -50,7 +50,10 @@ const section = (label: string, anchor: string): DirectoryPage => ({
   typedOnly: true,
 })
 
-export const directoryPages = (officeHours: UpcomingOfficeHours | null): readonly DirectoryPage[] => [
+export const directoryPages = (
+  officeHours: UpcomingOfficeHours | null,
+  offerRefer = true,
+): readonly DirectoryPage[] => [
   ...ADMIN_TABS.map(
     (tab): DirectoryPage => ({
       heading: HEADINGS.goTo,
@@ -90,7 +93,8 @@ export const directoryPages = (officeHours: UpcomingOfficeHours | null): readonl
   {
     heading: HEADINGS.settings,
     label: REFER_A_CHURCH.label,
-    href: REFER_A_CHURCH.href,
+    // Not while sign-up is shut: the header's button is not drawn then, and its page is a 404.
+    href: offerRefer ? REFER_A_CHURCH.href : null,
     where: WHERE.page,
     icon: 'gift',
   },
@@ -151,10 +155,14 @@ export interface SearchNames {
  * `names` is null until `/search` has answered, so the pages are there at once and the
  * names join them. `pages` is an argument so a test can give an unbuilt page an address.
  */
+/** The pages as of this moment, with Office hours only while there is a next call. */
+export const pagesNow = (offerRefer: boolean): readonly DirectoryPage[] =>
+  directoryPages(upcomingOfficeHours(NEXT_OFFICE_HOURS, new Date()), offerRefer)
+
 export const directoryFor = (
   query: string,
   names: SearchNames | null,
-  pages: readonly DirectoryPage[] = directoryPages(upcomingOfficeHours(NEXT_OFFICE_HOURS, new Date())),
+  pages: readonly DirectoryPage[] = pagesNow(true),
 ): readonly DirectoryGroup[] => {
   if (query.trim() === '') return grouped(pages.filter((page) => !page.typedOnly))
 
