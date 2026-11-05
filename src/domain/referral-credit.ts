@@ -61,6 +61,8 @@ export type ReferralCreditReview =
   | 'same_customer'
   | 'shared_payment'
   | 'shared_email_domain'
+  /** Decided, and the inviter is gone before it was finished. The call to Stripe may have landed. */
+  | 'unfinished_inviter_gone'
 
 const CAN_BE_CREDITED: ReadonlySet<BillingStanding> = new Set(['trialing', 'active', 'past_due'])
 

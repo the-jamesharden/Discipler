@@ -45,6 +45,13 @@ describe('every route that writes', () => {
   it.each(writingRoutes)('%s is refused, or stays open by name', (path) => {
     const first = path.split('/')[1]!
     const billing = path.startsWith('/settings/billing/')
-    expect(changesTheChurchsWork('POST', path)).toBe(!STAYS_OPEN.has(first) && !billing)
+    const seen = path === '/settings/setup-seen'
+    expect(changesTheChurchsWork('POST', path)).toBe(!STAYS_OPEN.has(first) && !billing && !seen)
+  })
+
+  it('leaves the rest of Settings refused, past the one note of what an Admin has seen', () => {
+    expect(changesTheChurchsWork('POST', '/settings/setup-seen')).toBe(false)
+    expect(changesTheChurchsWork('POST', '/settings/setup-seen-not')).toBe(true)
+    expect(changesTheChurchsWork('POST', '/settings/language')).toBe(true)
   })
 })

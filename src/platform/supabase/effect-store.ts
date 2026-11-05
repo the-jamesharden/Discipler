@@ -956,15 +956,17 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
     const person = people[0]
 
-    // The Person's first, as a reply takes it, and then the one the tick takes, so that a
-    // real check-in opening and a test being sent each see what the other committed.
-    if (locked && person) {
-      await client.query(`select pg_advisory_xact_lock(hashtextextended($1, 0))`, [person.id])
-    }
+    // Both, so that a real check-in opening and a test being sent each see what the other
+    // committed. In the tick's order, the Ministry's and then the Person's: the tick holds
+    // the first while it waits for the second, so the other way round is a deadlock, and a
+    // reply holds only the Person's, so this cannot close a cycle with one.
     if (locked) {
       await client.query(
         `select pg_advisory_xact_lock(hashtextextended(app.command_ministry_id()::text, 0))`,
       )
+    }
+    if (locked && person) {
+      await client.query(`select pg_advisory_xact_lock(hashtextextended($1, 0))`, [person.id])
     }
 
     const { rows: churches } = await client.query<{ timezone: string }>(`select timezone from ministry`)
@@ -1038,9 +1040,10 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       subject: string
       words: CheckInWords
     }>(
-      `select id, question, asked_at, clarifications_sent, subject, words
-         from test_check_in
-        where person_id = $1 and ended_at is null`,
+      `select t.id, t.question, t.asked_at, t.clarifications_sent, t.subject, t.words
+         from test_check_in t
+         join person p on p.id = t.person_id and p.phone = t.phone
+        where t.person_id = $1 and t.ended_at is null`,
       [person],
     )
     const row = rows[0]

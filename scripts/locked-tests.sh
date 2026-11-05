@@ -193,6 +193,11 @@ export STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-whsec_locked_tests_only}"
 # Texts and Verify codes are recorded, not sent, whatever `.env.local` says: a suite over
 # HTTP presses a real test check-in's button, and nothing here may text a real phone.
 export MESSAGE_TRANSPORT=record
+# The same for the other three that leave this machine. `next start` reads `.env.local`, but
+# never over a variable already set, even to nothing, and each of them refuses without a key.
+export TURNSTILE_SECRET_KEY=""
+export RESEND_API_KEY=""
+export STRIPE_SECRET_KEY=""
 # Ask Discipler is off on production until AI Gateway has its budget, and its suite tests it.
 # No suite over HTTP asks the model anything, and this environment holds no gateway credential.
 export ASK_DISCIPLER_ON=true

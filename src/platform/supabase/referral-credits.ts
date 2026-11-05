@@ -142,17 +142,18 @@ export const createPostgresReferralCredits = (connectionString: string): Postgre
       await pool.query(
         `update referral_credit
             set state = 'in_review', sent_to_review_at = $3, review_because = $2, claimed_until = null
-          where id = $1 and state = 'held'`,
+          where id = $1 and state in ('held', 'applying')`,
         [creditId, because, at],
       )
     },
 
     async decideToApply(creditId, cents) {
-      await pool.query(
+      const { rowCount } = await pool.query(
         `update referral_credit set state = 'applying', amount_cents = $2
           where id = $1 and state = 'held'`,
         [creditId, cents],
       )
+      return rowCount === 1
     },
 
     async markApplied(creditId, balanceTransactionId, at) {

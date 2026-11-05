@@ -156,11 +156,28 @@ const settle = async (
 
   const inviter = credit.invitingChurch ? await billing.of(credit.invitingChurch) : null
 
+  // Told first and marked after: an email that did not go leaves the credit due, and the
+  // next pass says it again under the same key.
+  const sendToJames = async (because: ReferralCreditReview, invited: ChurchBilling): Promise<'in_review'> => {
+    await alerts.referralCreditForReview({
+      creditId: credit.id,
+      referralId: credit.referralId,
+      because,
+      invitingChurchName: credit.invitingChurchName ?? 'The inviting church',
+      invitedChurchName: credit.invitedChurchName,
+      invitingCustomerId: inviter?.customerId ?? null,
+      invitedCustomerId: invited.customerId,
+      paidAt: credit.paidAt,
+    })
+    await credits.sendToReview(credit.id, because, clock.now())
+    return 'in_review'
+  }
+
   // Decided on an earlier pass, whose call to Stripe may or may not have landed. The
   // amount is the one decided then, whatever has changed since.
   if (credit.state === 'applying') {
     if (!inviter?.customerId || credit.amountCents === null) {
-      throw new Error('A referral credit being applied has no customer or no amount')
+      return sendToJames('unfinished_inviter_gone', await billing.of(credit.invitedChurch))
     }
     await applyAtStripe(work, credit.id, inviter.customerId, credit.amountCents)
     return 'applied'
@@ -174,24 +191,11 @@ const settle = async (
     return 'cancelled'
   }
 
-  if ('review' in decision) {
-    // Told first and marked after: an email that did not go leaves the credit due, and the
-    // next pass says it again under the same key.
-    await alerts.referralCreditForReview({
-      creditId: credit.id,
-      referralId: credit.referralId,
-      because: decision.review,
-      invitingChurchName: credit.invitingChurchName ?? 'The inviting church',
-      invitedChurchName: credit.invitedChurchName,
-      invitingCustomerId: inviter?.customerId ?? null,
-      invitedCustomerId: invited.customerId,
-      paidAt: credit.paidAt,
-    })
-    await credits.sendToReview(credit.id, decision.review, clock.now())
-    return 'in_review'
-  }
+  if ('review' in decision) return sendToJames(decision.review, invited)
 
-  await credits.decideToApply(credit.id, decision.apply)
+  // A refund's event cancels a held credit whatever pass holds it, so it can land after
+  // `decide` read the charge as clean.
+  if (!(await credits.decideToApply(credit.id, decision.apply))) return null
   await applyAtStripe(work, credit.id, inviter!.customerId!, decision.apply)
   return 'applied'
 }

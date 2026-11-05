@@ -424,6 +424,54 @@ describe('the referral credit', { timeout: 60_000 }, () => {
       expect((await creditOf(referral))[0]).toMatchObject({ state: 'applied' })
     })
 
+    it('credits nothing when a refund lands after the charge was read as clean', async () => {
+      const [inviter, invited] = [await aPayingChurch(), await aPayingChurch()]
+      const referral = await invite(inviter, invited)
+      await pays(invited, 9_700)
+      const { id } = (await creditOf(referral))[0] as { id: string }
+
+      const read = fake.credits.charge.bind(fake.credits)
+      vi.spyOn(fake.credits, 'charge').mockImplementationOnce(async (chargeId) => {
+        const clean = await read(chargeId)
+        await credits.cancel(id, 'payment_taken_back', clock.now())
+        return clean
+      })
+
+      pastTheHold()
+      await sweepReferralCredits(work)
+
+      expect(fake.balance).toEqual([])
+      expect((await creditOf(referral))[0]).toMatchObject({ state: 'cancelled', cancelled_because: 'payment_taken_back' })
+    })
+
+    it('goes to James when the inviter is gone before it finished, since Stripe may have it', async () => {
+      const [inviter, invited] = [await aPayingChurch(), await aPayingChurch()]
+      const referral = await invite(inviter, invited)
+      await pays(invited, 9_700)
+      fake.state.down = true
+
+      pastTheHold()
+      expect(await sweepReferralCredits(work)).toMatchObject({ failed: 1 })
+      expect((await creditOf(referral))[0]).toMatchObject({ state: 'applying', amount_cents: 9_700 })
+
+      fake.state.down = false
+      await pool.query(`update referral set inviting_church = null where id = $1`, [referral])
+      clock.advanceBy(60 * 60 * 1000)
+
+      expect(await sweepReferralCredits(work)).toEqual({ applied: 0, cancelled: 0, inReview: 1, failed: 0 })
+      expect((await creditOf(referral))[0]).toMatchObject({
+        state: 'in_review',
+        review_because: 'unfinished_inviter_gone',
+        amount_cents: 9_700,
+      })
+      expect(told.map((review) => review.because)).toEqual(['unfinished_inviter_gone'])
+      expect(fake.balance).toEqual([])
+
+      // Off the list a pass works from, so it stops failing.
+      clock.advanceBy(60 * 60 * 1000)
+      expect(await sweepReferralCredits(work)).toEqual({ applied: 0, cancelled: 0, inReview: 0, failed: 0 })
+    })
+
     it('is worked on by one pass at a time', async () => {
       const [inviter, invited] = [await aPayingChurch(), await aPayingChurch()]
       await invite(inviter, invited)

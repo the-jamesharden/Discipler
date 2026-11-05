@@ -219,9 +219,11 @@ export const provisionMinistry = async (
    */
   const at = ministry.at ?? new Date()
   const client = new pg.Client({ connectionString: commandDatabaseUrl() })
-  await client.connect()
 
   try {
+    // Inside, because the account exists by now, and a connection that fails must take it
+    // back like anything else that fails: signup.not_opened tells the person to ask again.
+    await client.connect()
     await client.query('begin')
 
     // First, so an attempt that has already opened a church goes no further.

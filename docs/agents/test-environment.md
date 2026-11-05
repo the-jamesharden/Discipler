@@ -19,7 +19,7 @@ So `scripts/locked-tests.sh` holds one lock around the whole of: reset the datab
 The port is 3100 unless `LOCKED_TESTS_PORT` says otherwise, and never 3000.
 That server runs with sign-up shut, as production does.
 The same build also serves on the next port up with sign-up open, at `SIGN_UP_OPEN_URL`, for what only exists then, such as the Refer page.
-It forces `MESSAGE_TRANSPORT=record`, so nothing a run sends leaves this machine.
+It forces `MESSAGE_TRANSPORT=record`, and empties `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY` and `STRIPE_SECRET_KEY`, so nothing a run sends leaves this machine.
 The reset, build and server logs are in `.git/locked-tests/logs/`.
 An agent does not run `npm test`, `npm start`, `supabase db reset` or anything on port 3000 to find out whether a change is green.
 

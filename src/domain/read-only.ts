@@ -6,8 +6,9 @@
  * What stays open is what is not the church's work: signing in and out, an Admin's own
  * password and phone, the Help menu's form, everything somebody reaches from a text
  * ("Links people were already texted keep working and their answers are kept", James,
- * triage 2026-10-31), what Stripe, Twilio and the clock send, and Billing, which is how a
- * church comes back.
+ * triage 2026-10-31), what Stripe, Twilio and the clock send, Billing, which is how a
+ * church comes back, and the note of what an Admin has seen, without which the welcome
+ * window would open again on every visit.
  */
 const STAY_OPEN: readonly string[] = [
   '/account',
@@ -20,6 +21,7 @@ const STAY_OPEN: readonly string[] = [
   '/material',
   '/r',
   '/settings/billing',
+  '/settings/setup-seen',
   '/setup',
   '/signup',
   '/sms',

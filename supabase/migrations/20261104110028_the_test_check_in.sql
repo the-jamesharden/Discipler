@@ -126,6 +126,7 @@ set search_path = ''
 as $$
   select t.ministry_id, t.person_id
     from public.test_check_in t
+    join public.person p on p.id = t.person_id and p.phone = t.phone
    where t.phone = candidate_phone
      and t.ended_at is null
      and t.asked_at > lapsed_by

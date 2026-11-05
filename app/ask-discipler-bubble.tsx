@@ -120,7 +120,12 @@ export const AskDisciplerBubble = ({
           readonly questionsLeft: number
         }
         if (stale) return
-        setSaid(chat.exchanges.map((one) => ({ kind: 'exchange', key: one.id, question: one.question, reply: one.reply })))
+        // After, and not instead of, anything asked while this was on its way: its answer
+        // is coming back to the place it holds.
+        setSaid((since) => [
+          ...chat.exchanges.map((one): Said => ({ kind: 'exchange', key: one.id, question: one.question, reply: one.reply })),
+          ...since,
+        ])
         setLeft(chat.questionsLeft)
       })
       // Nothing to show is the empty chat, and asking is still there to try.

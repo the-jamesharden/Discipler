@@ -42,7 +42,15 @@ const REVIEW_SAYS: Readonly<Record<ReferralCreditReview, string>> = {
   same_customer: 'Both churches are the same Stripe customer.',
   shared_payment: 'Both churches pay with the same card or bank account.',
   shared_email_domain: 'The two churches share an email domain.',
+  unfinished_inviter_gone:
+    "Discipler started applying this and the inviting church or its Stripe customer went before it finished.",
 }
+
+/** Only an unfinished credit can already be at Stripe, so only that one says to look first. */
+const whereItStands = (because: ReferralCreditReview): string =>
+  because === 'unfinished_inviter_gone'
+    ? "Discipler may have applied it: its earlier call to Stripe may have landed. Check the customer's balance at Stripe for a credit naming this one before you settle it."
+    : 'Discipler has not applied it.'
 
 const NEW_CHURCH_LIMIT_SAYS: Readonly<Record<NewChurchLimit, string>> = {
   roster: `reached ${NEW_CHURCH_LIMITS.peopleOnTheRoster} people on its Roster. An import that would go past that is refused, with a sentence asking them to email support@. Someone filling in its Intake form is still added.`,
@@ -210,7 +218,7 @@ Open the event in the Stripe Dashboard to see whose it is. Nothing further happe
       subject: emailSubject`A referral credit is waiting for you`,
       body: emailBody`${EmailField.line(review.invitingChurchName)} earned a referral credit: ${EmailField.line(review.invitedChurchName)}, which it invited, paid its first real bill on ${EmailField.line(atTheMinute(review.paidAt))}, and ${EmailField.line(String(REFERRAL_CREDIT_HELD_DAYS))} days have passed with no refund or dispute.
 
-Discipler has not applied it. ${EmailField.line(REVIEW_SAYS[review.because])}
+${EmailField.line(whereItStands(review.because))} ${EmailField.line(REVIEW_SAYS[review.because])}
 
 Inviting church's Stripe customer: ${EmailField.line(review.invitingCustomerId ?? none)}
 Invited church's Stripe customer: ${EmailField.line(review.invitedCustomerId ?? none)}

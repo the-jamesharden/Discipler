@@ -246,7 +246,10 @@ export interface UnitOfWork {
     sentBy: string,
     how: { readonly locked: boolean },
   ): Promise<Omit<TestCheckInStanding, 'hasAccess'>>
-  /** The test open for this Person, whether or not its hour is up. */
+  /**
+   * The test open on this Person's phone, whether or not its hour is up. Not one left on
+   * a phone they have since changed from, or their reply on the new one would land on it.
+   */
   openTestCheckInOf(person: PersonId): Promise<OpenTestCheckIn | null>
   /** Their agreement on the test's card, kept as their consent. */
   recordTestCheckInAgreement(agreement: TestCheckInAgreement): Promise<void>
@@ -2193,8 +2196,11 @@ export interface ReferralCreditRecords {
   lease(creditId: string, at: Date, heldFor: number): Promise<boolean>
   cancel(creditId: string, because: ReferralCreditCancelled, at: Date): Promise<void>
   sendToReview(creditId: string, because: ReferralCreditReview, at: Date): Promise<void>
-  /** Commits the decision and its amount, before Stripe is called. */
-  decideToApply(creditId: string, cents: number): Promise<void>
+  /**
+   * Commits the decision and its amount, before Stripe is called. False where the credit
+   * is no longer held, because a refund cancelled it since it was read.
+   */
+  decideToApply(creditId: string, cents: number): Promise<boolean>
   /** Written with the "Credit applied" event, once. */
   markApplied(creditId: string, balanceTransactionId: string, at: Date): Promise<void>
   /** Every email address on the accounts of a church's Admins. */

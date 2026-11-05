@@ -397,6 +397,41 @@ describe('the test check-in', { timeout: 60_000 }, () => {
     })
   })
 
+  describe('the order it takes its locks in', () => {
+    const keyHeld = async (key: string) => {
+      const asking = await pool.connect()
+      try {
+        await asking.query('begin')
+        const { rows } = await asking.query<{ free: boolean }>(
+          `select pg_try_advisory_xact_lock(hashtextextended($1, 0)) as free`,
+          [key],
+        )
+        return !rows[0]!.free
+      } finally {
+        await asking.query('rollback')
+        asking.release()
+      }
+    }
+
+    it('holds the Ministry while it waits for the Person, as the tick does, so the two cannot deadlock', async () => {
+      await verified()
+      await drain()
+
+      const reply = await pool.connect()
+      await reply.query('begin')
+      await reply.query(`select pg_advisory_xact_lock(hashtextextended($1, 0))`, [person])
+
+      const sending = service().execute({ type: 'test_check_in.send', ministryId: ministry.id, sentBy: admin.userId })
+      try {
+        await expect.poll(() => keyHeld(ministry.id), { timeout: 5_000, interval: 100 }).toBe(true)
+      } finally {
+        await reply.query('rollback')
+        reply.release()
+        await sending.catch(() => undefined)
+      }
+    })
+  })
+
   describe('a real check-in', () => {
     const anAdminWhoLeads = async () => {
       await completeIntake(ministry, person)
@@ -404,6 +439,30 @@ describe('the test check-in', { timeout: 60_000 }, () => {
       await completeIntake(ministry, disciple)
       await pairOneToOne(ministry, person, disciple)
     }
+
+    it('lands a reply on the real question when the test was left on the phone they changed from', async () => {
+      await anAdminWhoLeads()
+      await verified()
+      await drain()
+
+      const oldPhone = ministry.adminPhone
+      const newPhone = aTestPhoneNumber()
+      await pool.query(`update person set phone = $2 where id = $1`, [person, newPhone])
+
+      await service().execute({ type: 'checkin.start', ministryId: ministry.id, personId: person })
+      await drain()
+      await texts('1', newPhone)
+
+      const { rows } = await pool.query(
+        `select p.met from checkin_prompt p join checkin_sequence s on s.id = p.sequence_id where s.person_id = $1`,
+        [person],
+      )
+      expect(rows[0]).toEqual({ met: true })
+      expect(await row()).toMatchObject({ met: null })
+
+      // Nor does the old phone still speak for them.
+      expect(await inbound.resolveSender(oldPhone, null, clock.now())).toBeNull()
+    })
 
     it('closes the test as it opens, and the reply lands on it', async () => {
       await anAdminWhoLeads()

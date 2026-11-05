@@ -67,7 +67,8 @@ export const OnboardingWindow = ({
     // The bar's Send test comes here for this card. The address's own scrolling does not
     // reach inside a window that was not on the page when it ran.
     if (window.location.hash) {
-      document.querySelector(window.location.hash)?.scrollIntoView({ block: 'center' })
+      // By its text, since a hand-typed `#1` is no selector and would throw.
+      document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'center' })
     }
     if (!firstOpening) return
     // Keepalive so it lands if the Admin has already moved on. A failure costs nothing

@@ -70,6 +70,20 @@ describe('the email to James', () => {
     paidAt: new Date('2026-12-30T12:00:00Z'),
   }
 
+  it('says to check Stripe first only when the earlier call may have landed', async () => {
+    const sent: Email[] = []
+    const alerts = createEmailSupportAlerts({ send: async (email) => void sent.push(email) })
+
+    await alerts.referralCreditForReview({ ...review, because: 'unfinished_inviter_gone' })
+    await alerts.referralCreditForReview(review)
+
+    const [unfinished, ordinary] = sent.map((email) => openEnvelope(email).text)
+    expect(unfinished).toContain('may have landed')
+    expect(unfinished).not.toContain('Discipler has not applied it.')
+    expect(ordinary).toContain('Discipler has not applied it.')
+    expect(ordinary).not.toContain('may have landed')
+  })
+
   it('goes to the founders, names both churches and why, and is once per credit', async () => {
     const sent: Email[] = []
     const alerts = createEmailSupportAlerts({ send: async (email) => void sent.push(email) })

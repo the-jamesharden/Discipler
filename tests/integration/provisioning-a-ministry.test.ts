@@ -1,5 +1,5 @@
 import pg from 'pg'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { MinistryNotProvisioned, provisionMinistry } from '~/platform/supabase/provisioning'
 import {
   aTestPhoneNumber,
@@ -232,6 +232,24 @@ describe('provisioning a Ministry and its first Admin', () => {
       admin: { fullName: 'Named This Time', phone, password: 'a-long-enough-password' },
     })
 
+    expect(retry.adminPhone).toBe(phone)
+  })
+
+  it('takes the account back when the database cannot be reached, so asking again works', async () => {
+    const phone = aTestPhoneNumber()
+    const name = `Unreachable Chapel ${phone}`
+    const admin = { fullName: 'Reached Later', phone, password: 'a-long-enough-password' }
+
+    vi.stubEnv('DATABASE_URL', 'postgresql://postgres:postgres@127.0.0.1:1/postgres')
+    try {
+      await expect(provisionMinistry({ name, timezone: 'America/New_York', admin })).rejects.toThrow(
+        MinistryNotProvisioned,
+      )
+    } finally {
+      vi.unstubAllEnvs()
+    }
+
+    const retry = await provisionMinistry({ name, timezone: 'America/New_York', admin })
     expect(retry.adminPhone).toBe(phone)
   })
 
