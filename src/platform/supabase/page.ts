@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { billingStateOf } from '~/domain/billing'
 import { ministryId, personId, type MinistryId } from '~/domain/ids'
+import { onboardingOf } from '~/domain/onboarding'
 import { setupMeterOf } from '~/domain/setup-meter'
 import type { AdminPage, AdminResolution } from '~/service/ports'
 import { text } from './rows'
@@ -110,6 +111,7 @@ export const resolutionOf = (doc: PageDocument): AdminResolution => {
       fullName: text(admin.full_name),
       whatsNewDismissed: dismissedEntries(admin),
       setup: setupMeterOf(section(doc, 'setup')),
+      onboarding: onboardingOf(section(doc, 'setup')),
     },
   }
 }

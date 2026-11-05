@@ -5,7 +5,7 @@
  *
  * Empty until the first is recorded, and the page says so rather than showing an
  * empty list. The welcome video the onboarding plays is listed here too once it
- * exists (ticket 27).
+ * exists.
  */
 export interface SetupVideo {
   readonly title: string
@@ -13,4 +13,18 @@ export interface SetupVideo {
   readonly url: string
 }
 
-export const SETUP_VIDEOS: readonly SetupVideo[] = []
+/**
+ * James's welcome video, which plays inside the onboarding modal the first time it opens
+ * for an Admin (Exponential launch, ticket 27). A Loom or YouTube address, or one that
+ * ends in a video file.
+ *
+ * Empty until it is recorded, and while it is empty the modal opens straight to its
+ * cards. The repo is public, so this address is too.
+ */
+export const WELCOME_VIDEO_URL: string = ''
+
+export const WELCOME_VIDEO_TITLE = 'A welcome from James'
+
+export const SETUP_VIDEOS: readonly SetupVideo[] = WELCOME_VIDEO_URL
+  ? [{ title: WELCOME_VIDEO_TITLE, url: WELCOME_VIDEO_URL }]
+  : []

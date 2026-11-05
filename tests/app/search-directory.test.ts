@@ -107,7 +107,7 @@ describe('a page that does not exist yet', () => {
 
     for (const page of directoryPages(UPCOMING)) {
       if (page.href === null || page.newTab) continue
-      expect(served(page.href.split('#')[0]!), page.href).toBe(true)
+      expect(served(page.href.split(/[?#]/)[0]!), page.href).toBe(true)
     }
   })
 })

@@ -5,7 +5,8 @@ import { getCommandService } from '~/service/container'
 
 /**
  * What the setup meter has now played for this Admin (Exponential launch, ticket 26),
- * so each step's confetti and the badge play once for each Admin.
+ * so each step's confetti and the badge play once for each Admin, and that the
+ * onboarding modal has opened for them (ticket 27), so the welcome video plays once.
  *
  * Under `/settings` so that it is no new top-level name. The bar posts here itself
  * and says `stay`, so nothing is redrawn. The one thing that arrives with no script is
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
       seenBy: admin.userId,
       steps: readSeenSteps(typeof steps === 'string' ? steps : null),
       badge: form.get('badge') !== null,
+      onboarding: form.get('onboarding') !== null,
     })
   }
 

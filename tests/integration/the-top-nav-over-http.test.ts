@@ -123,6 +123,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the top nav', () => {
     expect(wordsIn(topMenu(html, 'Help and feedback'))).toEqual([
       'Help and feedback',
       'Help center',
+      'Restart onboarding',
       'What&#x27;s new',
       'New',
       ...officeHours,
@@ -134,7 +135,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the top nav', () => {
     const head = header(html)
     for (const notYet of [
       'Ask Discipler',
-      'Restart onboarding',
       'Setup videos',
       'Blog',
       'Refer a church',

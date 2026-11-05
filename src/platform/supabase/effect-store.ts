@@ -1249,10 +1249,11 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                   from unnest(setup_steps_seen || $2::text[]) as step
                  order by step
               ),
-              setup_badge_seen_at = coalesce(setup_badge_seen_at, $3)
+              setup_badge_seen_at = coalesce(setup_badge_seen_at, $3),
+              onboarding_opened_at = coalesce(onboarding_opened_at, $4)
         where user_id = $1
           and tier = 'admin'`,
-      [seen.userId, seen.steps, seen.badgeSeenAt],
+      [seen.userId, seen.steps, seen.badgeSeenAt, seen.onboardingOpenedAt],
     )
 
     if (rowCount !== 1) throw new Error('This command has no Admin to mark the setup meter seen for')

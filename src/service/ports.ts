@@ -109,6 +109,7 @@ import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
 import type { MaterialItem, MaterialOnOffer } from '~/domain/materials'
 import type { MaterialRecipient } from '~/domain/material-notices'
 import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
+import type { Onboarding } from '~/domain/onboarding'
 import type { SetupMeter } from '~/domain/setup-meter'
 import type { ShortName } from '~/domain/short-name'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
@@ -2885,6 +2886,12 @@ export interface SignedInAdmin {
    * ticket 26).
    */
   readonly setup: SetupMeter
+
+  /**
+   * What the onboarding modal needs (Exponential launch, ticket 27), from that same
+   * read, so an Overview that opens it costs no second request.
+   */
+  readonly onboarding: Onboarding
 }
 
 /**

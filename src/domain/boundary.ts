@@ -302,7 +302,7 @@ import {
   type RowRejection,
 } from './roster'
 import { readRosterFile } from './roster-csv'
-import { SETUP_HISTORY } from './setup-meter'
+import { SETUP_HISTORY, tourFinished } from './setup-meter'
 import { readShortName, type ShortName } from './short-name'
 import { classifyImport, type SideRef } from './roster-import'
 
@@ -5789,7 +5789,22 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             userId: command.seenBy,
             steps: command.steps,
             badgeSeenAt: command.badge ? context.clock.now() : null,
+            onboardingOpenedAt: command.onboarding ? context.clock.now() : null,
           }),
+        ],
+        rejections: [],
+      }
+
+    case 'setup.finish_tour':
+      return {
+        effects: [
+          appendHistory(
+            tourFinished({
+              ministryId: command.ministryId,
+              finishedBy: command.finishedBy,
+              at: context.clock.now(),
+            }),
+          ),
         ],
         rejections: [],
       }
