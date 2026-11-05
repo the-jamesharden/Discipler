@@ -1852,9 +1852,12 @@ export type GuideModelAnswer =
     }
   /** The gateway refused it for spending: past the monthly cap, or out of credits. */
   | { readonly outcome: 'spent' }
-  /** The model ran and was paid for, and gave no whole answer to show. It costs a question. */
+  /**
+   * No whole answer to show, and the model was paid for, or nothing can prove it was not: a
+   * timeout, or a connection lost after sending. It costs a question.
+   */
   | { readonly outcome: 'billed_with_no_answer' }
-  /** Nothing was paid for. */
+  /** Nothing was paid for: the gateway answered with a clear refusal, or the credential was missing or refused. */
   | { readonly outcome: 'failed' }
 
 /**

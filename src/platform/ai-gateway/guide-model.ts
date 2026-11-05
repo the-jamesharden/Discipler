@@ -1,4 +1,4 @@
-import { createGateway, generateText } from 'ai'
+import { APICallError, createGateway, generateText } from 'ai'
 import type { GuideModel, GuideModelAnswer } from '~/service/ports'
 
 /**
@@ -31,17 +31,27 @@ const LONGEST_WAIT_MS = 45_000
 /** The gateway refuses with 402 past a budget (`quota_for_entity_exceeded`) or the credits (`insufficient_funds`). */
 const PAYMENT_REQUIRED = 402
 
-/** Where a status is, on an error the SDK may have wrapped in a retry or a cause. */
+/**
+ * What the gateway answered, if it answered, on an error the SDK may have wrapped in a retry
+ * or a cause. Only the API call error knows: the gateway's own errors write 500 or 408 on a
+ * failure that never had a response.
+ */
 const statusOf = (error: unknown, depth = 0): number | null => {
+  if (APICallError.isInstance(error)) return error.statusCode ?? null
   if (error === null || typeof error !== 'object' || depth > 4) return null
-  const { statusCode, lastError, cause } = error as {
-    readonly statusCode?: unknown
-    readonly lastError?: unknown
-    readonly cause?: unknown
-  }
-  if (typeof statusCode === 'number') return statusCode
+  const { lastError, cause } = error as { readonly lastError?: unknown; readonly cause?: unknown }
   return statusOf(lastError, depth + 1) ?? statusOf(cause, depth + 1)
 }
+
+/**
+ * The SDK's names for a credential that is missing or refused, outside production and in it.
+ * It drops the status from both, and a request with no credential never left.
+ */
+const CREDENTIAL_ERRORS: ReadonlySet<string> = new Set(['GatewayAuthenticationError', 'GatewayError'])
+
+/** A clear no: nothing ran, so nothing was paid for. */
+const wasRefused = (error: unknown, status: number | null): boolean =>
+  status === null ? error instanceof Error && CREDENTIAL_ERRORS.has(error.name) : status >= 400
 
 export const createGatewayGuideModel = (
   /** The way a test reaches a stand-in. Production names neither. */
@@ -101,7 +111,9 @@ export const createGatewayGuideModel = (
         console.error(
           `Ask Discipler's model failed: ${error instanceof Error ? error.name : 'unknown'} ${status ?? 'no status'}`,
         )
-        return { outcome: status === PAYMENT_REQUIRED ? 'spent' : 'failed' }
+        if (status === PAYMENT_REQUIRED) return { outcome: 'spent' }
+        // A timeout or a lost connection cannot prove the model was not paid for.
+        return { outcome: wasRefused(error, status) ? 'failed' : 'billed_with_no_answer' }
       }
     },
   }

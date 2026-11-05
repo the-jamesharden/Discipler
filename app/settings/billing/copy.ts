@@ -312,7 +312,9 @@ export const settingsLine = (picture: BillingPicture, timeZone: string): string 
       ? 'free for your church plant year'
       : next.fullCents === 0
         ? 'your first paid month free'
-        : `${moneyOf(next.fullCents)} a ${picture.cycle}`
+        : picture.cycle === 'year' && next.fullCents !== picture.priceCents
+          ? `${moneyOf(next.fullCents)} for your first year, then ${everyCycle(picture)}`
+          : `${moneyOf(next.fullCents)} a ${picture.cycle}`
     return `Free trial until ${longDate(picture.trial.endsAt, timeZone)}, then ${after} · ${method}`
   }
   if (plantYear) return `Free for your church plant year, then ${everyCycle(picture)} · ${method}`

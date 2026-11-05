@@ -154,6 +154,37 @@ describe('the Settings card', () => {
   it('says the line as drawn', () => {
     expect(settingsLine(aPicture(), ZONE)).toBe('Free trial until December 30, 2026, then $77.60 a month · Visa ending 4242')
   })
+
+  describe('for a yearly church on its trial', () => {
+    const aBillOf = (cents: number) => ({ cents, fullCents: cents, at: noon('2026-12-30') })
+    const yearly = { cycle: 'year', priceCents: 93_120 } as const
+
+    it('says the Exponential first bill as a first year, then the price after it', () => {
+      expect(settingsLine(aPicture({ ...yearly, nextPayment: aBillOf(74_496) }), ZONE)).toBe(
+        'Free trial until December 30, 2026, then $744.96 for your first year, then $931.20 a year · Visa ending 4242',
+      )
+    })
+
+    it('says the referred first bill as a first year, then the price after it', () => {
+      const offers = [{ kind: 'first_free_month', endsAt: noon('2027-12-30') }] as const
+      expect(settingsLine(aPicture({ ...yearly, offers, nextPayment: aBillOf(85_360) }), ZONE)).toBe(
+        'Free trial until December 30, 2026, then $853.60 for your first year, then $931.20 a year · Visa ending 4242',
+      )
+    })
+
+    it('says one price when nothing is off it', () => {
+      expect(settingsLine(aPicture({ ...yearly, offers: [], nextPayment: aBillOf(93_120) }), ZONE)).toBe(
+        'Free trial until December 30, 2026, then $931.20 a year · Visa ending 4242',
+      )
+    })
+
+    it('leaves a church plant’s free year as it reads', () => {
+      const offers = [{ kind: 'plant_year', endsAt: noon('2027-12-30') }] as const
+      expect(settingsLine(aPicture({ ...yearly, offers, nextPayment: aBillOf(0) }), ZONE)).toBe(
+        'Free trial until December 30, 2026, then free for your church plant year · Visa ending 4242',
+      )
+    })
+  })
 })
 
 describe('a church plant', () => {

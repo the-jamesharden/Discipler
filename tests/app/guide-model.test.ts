@@ -49,6 +49,7 @@ describe('the guide’s model', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllEnvs()
   })
 
   it('is Claude Sonnet 5.5, by the name in the gateway’s own list', async () => {
@@ -110,7 +111,6 @@ describe('the guide’s model', () => {
 
   it.each([
     ['a fault at the gateway', 500, { error: { type: 'internal_server_error', message: 'Broken.' } }],
-    ['a refused credential', 401, { error: { type: 'authentication_error', message: 'No.' } }],
     ['a body nobody can read', 502, 'not an error'],
   ])('reads %s as failed', async (_what, status, body) => {
     const { model } = answers(status, body)
@@ -127,16 +127,47 @@ describe('the guide’s model', () => {
     expect(await model.answer(asking)).toEqual({ outcome: 'billed_with_no_answer' })
   })
 
-  it('reads a request that never left as failed, with no credential at hand', async () => {
-    const hadKey = process.env.AI_GATEWAY_API_KEY
-    delete process.env.AI_GATEWAY_API_KEY
-    const fetch = vi.fn<typeof globalThis.fetch>()
-    try {
+  it('reads a body nobody can read on a 200 as paid for with nothing to show', async () => {
+    const { model } = answers(200, { nothing: 'the SDK can read' })
+    expect(await model.answer(asking)).toEqual({ outcome: 'billed_with_no_answer' })
+  })
+
+  it('reads a wait that runs out as paid for with nothing to show, since nothing proves otherwise', async () => {
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(AbortSignal.timeout(10))
+    const fetch: typeof globalThis.fetch = (_input, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+      })
+    const model = createGatewayGuideModel({ fetch, apiKey: 'a-stand-in-not-a-key' })
+    expect(await model.answer(asking)).toEqual({ outcome: 'billed_with_no_answer' })
+  })
+
+  it('reads a connection lost after sending as paid for with nothing to show, since nothing proves otherwise', async () => {
+    const lost = Object.assign(new TypeError('fetch failed'), {
+      cause: Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }),
+    })
+    const fetch = vi.fn<typeof globalThis.fetch>().mockRejectedValue(lost)
+    const model = createGatewayGuideModel({ fetch, apiKey: 'a-stand-in-not-a-key' })
+    expect(await model.answer(asking)).toEqual({ outcome: 'billed_with_no_answer' })
+    expect(fetch).toHaveBeenCalled()
+  })
+
+  describe.each(['test', 'production'])('where NODE_ENV is %s', (nodeEnv) => {
+    beforeEach(() => {
+      vi.stubEnv('NODE_ENV', nodeEnv)
+    })
+
+    it('reads a request that never left as failed, with no credential at hand', async () => {
+      vi.stubEnv('AI_GATEWAY_API_KEY', undefined)
+      const fetch = vi.fn<typeof globalThis.fetch>()
       expect(await createGatewayGuideModel({ fetch }).answer(asking)).toEqual({ outcome: 'failed' })
       expect(fetch).not.toHaveBeenCalled()
-    } finally {
-      if (hadKey !== undefined) process.env.AI_GATEWAY_API_KEY = hadKey
-    }
+    })
+
+    it('reads a credential the gateway refuses as failed', async () => {
+      const { model } = answers(401, { error: { type: 'authentication_error', message: 'No.' } })
+      expect(await model.answer(asking)).toEqual({ outcome: 'failed' })
+    })
   })
 
   it('logs no word of the question or the vendor’s message', async () => {
