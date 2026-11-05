@@ -85,6 +85,14 @@ export const SUPPORT_SUBMISSIONS = {
   perNetworkPerHour: 10,
 } as const
 
+/**
+ * What a church may do for its first days, whoever opened it (ticket 37, Q81). An import
+ * that would take the Roster past `peopleOnTheRoster` is refused, and texts past
+ * `textsPerWeek` wait on the queue. support@ is emailed when a church hits either, and
+ * `npm run new-church-limit` lifts them.
+ */
+export const NEW_CHURCH_LIMITS = { firstDays: 30, peopleOnTheRoster: 300, textsPerWeek: 1_500 } as const
+
 /** How long the emailed "Forgot password?" link works (ticket 22). */
 export const PASSWORD_RESET_LINK_MINUTES = 30
 

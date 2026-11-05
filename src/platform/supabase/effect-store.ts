@@ -158,6 +158,7 @@ import {
   type OpenSequence,
 } from '~/domain/check-in'
 import type { EffectStore, InboundReader, InboundSender, UnitOfWork } from '~/service/ports'
+import { newChurchRosterRoom } from './new-church-limits'
 
 /**
  * The participation caps live in indexes, because they can only be judged against
@@ -911,6 +912,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
     return { people, namesByNumber, removed }
   },
+
+  newChurchRosterRoom: (at) => newChurchRosterRoom(client, at),
 
   async peopleWhoCompletedIntake() {
     // Scoped by the policy on `intake_submission`, like the Roster read above: the

@@ -1,6 +1,7 @@
 import { CHURCH_HAS_NO_ACCESS_TO_TEXTING } from '../texting-gate-copy'
 import type { GroupJoinRefusal, ImportRowRefusal, PairingRefusal } from '~/domain/errors'
 import type { Gender, OneToTwoAnswer } from '~/domain/intake'
+import { NEW_CHURCH_LIMITS } from '~/domain/launch-terms'
 import { asList } from '~/domain/outbound-copy'
 import type { MemberRole } from '~/domain/relationships'
 import type { RemovalRefusal } from '~/domain/removal'
@@ -12,6 +13,7 @@ import type { GenderShown, PairingsOption, RosterView } from './menu'
 import type { Greyed } from './greying'
 import { MIXED, type GroupDeclaration } from './declared-gender'
 import { PAIR_SHAPE, type PairShape, type ReadAs, type ShapeRuledOut } from './pair-shape'
+import { SUPPORT_EMAIL } from './import-copy'
 import type { ImportFailure } from './report'
 
 /**
@@ -874,6 +876,7 @@ const FAILURES: Record<ImportFailure, string> = {
     'These rows have no Disciple and Disciple Phone columns. Add them, or choose People only.',
   roster_changed:
     'The Roster changed while this import was running, so none of it was applied. Try it again.',
+  new_church_limit: `A new church can have up to ${NEW_CHURCH_LIMITS.peopleOnTheRoster} people on its Roster for its first ${NEW_CHURCH_LIMITS.firstDays} days, and this import would go past that, so none of it was added. Email ${SUPPORT_EMAIL} and we'll help you get everyone on.`,
 }
 
 export const importFailureMessage = (code: string | undefined): string | undefined => {

@@ -23,6 +23,7 @@
     "church-plant": "vite-node -c vitest.config.ts scripts/church-plant.ts",
     "referral-review": "vite-node -c vitest.config.ts scripts/referral-review.ts",
     "shared-number": "vite-node -c vitest.config.ts scripts/shared-number.ts",
+    "new-church-limit": "vite-node -c vitest.config.ts scripts/new-church-limit.ts",
     "smoke:pages": "vite-node -c vitest.config.ts scripts/smoke-pages.ts",
     "email:check": "vite-node -c vitest.config.ts scripts/send-test-email.ts",
     "staging:text": "vite-node -c vitest.config.ts scripts/staging-text.ts",

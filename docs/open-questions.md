@@ -748,6 +748,23 @@ Also from ticket 33, what only James can do in Stripe, and what only a sandbox c
 
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
 
+Added on 2026-11-04 by ticket 37, drafts for the limits on a new church's first weeks:
+
+- An import past the limit, in `app/roster/copy.ts`: "A new church can have up to 300 people on its Roster for its first 30 days, and this import would go past that, so none of it was added. Email support@trydiscipler.com and we'll help you get everyone on."
+- The Help page, in `app/help/content/roster-and-intake.md`: "For its first 30 days, a new church can have up to 300 people on its Roster and send up to 1,500 texts a week. An import that would go past that is refused, and texts past it wait until there is room. If your church is larger, email the same address and we will lift both."
+- The email to support@, `newChurchLimitHit` in `src/service/support-alerts.ts`, which nobody outside the team reads.
+  Subject: "{church} hit a limit on a new church".
+  Body: "{church} ({id}) is in its first 30 days and reached 300 people on its Roster. An import that would go past that is refused, with a sentence asking them to email support@. Someone filling in its Intake form is still added.", or "reached 1,500 texts in seven days. Anything further stays on the queue until the week has room or the limit is lifted, and nothing is lost.", then how to lift it.
+
+Two more for ticket 37's limits, both choices rather than words:
+
+- Whether a person filling in a new church's Intake form past 300 should be refused as well.
+  The build adds them and tells support@, because refusing a congregant for their church's size is worse than a Roster at 301.
+- Whether a new church's texts held past 1,500 in a week should still go when the week opens at an odd local hour.
+  The build lets the backlog go as soon as there is room, and nothing checks the hour there.
+  Room returns at the hour last week's texts went, or when somebody lifts the limit, so it is usually daytime and not always.
+  The daily cap's hold waits for each church's morning, and this one could be made to, if James wants the same care for a limit few churches should reach.
+
 ## Open: the check-in words' refusals and `Messages read as`
 
 Raised on 2026-11-03 by the Exponential launch, ticket 40.

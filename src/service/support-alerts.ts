@@ -2,7 +2,13 @@ import type { StripeEventRefusal } from '~/domain/billing'
 import { EmailField, emailBody, emailSubject } from '~/domain/email'
 import { REFERRAL_CREDIT_DESCRIPTION, type ReferralCreditReview } from '~/domain/referral-credit'
 import type { CapacityConcern } from '~/domain/shared-numbers'
-import { MONTHLY_PRICE_CENTS, PEOPLE_ON_THE_FIRST_PRICE, REFERRAL_CREDIT_HELD_DAYS } from '~/domain/launch-terms'
+import {
+  MONTHLY_PRICE_CENTS,
+  NEW_CHURCH_LIMITS,
+  PEOPLE_ON_THE_FIRST_PRICE,
+  REFERRAL_CREDIT_HELD_DAYS,
+} from '~/domain/launch-terms'
+import type { NewChurchLimit } from '~/domain/new-church-limits'
 import { TWILIO_BALANCE_FLOOR_CENTS, dollars } from '~/domain/twilio-balance'
 import type { CalendarMonth } from '~/domain/week'
 import type { EmailSender, SupportAlerts } from './ports'
@@ -36,6 +42,11 @@ const REVIEW_SAYS: Readonly<Record<ReferralCreditReview, string>> = {
   same_customer: 'Both churches are the same Stripe customer.',
   shared_payment: 'Both churches pay with the same card or bank account.',
   shared_email_domain: 'The two churches share an email domain.',
+}
+
+const NEW_CHURCH_LIMIT_SAYS: Readonly<Record<NewChurchLimit, string>> = {
+  roster: `reached ${NEW_CHURCH_LIMITS.peopleOnTheRoster} people on its Roster. An import that would go past that is refused, with a sentence asking them to email support@. Someone filling in its Intake form is still added.`,
+  texts: `reached ${NEW_CHURCH_LIMITS.textsPerWeek.toLocaleString('en-US')} texts in seven days. Anything further stays on the queue until the week has room or the limit is lifted, and nothing is lost.`,
 }
 
 const REFUSAL_SAYS: Readonly<Record<StripeEventRefusal, string>> = {
@@ -139,6 +150,23 @@ Stripe customer: ${EmailField.line(customerId)}
 
 This email is sent once for each month a church stays above the limit.`,
       once: `over-200:${church}:${month}`,
+    })
+  },
+
+  // The church and which limit: nobody in the congregation. Its ID, because the command
+  // that lifts the limit takes it.
+  async newChurchLimitHit({ church, churchName, limit }) {
+    const name = EmailField.line(churchName)
+    const days = EmailField.line(String(NEW_CHURCH_LIMITS.firstDays))
+    await sender.send({
+      kind: 'newChurchLimitHit',
+      subject: emailSubject`${name} hit a limit on a new church`,
+      body: emailBody`${name} (${EmailField.line(church)}) is in its first ${days} days and ${EmailField.line(NEW_CHURCH_LIMIT_SAYS[limit])}
+
+If this looks like a real church that is simply large, lift its limits with npm run new-church-limit -- lift followed by the ID above, against production. If it does not, look at who signed up before doing anything else.
+
+This email is sent once for each limit.`,
+      once: `new-church-limit:${church}:${limit}`,
     })
   },
 

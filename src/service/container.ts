@@ -81,6 +81,10 @@ import {
 } from '~/platform/supabase/referral-credits'
 import { createPostgresReferrals, type PostgresReferrals } from '~/platform/supabase/referrals'
 import {
+  createPostgresNewChurchLimits,
+  type PostgresNewChurchLimits,
+} from '~/platform/supabase/new-church-limits'
+import {
   createPostgresOver200FollowUps,
   type PostgresOver200FollowUps,
 } from '~/platform/supabase/over-200-follow-ups'
@@ -105,6 +109,7 @@ import { createStripeTrials } from '~/platform/stripe/trials'
 import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
 import { createCommandService, type CommandService } from './command-service'
 import { createDailyCap, type DailyCap } from './daily-cap'
+import { watchNewChurchLimits, type NewChurchLimitsOutcome } from './new-church-limits-watch'
 import { createEmailSender } from './email-sender'
 import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import { createPhoneCheck, type PhoneCheck } from './phone-check'
@@ -228,6 +233,7 @@ let sharedNumbers: PostgresSharedNumbers | undefined
 let twilioBalanceFalls: PostgresTwilioBalanceFalls | undefined
 let over200FollowUps: PostgresOver200FollowUps | undefined
 let trialEndingNotices: PostgresTrialEndingNotices | undefined
+let newChurchLimits: PostgresNewChurchLimits | undefined
 let churchSignups: PostgresChurchSignups | undefined
 let dailyCapHolds: PostgresDailyCapHolds | undefined
 let pendingSignups: PostgresPendingSignups | undefined
@@ -568,6 +574,27 @@ export const getSupportForm = (): SupportForm => {
 
 /** The tick's pass over the form's two tables. It throws when the database does, and the tick catches it. */
 export const sweepTheSupportSubmissions = (): Promise<SupportSweep> => getSupportForm().sweep()
+
+const getNewChurchLimits = (): PostgresNewChurchLimits => {
+  if (!newChurchLimits) newChurchLimits = createPostgresNewChurchLimits(commandDatabaseUrl())
+  return newChurchLimits
+}
+
+/** The tick's pass over the limits on a new church's first weeks (Exponential launch, ticket 37). */
+export const watchTheNewChurchLimits = (): Promise<NewChurchLimitsOutcome> =>
+  watchNewChurchLimits({ limits: getNewChurchLimits(), alerts: getSupportAlerts(), clock: systemClock })
+
+/**
+ * An import was refused for the limit, so nothing the tick reads shows it happened. Never
+ * throws: the Admin is owed the sentence whether or not this was written down.
+ */
+export const noteTheNewChurchRosterLimit = async (ministryId: MinistryId): Promise<void> => {
+  try {
+    await getNewChurchLimits().recordHit(ministryId, 'roster', systemClock.now())
+  } catch (error) {
+    console.error(`Recording the new church limit failed for ministry ${ministryId}`, error)
+  }
+}
 
 /**
  * One drain of one Ministry's queue, assembled from the parts above so that its

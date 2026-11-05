@@ -117,6 +117,7 @@ const world = () => {
       messages: (queued.get(church) ?? []).filter((one) => !sent.has(one.id)),
       closedWithoutAccess: 0,
       accessUnread: false,
+      textRoom: null,
     }),
     timeZoneOf: async (church) => ZONES[church]!,
     sendingNumberFor: async () => '+13185316138',
@@ -201,6 +202,7 @@ describe('When Twilio answers 30023', () => {
       failed: 0,
       awaitingANumber: 0,
       waitingOnTheCap: 2,
+      waitingOnTheNewChurchLimit: 0,
       closedWithoutAccess: 0,
       accessUnread: false,
     })

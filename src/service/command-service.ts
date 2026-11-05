@@ -1100,6 +1100,9 @@ export const createCommandService = ({
               openPlans: await unit.openIntendedPairings(),
             }
           : {}),
+        ...(command.type === 'person.import'
+          ? { rosterRoom: await unit.newChurchRosterRoom(clock.now()) }
+          : {}),
         // An import plans against the plans still standing, read inside the
         // transaction like the Roster, so two imports naming the same Disciple
         // cannot both plan them.

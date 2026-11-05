@@ -224,6 +224,18 @@ export class RosterImportRefused extends Error {
 }
 
 /**
+ * An import that would take a new church's Roster past its limit (Exponential launch,
+ * ticket 37). Refused whole, like every other refusal of an import, and with nothing
+ * written. Apart from `RosterImportRefused` because its route also tells support@.
+ */
+export class NewChurchRosterLimitReached extends Error {
+  constructor() {
+    super('new_church.roster_limit_reached')
+    this.name = 'NewChurchRosterLimitReached'
+  }
+}
+
+/**
  * Why an answer to a held import row could not be applied.
  *
  * None of them is a question about which answer is right -- that is the Admin's and

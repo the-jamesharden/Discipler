@@ -79,6 +79,7 @@ describe('the routing', () => {
         'deliverabilityCheck',
         'emailCode',
         'featureRequest',
+        'newChurchLimitHit',
         'newSignUp',
         'numbersNearCapacity',
         'over200FollowUp',

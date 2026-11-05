@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { backFromARefusal, changesTheChurchsWork } from '~/domain/read-only'
+import { contentSecurityPolicy, newNonce } from '~/platform/security-headers'
 import { supabaseCredentials } from '~/platform/supabase/credentials'
 
 /**
@@ -21,8 +22,19 @@ import { supabaseCredentials } from '~/platform/supabase/credentials'
  * does ask a question, but only for a request that would change a church's work, and those
  * are never prefetched. A read that fails lets the request through: the database behind it
  * is then the route's problem, and nobody loses their work to a question about billing.
+ *
+ * It is also where the Content-Security-Policy is set (Exponential launch, ticket 37),
+ * because the policy holds a nonce and a nonce is one request's. On the request as well
+ * as the response, because that is where Next reads the nonce it puts on its own scripts.
  */
 export async function middleware(request: NextRequest) {
+  const policy = contentSecurityPolicy({
+    nonce: newNonce(),
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    development: process.env.NODE_ENV === 'development',
+  })
+  request.headers.set('content-security-policy', policy)
+
   let response = NextResponse.next({ request })
 
   let credentials
@@ -34,6 +46,7 @@ export async function middleware(request: NextRequest) {
     // have said what to do about it. So the request passes through unrefreshed and
     // the reason is logged where whoever started the app will see it.
     console.error(error)
+    response.headers.set('content-security-policy', policy)
     return response
   }
 
@@ -69,6 +82,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Last, because a refreshed session replaces the response.
+  response.headers.set('content-security-policy', policy)
   return response
 }
 
