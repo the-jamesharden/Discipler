@@ -59,6 +59,18 @@ describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the swit
     },
   )
 
+  // A shut page answers through Next's error shell and is drawn in the browser from the
+  // response, so its words and its stylesheet are in the response but not as markup. Next's own 404 carried a
+  // dark-mode rule that drew it black under the app's dark green; the app's has none.
+  it("answers 404 at a shut page with the app's own not-found page, on the app's colours in any scheme", async () => {
+    const response = await fetch(`${baseUrl}/signup`, { redirect: 'manual' })
+    const html = await response.text()
+
+    expect(response.status).toBe(404)
+    expect(html).toContain('This page could not be found.')
+    expect(html).not.toContain('prefers-color-scheme')
+  })
+
   it('answers 404 at a referral link, and points at nothing', async () => {
     const response = await fetch(`${baseUrl}/r/k7m2qp9xab`, { redirect: 'manual' })
 

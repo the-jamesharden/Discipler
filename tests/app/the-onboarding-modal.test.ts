@@ -183,6 +183,50 @@ describe('the cards', () => {
     it('has an address the bar can send it to', () => {
       expect(drawn()).toContain('id="test-check-in"')
     })
+
+    describe('for an Admin whose phone it cannot text', () => {
+      const CANADIAN = { testCard: { phone: '+14165550142', needsAgreement: true } }
+      const cardOf = (html: string) => html.slice(html.indexOf('id="test-check-in"'), html.indexOf('Speak with the team'))
+
+      it('is ticked and says why, with nothing to press and nothing to agree to', () => {
+        const html = cardOf(drawn({}, CANADIAN))
+        const words = wordsOf(html)
+
+        expect(html).toContain('onb-card test is-done')
+        expect(html).toContain('<svg')
+        expect(words).toContain('Test check-ins can only text US numbers for now, so this step is done for you.')
+        expect(words).not.toContain("We'll text")
+        expect(words).not.toContain('By sending, you agree')
+        expect(words).not.toContain('Send another')
+        expect(words).not.toContain('Send test')
+        expect(html).not.toContain('<button')
+      })
+
+      it('says the same whether or not the church has the step ticked', () => {
+        const words = wordsOf(cardOf(drawn({ setup: meter(['test_check_in']) }, CANADIAN)))
+        expect(words).toContain('Test check-ins can only text US numbers for now')
+        expect(words).not.toContain('Send another')
+      })
+
+      it('still has the address the bar sends it to, and the first text on the phone', () => {
+        const html = drawn({}, CANADIAN)
+        expect(html).toContain('id="test-check-in"')
+        expect(wordsOf(cardOf(html))).toContain('This is your test check-in.')
+      })
+
+      it('leaves a US Admin with their number and Send another', () => {
+        const words = wordsOf(cardOf(drawn({ setup: meter(['test_check_in']) })))
+        expect(words).toContain("We'll text (318) 555-0142")
+        expect(words).toContain('Send another')
+        expect(words).not.toContain('US numbers')
+      })
+
+      it('leaves an Admin with no phone on file as they were', () => {
+        const words = wordsOf(cardOf(drawn({}, { testCard: { phone: null, refusal: 'test_check_in.no_phone' } })))
+        expect(words).toContain('Send test')
+        expect(words).not.toContain('US numbers')
+      })
+    })
   })
 
   it('says office hours with no Next and no button while there is no date', () => {

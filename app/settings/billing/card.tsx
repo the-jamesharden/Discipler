@@ -10,11 +10,24 @@ import { readPicture } from './read'
  * the way to Billing standing. A church billed outside Stripe sees no card at all.
  */
 
+/** The line with what follows its last ` · `, the payment method, kept in one piece. */
+export const SettingsLineWords = ({ line }: { readonly line: string }) => {
+  const last = line.lastIndexOf(' · ')
+  if (last === -1) return <p>{line}</p>
+  const method = last + ' · '.length
+  return (
+    <p>
+      {line.slice(0, method)}
+      <span className="unbroken">{line.slice(method)}</span>
+    </p>
+  )
+}
+
 const Line = async ({ admin, timeZone }: { readonly admin: SignedInAdmin; readonly timeZone: string }) => {
   if (admin.billing.standing === 'ended') return <p>{BILLING.banner.ended}</p>
   const read = await readPicture(admin.ministryId, new Date())
   if (read === 'unreachable') return <p>{BILLING.lede(admin.ministryName)}</p>
-  return <p>{read ? settingsLine(read.picture, timeZone) : BILLING.noSubscription}</p>
+  return read ? <SettingsLineWords line={settingsLine(read.picture, timeZone)} /> : <p>{BILLING.noSubscription}</p>
 }
 
 export const BillingCard = ({ admin, timeZone }: { readonly admin: SignedInAdmin; readonly timeZone: string }) => {

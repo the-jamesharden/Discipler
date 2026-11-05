@@ -4,6 +4,7 @@ import { relationshipIdFrom } from '~/domain/ids'
 import { checkInRates, ratedTotal } from '~/domain/overview'
 import { getOverviewReader, getTestCheckIn } from '~/service/container'
 import { careOutcomeMessage, careRefusalMessage } from '../follow-up/copy'
+import { isReadOnly } from '../billing-banner'
 import { readTheConcerns } from '../pair-card/open'
 import { PairCard } from '../pair-card/pair-card'
 import { AdminShell, NotAnAdmin } from '../shell'
@@ -276,8 +277,9 @@ export default async function OverviewPage({
       {waiting ? <WaitingOnYouCard waiting={waiting} /> : null}
 
       {/* A new key for each answer from the server, so one closed earlier on this same
-          page opens again when Restart onboarding asks for it. */}
-      {!card && (restarted || !admin.onboarding.opened) ? (
+          page opens again when Restart onboarding asks for it. An ended church can do
+          nothing it offers, so it opens there only when asked for. */}
+      {!card && (restarted || (!admin.onboarding.opened && !isReadOnly(admin))) ? (
         <OnboardingModal
           key={now.getTime()}
           admin={admin}

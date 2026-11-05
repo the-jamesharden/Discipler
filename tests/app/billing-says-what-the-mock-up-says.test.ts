@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it, vi } from 'vitest'
 import type { BillingPicture, PastBill } from '~/domain/billing-picture'
 import {
   billAmount,
@@ -14,7 +16,10 @@ import {
   yearlyPriceWords,
   monthlyPriceWords,
 } from '../../app/settings/billing/copy'
+import { SettingsLineWords } from '../../app/settings/billing/card'
 import { methodInWords } from '~/domain/billing-picture'
+
+vi.mock('../../app/settings/billing/read', () => ({ readPicture: vi.fn() }))
 
 const ZONE = 'America/New_York'
 const noon = (day: string) => new Date(`${day}T17:00:00Z`)
@@ -263,5 +268,27 @@ describe('the words as James wrote them', () => {
     expect(monthlyPriceWords).toBe('$97')
     expect(twelveMonthlyWords).toBe('$1,164')
     expect(yearlyPriceWords).toBe('$931.20')
+  })
+})
+
+describe('the Settings line in its card', () => {
+  const inTheCard = (line: string) => renderToStaticMarkup(createElement(SettingsLineWords, { line }))
+
+  it('keeps the payment method after the last separator in one piece, and every word of the line', () => {
+    const line = settingsLine(aPicture({ cycle: 'year', priceCents: 93_120, nextPayment: { cents: 74_496, fullCents: 74_496, at: noon('2026-12-30') } }), ZONE)
+
+    expect(inTheCard(line)).toBe(
+      '<p>Free trial until December 30, 2026, then $744.96 for your first year, then $931.20 a year · <span class="unbroken">Visa ending 4242</span></p>',
+    )
+  })
+
+  it('splits only at the last separator', () => {
+    expect(inTheCard('$97 a month · next payment May 1, 2027 · Visa ending 4242')).toBe(
+      '<p>$97 a month · next payment May 1, 2027 · <span class="unbroken">Visa ending 4242</span></p>',
+    )
+  })
+
+  it('draws a line with no separator as it is', () => {
+    expect(inTheCard(BILLING.banner.ended)).toBe(`<p>${BILLING.banner.ended}</p>`)
   })
 })

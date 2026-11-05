@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { stepsDoneOf, testCheckInIsDone, tourIsDone } from '~/domain/onboarding'
 import { upcomingOfficeHours } from '~/domain/office-hours'
+import { phoneCannotTakeATest } from '~/domain/setup-meter'
 import type { SignedInAdmin } from '~/service/ports'
 import type { TestCheckInCard as TestCardData } from '~/service/test-check-in'
 import { phoneShown } from '../../account/phone/copy'
@@ -16,6 +17,8 @@ import {
   FOOT,
   onboardingTitle,
   TEAM_CARD,
+  TEST_CARD_TITLE,
+  TEST_CARD_US_ONLY,
   TOUR_CARD,
   WELCOME_EYEBROW,
   welcomeLede,
@@ -91,6 +94,15 @@ export const OnboardingModal = ({
       </>
     ) : null
 
+  const firstTextOnAPhone = (
+    <div className="thumb thumb-phone" aria-hidden="true">
+      <div className="mini-phone">
+        <div className="notch" />
+        <p className="bubble">{testCard.firstText}</p>
+      </div>
+    </div>
+  )
+
   const cards = (
     <>
       <p className="onb-eyebrow">{EYEBROW}</p>
@@ -119,29 +131,35 @@ export const OnboardingModal = ({
           </Link>
         </article>
 
-        <TestCheckInCard
-          phoneShown={testCard.phone ? phoneShown(testCard.phone) : null}
-          needsAgreement={testCard.needsAgreement}
-          left={testCard.left}
-          sentToday={testCard.sentToday}
-          stepDone={testCheckInIsDone(setup)}
-          refusalAtFirst={testCard.refusal ? testCheckInRefusalMessage(testCard.refusal) : null}
-          refusalKind={
-            testCard.refusal === 'test_check_in.limit_reached'
-              ? 'limit'
-              : testCard.refusal === 'test_check_in.no_phone'
-                ? 'no_phone'
-                : null
-          }
-          leaderNoun={onboarding.leaderNoun}
-        >
-          <div className="thumb thumb-phone" aria-hidden="true">
-            <div className="mini-phone">
-              <div className="notch" />
-              <p className="bubble">{testCard.firstText}</p>
-            </div>
-          </div>
-        </TestCheckInCard>
+        {phoneCannotTakeATest(testCard.phone) ? (
+          <article id="test-check-in" className="onb-card test is-done">
+            {firstTextOnAPhone}
+            <h3>
+              <Tick />
+              {TEST_CARD_TITLE}
+            </h3>
+            <p>{TEST_CARD_US_ONLY}</p>
+          </article>
+        ) : (
+          <TestCheckInCard
+            phoneShown={testCard.phone ? phoneShown(testCard.phone) : null}
+            needsAgreement={testCard.needsAgreement}
+            left={testCard.left}
+            sentToday={testCard.sentToday}
+            stepDone={testCheckInIsDone(setup)}
+            refusalAtFirst={testCard.refusal ? testCheckInRefusalMessage(testCard.refusal) : null}
+            refusalKind={
+              testCard.refusal === 'test_check_in.limit_reached'
+                ? 'limit'
+                : testCard.refusal === 'test_check_in.no_phone'
+                  ? 'no_phone'
+                  : null
+            }
+            leaderNoun={onboarding.leaderNoun}
+          >
+            {firstTextOnAPhone}
+          </TestCheckInCard>
+        )}
 
         <article className="onb-card">
           <div className="thumb thumb-james" aria-hidden="true">

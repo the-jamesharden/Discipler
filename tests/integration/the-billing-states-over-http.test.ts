@@ -104,6 +104,20 @@ describe.skipIf(skipUnlessAppIsRunning)('the billing states, over HTTP', { timeo
       }
     })
 
+    it('does not open the onboarding by itself, and Restart onboarding still does', async () => {
+      const church = await aChurchThatIs('canceled', 'Ended Onboarding')
+      const WINDOW = 'class="modal-bg open onb-bg"'
+
+      expect((await read('/overview', church.cookie)).html).not.toContain(WINDOW)
+      expect((await read('/overview?onboarding=cards', church.cookie)).html).toContain(WINDOW)
+
+      const { rows } = await pool.query<{ onboarding_opened_at: Date | null }>(
+        'select onboarding_opened_at from ministry_member where ministry_id = $1 and user_id = $2',
+        [church.id, church.adminUserId],
+      )
+      expect(rows[0]!.onboarding_opened_at).toBeNull()
+    })
+
     it('changes nothing when pressed, and goes back to the page with the banner', async () => {
       const church = await aChurchThatIs('canceled', 'Ended Pressing')
 

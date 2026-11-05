@@ -37,6 +37,8 @@ export const TEST_CARD_TITLE = 'Send yourself a test check-in'
 /** The test check-in's card, as `.lavish/onboarding/s1-modal.html` to `s4-limit.html` word it. */
 export const testCardBody = (phone: string, leaderNoun: string): string =>
   `We'll text ${phone} the questions your ${leaderNoun}s get each week.`
+/** Draft for James: the card of an Admin whose phone a test check-in cannot reach. */
+export const TEST_CARD_US_ONLY = 'Test check-ins can only text US numbers for now, so this step is done for you.'
 export const SEND_TEST = 'Send test'
 export const SEND_ANOTHER = 'Send another'
 export const TEST_CARD_AGREEMENT =

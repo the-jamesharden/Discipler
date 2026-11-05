@@ -121,11 +121,15 @@ const wholeNumber = (value: unknown, field: string): number => {
  * below 100% for good (James, 2026-11-05). No phone on file is a thing they can fix, so it
  * does not count. Everybody else's step stays the church's.
  */
+export const phoneCannotTakeATest = (ownPhone: string | null): boolean =>
+  ownPhone !== null && !isUsPhone(ownPhone as PhoneNumber)
+
 const cannotSendATest = (ownPhone: unknown): boolean => {
   if (ownPhone === undefined) throw new Error('The setup meter arrived with no answer for the Admin’s phone')
-  if (ownPhone === null) return false
-  if (typeof ownPhone !== 'string') throw new Error('The setup meter arrived with a phone that is not a phone')
-  return !isUsPhone(ownPhone as PhoneNumber)
+  if (ownPhone !== null && typeof ownPhone !== 'string') {
+    throw new Error('The setup meter arrived with a phone that is not a phone')
+  }
+  return phoneCannotTakeATest(ownPhone)
 }
 
 /** The `setup` part of a page's document (`app.setup_meter_of`). */

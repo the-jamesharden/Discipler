@@ -108,6 +108,19 @@ describe.skipIf(skipUnlessAppIsRunning)('the test check-in', () => {
       expect(html).not.toContain(CARD)
     })
 
+    it('tells an Admin whose phone it cannot text that the step is done, with nothing to press', async () => {
+      await pool.query(`update person set phone = '+14165550142' where id = $1`, [ministry.adminPersonId])
+
+      const { html } = await getPage('/overview?onboarding=cards', cookie)
+      const words = clean(html)
+
+      expect(html).toContain(CARD)
+      expect(words).toContain('Test check-ins can only text US numbers for now, so this step is done for you.')
+      expect(words).not.toContain('(416) 555-0142')
+      expect(words).not.toContain('By sending, you agree')
+      expect(words).not.toContain('Send another')
+    })
+
     it('is what Send test on the bar opens', async () => {
       const { html } = await getPage('/overview?onboarding=cards', cookie)
       expect(html).toContain(CARD)

@@ -62,6 +62,10 @@ describe('the help pages', () => {
     }
   })
 
+  it('says a test check-in can only text a US number, as the card does', () => {
+    expect(page('test-check-in').markdown).toContain('Test check-ins can only text US numbers for now.')
+  })
+
   it('gives every page a title, an address and a summary', () => {
     expect(page('check-ins')).toMatchObject({
       title: 'Check-ins and their rhythm',
