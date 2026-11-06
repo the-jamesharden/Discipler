@@ -119,7 +119,7 @@ export const welcomeMessage = ({ ministryName, fullName, promises }: WelcomeMess
     ministryName,
     discloseOptOut: true,
     body:
-      (firstName ? `Thanks, ${firstName} — you’re all set.` : 'You’re all set.') +
+      (firstName ? `Thanks, ${firstName} - you’re all set.` : 'You’re all set.') +
       (promises === 'a_match'
         ? ' We’ll text you once you’ve been paired with someone to meet with.'
         : ''),
@@ -877,7 +877,7 @@ export const pauseApplied = ({ ministryName, subject, periodWeeks }: PauseApplie
     ministryName,
     discloseOptOut: false,
     body:
-      `Done — your check-ins about ${subject} are paused for ${periodWeeks} ` +
+      `Done - your check-ins about ${subject} are paused for ${periodWeeks} ` +
       `${weekOrWeeks(periodWeeks)}. Reply RESUME any time to start them again sooner.`,
   })
 
@@ -1009,7 +1009,7 @@ export const acknowledgedMessage = ({ ministryName }: AcknowledgedMessage): stri
     ministryName,
     discloseOptOut: false,
     body:
-      `Thanks for your message. We can't reply to texts here — please contact ` +
+      `Thanks for your message. We can't reply to texts here - please contact ` +
       `${ministryName} directly and someone will get back to you.`,
   })
 
@@ -1026,6 +1026,6 @@ export const keywordPassedOn = ({ ministryName }: AcknowledgedMessage): string =
     ministryName,
     discloseOptOut: false,
     body:
-      `Thanks — we've passed this on to ${ministryName} and someone will be in touch. ` +
+      `Thanks - we've passed this on to ${ministryName} and someone will be in touch. ` +
       'Nothing changes in the meantime.',
   })

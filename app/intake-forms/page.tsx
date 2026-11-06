@@ -293,7 +293,7 @@ export default async function IntakeFormsPage({
                 {group.participantNames.length === 0
                   ? 'nobody else in it yet'
                   : `with ${group.participantNames.join(', ')}`}
-                {group.accepted ? null : ` — ${AWAITING_LEADER_ACCEPTANCE}`}
+                {group.accepted ? null : ` - ${AWAITING_LEADER_ACCEPTANCE}`}
               </p>
               {query.configured === group.relationshipId ? <p className="toast" role="status">{GROUP_SAVED}</p> : null}
               <div className="field">

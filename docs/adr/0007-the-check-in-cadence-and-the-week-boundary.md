@@ -61,8 +61,8 @@ prompt.
 
 ## Considered options
 
-**Surfacing per-relationship cadence now.** Rejected for V1 — there is no admin
-surface for it and no ticket that would build one — but the columns are added now
+**Surfacing per-relationship cadence now.** Rejected for V1 - there is no admin
+surface for it and no ticket that would build one - but the columns are added now
 anyway, because the schema is the expensive thing to redo and the dispatcher query is
 the thing that would have to change.
 

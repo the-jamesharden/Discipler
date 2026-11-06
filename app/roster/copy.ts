@@ -757,7 +757,7 @@ const PROBLEMS: Record<RowProblem, string> = {
   repeated_in_this_file: 'the same person appears earlier in the file',
   already_on_the_roster: 'already on the Roster',
   same_number_different_name:
-    'this number is on the Roster under a different name — check whether it is the same person or someone sharing the number',
+    'this number is on the Roster under a different name - check whether it is the same person or someone sharing the number',
   removed_from_the_roster:
     'was removed from the Roster - they come back when they fill in Intake again',
   // The rest are about the pair a row described. The person on the row is still
@@ -796,7 +796,7 @@ export const HELD_ROWS_HEADING = 'Rows waiting on you'
 export const HELD_ROWS_EXPLANATION =
   'Each of these came in on a phone number the Roster already holds, under a name '
   + 'it has never seen. That is either the same person with their name written '
-  + 'differently, or somebody else who shares the phone — a spouse, a parent and a '
+  + 'differently, or somebody else who shares the phone - a spouse, a parent and a '
   + 'teenager. Discipler cannot tell, and will not guess.'
 
 /**

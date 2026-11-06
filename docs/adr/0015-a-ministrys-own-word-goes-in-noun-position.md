@@ -12,7 +12,7 @@ Amended by ADR-0034: a Ministry may now reword the check-in's sentences inside t
 message written from now on has to obey both.
 
 **The word appears in noun position and never as a verb.** *"you've been matched with
-someone to be their mentor"* — not *"someone to mentor"*.
+someone to be their mentor"* - not *"someone to mentor"*.
 
 **The word names the role of whoever is reading the message.** The Leader's Starter
 Message calls the reader a `leader_noun`; the Participant's calls the reader a
@@ -20,11 +20,11 @@ Message calls the reader a `leader_noun`; the Participant's calls the reader a
 
 Three messages carry a noun today, and they are the only three that name a role at all:
 
-- `invitationMessage` — *"David, you've been matched with someone to be their mentor.
+- `invitationMessage` - *"David, you've been matched with someone to be their mentor.
   Have a look and let us know: …"*
-- `starterMessageToLeader` — *"You're now Emily Johnson's mentor. We'll check in with you
+- `starterMessageToLeader` - *"You're now Emily Johnson's mentor. We'll check in with you
   each week…"*
-- `starterMessageToParticipant` — *"Great news! You're now David Ellis's mentee, and they
+- `starterMessageToParticipant` - *"Great news! You're now David Ellis's mentee, and they
   will reach out to you soon…"*
 
 The defaults are `mentor` and `mentee`, stored lowercase because that is where they
@@ -32,7 +32,7 @@ appear: mid-sentence, in a message. The word is stored exactly as an Admin typed
 trimmed and with internal whitespace collapsed, and is never capitalised, pluralised or
 inflected on their behalf.
 
-The settings form's preview is composed by the two Starter Message functions above — one
+The settings form's preview is composed by the two Starter Message functions above - one
 for each word, so a Ministry sees each of its words in the message the person who reads
 that word actually gets. It is composed by calling them, not by imitating them, so what an
 Admin reads on the screen is the message: prefix, opt-out disclosure and all.
@@ -61,7 +61,7 @@ that happen to also be verbs, which is a property of English and not of the sett
 **A word a Ministry typed cannot be pluralised either.** *Sarah is your mentor* reads well
 for a one-to-one and becomes *David and Ruth is your mentor* for a group with two Leaders.
 Appending an `s` is wrong often enough to be worse than not trying, and Discipler holds one
-word per role rather than a singular and a plural — asking a coordinator for four words
+word per role rather than a singular and a plural - asking a coordinator for four words
 where two will do is the kind of settings form this product is supposed to not have.
 
 Both problems are invisible at the moment the copy is written, because whoever writes it
@@ -75,7 +75,7 @@ others, and the failure surfaces as a text a congregation receives rather than a
 a test would catch.
 
 **Two words per role, singular and plural.** Rejected for V1. It doubles the Language
-section to answer a problem that naming the reader's own role removes entirely — the
+section to answer a problem that naming the reader's own role removes entirely - the
 reader is always one person.
 
 **Pluralising with a rule.** Rejected. English plurals are not a rule, and a settings
@@ -90,7 +90,7 @@ advance, what its people will read.
 
 Every future message that wants to name a role is constrained to the two rules above. That
 is the point, and it is written down here because the constraint is not discoverable from
-reading the copy — the copy reads perfectly well.
+reading the copy - the copy reads perfectly well.
 
 Some sentences are unavailable. *You have been paired with Sarah for discipleship* became
 *You're now Sarah's mentee*, which is a shorter sentence and a slightly different one: it
@@ -104,7 +104,7 @@ mentor*, which is correct and slightly awkward, and is left alone.
 `from_name` sits beside the nouns and follows the same principle: it is the name a message
 *reads as*, resolved once at the store as `coalesce(nullif(btrim(from_name), ''), name)`
 so that nothing downstream has to remember which of the two a message carries. Null means
-*speak as the display name*, and it is deliberately null rather than a copy of the name —
+*speak as the display name*, and it is deliberately null rather than a copy of the name -
 a Ministry that renames itself has renamed itself, and a copy would leave its messages
 speaking as whoever it used to be until somebody noticed.
 

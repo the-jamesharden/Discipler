@@ -25,14 +25,14 @@ Concretely:
 Acceptance mints a phone identity whenever `person.user_id` is null, then inserts a
 `ministry_member` row `on conflict (ministry_id, user_id) do nothing`.
 
-For an Admin who leads, `user_id` is always null — their Person row comes from CSV import
+For an Admin who leads, `user_id` is always null - their Person row comes from CSV import
 or Intake, carrying a name and a phone, while their login was provisioned separately
 against an email. Nothing has ever connected the two. So the conflict target misses, and
 an Admin who accepts an Invitation Link ends up with a second `auth.users` row, a second
 `ministry_member` row saying `leader`, and two passwords for one human.
 
-Ticket 18 already states the invariant — *an Admin who leads holds a single
-`ministry_member` row saying `admin`* — and the dual-role suite appears to prove it. It
+Ticket 18 already states the invariant - *an Admin who leads holds a single
+`ministry_member` row saying `admin`* - and the dual-role suite appears to prove it. It
 does not. The fixture hand-links `person.user_id` through the service role
 (`addPersonForAdmin`), which is a path no product flow has. The invariant was asserted
 against a state the product cannot reach.
@@ -59,10 +59,10 @@ which is the behaviour it already has for a Leader accepting a second relationsh
 account. Rejected, and not narrowly: acceptance is deliberately sessionless, and possession
 of the phone the link was texted to is the whole of the authentication. On a shared laptop
 with an Admin still signed in, this would bind a Leader's relationship to the Admin's
-account — a worse failure than the one it fixes, and a safeguarding one.
+account - a worse failure than the one it fixes, and a safeguarding one.
 
 **Match by phone at acceptance.** Look up an existing `auth.users` row by the Person's
-phone before minting. This is right, and it is what ADR-0008's world gives for free — but
+phone before minting. This is right, and it is what ADR-0008's world gives for free - but
 it is not sufficient on its own, because today's Admins have no phone identity to match.
 It becomes the mechanism once provisioning changes; it is not an alternative to changing
 provisioning.

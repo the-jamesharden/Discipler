@@ -68,7 +68,7 @@ It asks the approved meeting questions, including whether the relationship met, 
 
 The resulting responses and non-responses define the relationship's current state.
 
-Two consecutive weekly check-ins without a response must surface that relationship for pastoral care — as must three consecutive replies reporting that no meeting happened.
+Two consecutive weekly check-ins without a response must surface that relationship for pastoral care - as must three consecutive replies reporting that no meeting happened.
 
 ## One History, Multiple Uses
 

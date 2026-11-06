@@ -138,7 +138,7 @@ export const declaredGenderLabel: Record<'mixed' | Gender, string> = {
 export const WAITING_HEADING = 'Waiting to join a group'
 export const WAITING_EXPLANATION =
   'Each of these picked a group you have set to ask first. Admitting them adds them to '
-  + 'the group and tells its leader; declining closes the request and tells nobody — '
+  + 'the group and tells its leader; declining closes the request and tells nobody - '
   + 'that is a conversation to have, and you have their number on the Roster.'
 export const ADMIT = 'Admit'
 export const DECLINE = 'Decline'

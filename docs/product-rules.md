@@ -1,4 +1,4 @@
-# Discipler — Settled and Working Product Decisions
+# Discipler - Settled and Working Product Decisions
 
 This file distinguishes settled product rules from working decisions that still need to be pressure-tested.
 
@@ -114,9 +114,9 @@ Imported or synchronized data from another church-management system does not its
 
 Three items were carried into the grilling session as working decisions to be pressure-tested. All three are now resolved and recorded above:
 
-- **Secondary pair acceptance** — restored, not removed. See *Leader Acceptance Activates a Relationship*.
-- **Launch modes** — removed entirely. See *No Launch Modes, No Kickoff in the Product*.
-- **Event scope** — a kickoff is not modeled in the product at all.
+- **Secondary pair acceptance** - restored, not removed. See *Leader Acceptance Activates a Relationship*.
+- **Launch modes** - removed entirely. See *No Launch Modes, No Kickoff in the Product*.
+- **Event scope** - a kickoff is not modeled in the product at all.
 
 ## Settled: Ministry Isolation in Ministry Intelligence
 
@@ -128,7 +128,7 @@ Discipler must not pool response, satisfaction, or material data across ministri
 
 Discipler does not perform significance testing and must not present material findings as statistically significant.
 
-At the close of each calendar quarter, Discipler produces a report describing what the ministry's own history shows — response rates, satisfaction distributions, and the observed percentage difference between materials in use during that period. There is one reporting cadence, and it is quarterly; material comparison appears inside the quarterly report and simply says nothing useful until a material has enough weeks behind it. A visible difference between ten relationships reporting `outstanding` and ten reporting `good` is a real and reportable difference; it is reported as an observation, never as a claim about cause or significance.
+At the close of each calendar quarter, Discipler produces a report describing what the ministry's own history shows - response rates, satisfaction distributions, and the observed percentage difference between materials in use during that period. There is one reporting cadence, and it is quarterly; material comparison appears inside the quarterly report and simply says nothing useful until a material has enough weeks behind it. A visible difference between ten relationships reporting `outstanding` and ten reporting `good` is a real and reportable difference; it is reported as an observation, never as a claim about cause or significance.
 
 ## Settled: Roster Membership Is Not Consent
 
@@ -144,10 +144,10 @@ Intake is the single consent gate. Completing the intake form creates the SMS co
 
 There are two routes to the form, recorded on each consent record as its source:
 
-- a link the pastor sends the person directly — by email, group chat, or however they already reach them, and the primary path
+- a link the pastor sends the person directly - by email, group chat, or however they already reach them, and the primary path
 - a QR code opening that same link, for a leaders' meeting where a room can complete it together
 
-An admin cannot attest to consent on a person's behalf, at import or anywhere else. Inbound-keyword opt-in — where a person texts a join word and the inbound message is the consent — is post-V1; if it ships it becomes a third source, having been decided rather than assumed.
+An admin cannot attest to consent on a person's behalf, at import or anywhere else. Inbound-keyword opt-in - where a person texts a join word and the inbound message is the consent - is post-V1; if it ships it becomes a third source, having been decided rather than assumed.
 
 > **Amended (Exponential launch, 2026-10-29):** an Admin who signs a church up gives a consent of their own, recorded with the source `ministry_setup`.
 > It lets Discipler text that Admin's phone the texts the sign-up page names, a verification code and the test check-in, and nothing else.
@@ -159,11 +159,11 @@ Intake records SMS consent and contact-sharing consent independently, each with 
 
 Discipler includes another person's phone number in a message only where the recipient's consent record permits that sharing. Consent is checked when the message is sent, not assumed from enrollment.
 
-> **No message discloses a number today.** The Starter Message was the one that would have, and it now names the leader instead of carrying their number — a participant is owed the name of the stranger about to contact them, and the leader is the one who reaches out, so the number was never the thing the participant needed. Contact-sharing consent therefore governs one surface only: **Nudge**, which reveals a number to an admin on a screen rather than texting it to anybody. The send-time disclosure check is kept and still enforced, but nothing in the product now composes a message it has to withhold anything from. It should be given a use or removed deliberately rather than left as a compliance-shaped mechanism nothing exercises.
+> **No message discloses a number today.** The Starter Message was the one that would have, and it now names the leader instead of carrying their number - a participant is owed the name of the stranger about to contact them, and the leader is the one who reaches out, so the number was never the thing the participant needed. Contact-sharing consent therefore governs one surface only: **Nudge**, which reveals a number to an admin on a screen rather than texting it to anybody. The send-time disclosure check is kept and still enforced, but nothing in the product now composes a message it has to withhold anything from. It should be given a use or removed deliberately rather than left as a compliance-shaped mechanism nothing exercises.
 
 ## Settled: Roles Are Relationship Memberships, Not Properties of a Person
 
-Role is a property of relationship membership. **Leader** and **Participant** mean *leader of relationship X* and *participant in relationship Y*, never a type a person is. A person may hold both roles at once across different relationships — leading two relationships while being discipled in a third is an ordinary shape in this domain, not an edge case.
+Role is a property of relationship membership. **Leader** and **Participant** mean *leader of relationship X* and *participant in relationship Y*, never a type a person is. A person may hold both roles at once across different relationships - leading two relationships while being discipled in a third is an ordinary shape in this domain, not an edge case.
 
 **Participation Status describes only whether a person is being discipled.** Leading a relationship never sets it and never changes it. The four values stand: `No Intake Submitted`, `Ready to Pair`, `Paired`, `Opted Out`. `Paired` means the person holds at least one open participant membership, and nothing else. A person leading two relationships and being discipled by nobody is `Ready to Pair`.
 
@@ -171,7 +171,7 @@ Role is a property of relationship membership. **Leader** and **Participant** me
 
 **`ministry_member.tier` is an access level only.** It does not determine who leads relationships and does not gate leader-facing surfaces. The Leader surface is shown on a live query for open leader memberships. Admin is a superset of Leader for access purposes, so an Admin who also leads holds one `admin` row and reaches both.
 
-**An Admin reads everything in their Ministry, including relationships they are a participant in.** All check-in content, all concerns, the whole history. This is not an exception to Ministry isolation grudgingly allowed — it is the product's core function. The Admin is the pastor, and routing what a relationship reports into pastoral view is the reason the check-in rhythm exists. A Leader-tier account that is a participant in someone else's relationship reads none of it; an Admin who is a participant in one reads all of it, as an Admin. Do not re-raise this as a leak.
+**An Admin reads everything in their Ministry, including relationships they are a participant in.** All check-in content, all concerns, the whole history. This is not an exception to Ministry isolation grudgingly allowed - it is the product's core function. The Admin is the pastor, and routing what a relationship reports into pastoral view is the reason the check-in rhythm exists. A Leader-tier account that is a participant in someone else's relationship reads none of it; an Admin who is a participant in one reads all of it, as an Admin. Do not re-raise this as a leak.
 
 **A person appears in a given relationship at most once at a time, in one role.** Pairing someone with themselves is a database error, not a scorer bug.
 
@@ -185,7 +185,7 @@ The pool is defined under *Suggested Pairing*.
 
 ## Settled: The Relationship Is the Core Primitive
 
-There is no separate group concept. A discipleship relationship is one leader and N participants. A one-to-one relationship is N=1; a group is N>1. Two participants meeting with one leader is not a third kind of thing — it is a relationship with N=2.
+There is no separate group concept. A discipleship relationship is one leader and N participants. A one-to-one relationship is N=1; a group is N>1. Two participants meeting with one leader is not a third kind of thing - it is a relationship with N=2.
 
 This gives the product one state machine, one check-in cadence, and one dispatch path. Check-in copy and relationship state branch on how many participants a relationship has right now, never on a stored group-versus-one-to-one distinction. There is no group code path, and any design that reintroduces one is a regression against this rule.
 
@@ -212,7 +212,7 @@ An admin creating a relationship does not activate it. The relationship enters `
 
 The leader receives an SMS invitation link, sees on the leader dashboard who they have been matched with, sets a password, and accepts. Acceptance activates the relationship, releases the Starter Message to everyone in it, and is the timestamped record that the leader agreed to take it on.
 
-The Starter Message names people and no numbers. A leader's names the participants they are now meeting with; a participant's names the leader who will reach out to them, and a participant in a group receives **one** message naming every leader rather than one message per leader — the body is nobody's individual decision to make. Where it names several people it names them in the order they joined the relationship, and alphabetically among those who joined in the same action, so the same group reads the same way every time.
+The Starter Message names people and no numbers. A leader's names the participants they are now meeting with; a participant's names the leader who will reach out to them, and a participant in a group receives **one** message naming every leader rather than one message per leader - the body is nobody's individual decision to make. Where it names several people it names them in the order they joined the relationship, and alphabetically among those who joined in the same action, so the same group reads the same way every time.
 
 **Only a leader is sent an Invitation Link.** A link asks somebody a question they have not yet answered, and a participant answered theirs at intake by consenting to be paired. The leader's acceptance is the other half of that agreement, and it is the half that was still outstanding. Nothing is minted for a participant, because there is nothing for one to do. This reverses an earlier reading of this file, under which a participant held a link of their own leading to a decline; see `docs/adr/0011-only-a-leader-is-sent-a-link.md`.
 
@@ -221,11 +221,11 @@ The Starter Message names people and no numbers. A leader's names the participan
 > Invitation Links are still a leader's alone.
 > See `docs/adr/0028-a-disciple-is-sent-a-link-to-their-material.md`.
 
-**Re-issuing an Invitation Link replaces it, and the superseded link opens nothing.** An admin can send a leader a fresh invitation from the roster row that says the relationship has not been accepted. Every re-issue mints a new token over the old one, whether or not the old one had run out, so the newest text is always the only one that works. This is the only way a link is ever taken back: an Invitation Link authenticates by possession of the phone it was texted to, so a link that reached the wrong number stays usable until something replaces it, and *not my number* deliberately changes nothing else. The cost falls on the leader who merely lost the text — an older message on their phone stops working — and that is a thing an admin can tell them, where a live link on a stranger's phone is not a thing anyone can undo. See `docs/adr/0012-re-issuing-a-link-replaces-it.md`.
+**Re-issuing an Invitation Link replaces it, and the superseded link opens nothing.** An admin can send a leader a fresh invitation from the roster row that says the relationship has not been accepted. Every re-issue mints a new token over the old one, whether or not the old one had run out, so the newest text is always the only one that works. This is the only way a link is ever taken back: an Invitation Link authenticates by possession of the phone it was texted to, so a link that reached the wrong number stays usable until something replaces it, and *not my number* deliberately changes nothing else. The cost falls on the leader who merely lost the text - an older message on their phone stops working - and that is a thing an admin can tell them, where a live link on a stranger's phone is not a thing anyone can undo. See `docs/adr/0012-re-issuing-a-link-replaces-it.md`.
 
 A relationship awaiting acceptance sends nothing to participants and accrues no silence against the leader. If it is still unaccepted after two days, Discipler reminds the leader; after five days, the admin dashboard surfaces it along with how long it has been waiting.
 
-> **Supersedes:** an earlier working decision that removed secondary acceptance entirely on the grounds that intake already constitutes agreement to be paired. Acceptance is retained because it does three things that a silent activation does not: it brings the leader into the product for a first meaningful action, it gives password creation an immediate reason, and it produces a defensible record that this specific leader agreed to this specific relationship. The earlier objection — that an acceptance gate merely duplicates an already-active relationship — does not apply, because the relationship is not active until acceptance.
+> **Supersedes:** an earlier working decision that removed secondary acceptance entirely on the grounds that intake already constitutes agreement to be paired. Acceptance is retained because it does three things that a silent activation does not: it brings the leader into the product for a first meaningful action, it gives password creation an immediate reason, and it produces a defensible record that this specific leader agreed to this specific relationship. The earlier objection - that an acceptance gate merely duplicates an already-active relationship - does not apply, because the relationship is not active until acceptance.
 
 ## Settled: Contact Details Are Never Sent Over SMS
 
@@ -253,13 +253,13 @@ The cost of this is understood and accepted: until one-time codes ship, a leader
 
 `Ended` is a terminal relationship state carrying a recorded reason: completed, leader exited, participant exited, or closed by an admin.
 
-Ending a relationship preserves its history untouched. Its participants return to the roster as `Ready to Pair` unless they have opted out, and only once their last open participant membership closes. The leader's Participation Status is unaffected, because leading never set it in the first place. Ended relationships leave the dashboard's active counts but remain in longitudinal reporting — a relationship that ran five months and finished well is an outcome, not a deletion.
+Ending a relationship preserves its history untouched. Its participants return to the roster as `Ready to Pair` unless they have opted out, and only once their last open participant membership closes. The leader's Participation Status is unaffected, because leading never set it in the first place. Ended relationships leave the dashboard's active counts but remain in longitudinal reporting - a relationship that ran five months and finished well is an outcome, not a deletion.
 
 ## Settled: Concern Text Is Handled Differently From Every Other Record
 
 Raw concern text is never presented as a browsable list, never exported, and never quoted in a report. Reports count concerns; they do not reproduce them.
 
-An admin reaches concern text one person at a time, from the Follow-Up tab or that relationship's own history. Resolving a concern clears its text. There is no option to keep it, so a ministry does not accumulate a permanent file of people's most difficult weeks — not through inaction, and not by decision either.
+An admin reaches concern text one person at a time, from the Follow-Up tab or that relationship's own history. Resolving a concern clears its text. There is no option to keep it, so a ministry does not accumulate a permanent file of people's most difficult weeks - not through inaction, and not by decision either.
 
 ## Settled: No Launch Modes, No Kickoff in the Product
 
@@ -281,7 +281,7 @@ Deferring the report defers the *interface*, never the data. The week-by-week hi
 
 ## Settled: No Interface Action Sends Free-Form Text
 
-Every outbound message passes a recipient-level check before it sends — consent, an open opt-out, a number to send to — and that check is enforced at the sending layer, not at the button. Any future feature that sends a message inherits it without exception.
+Every outbound message passes a recipient-level check before it sends - consent, an open opt-out, a number to send to - and that check is enforced at the sending layer, not at the button. Any future feature that sends a message inherits it without exception.
 
 No admin action sends one. The only participant-facing traffic Discipler generates is the check-in rhythm and the reminders belonging to it, and an admin who wants to reach somebody picks up the phone. This is why the product needs no per-recipient rate limits: it is not a ceiling on admin sending, it is the absence of admin sending.
 
@@ -399,7 +399,7 @@ The reopened Intake asks them too, with the answers already in them, from the fo
 Candidates with identical availability overlap and the same Discipleship Goal are ordered by who has waited longest since completing intake.
 A goal typed after Other counts as the same goal on the rule in *The Discipleship Goal Is a Tiebreaker, Not a Tier Gate*.
 
-The ordering must be stable — a list that reshuffles between page loads teaches an admin not to trust it — and longest-waiting is the tie-break that quietly serves the person who has been overlooked.
+The ordering must be stable - a list that reshuffles between page loads teaches an admin not to trust it - and longest-waiting is the tie-break that quietly serves the person who has been overlooked.
 
 ## Settled: Audited Actions
 
@@ -438,7 +438,7 @@ Several files do not make several Materials, so *Settled: Material Assignment* a
 
 `Nudge` shows an admin the participant's contact details on a follow-up item so that the admin can reach them directly. It sends no message and enqueues nothing.
 
-There are therefore no nudge limits. A cooldown, a daily cap and a weekly ceiling would govern admin-initiated sends, and there are none. The check-in rhythm is self-limiting by construction — one sequence per week, advancing only on reply, one reminder per question, and at most two clarifications — so it needs no ceiling either.
+There are therefore no nudge limits. A cooldown, a daily cap and a weekly ceiling would govern admin-initiated sends, and there are none. The check-in rhythm is self-limiting by construction - one sequence per week, advancing only on reply, one reminder per question, and at most two clarifications - so it needs no ceiling either.
 
 This reverses an earlier reading of this file, which had `Nudge` sending one additional check-in under three per-recipient limits, and which had `See contact details` as a separate action beside it. The two were one action all along. See `docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`.
 
@@ -450,7 +450,7 @@ Optional: email address.
 
 That is every Ministry's preset form. Since Pastor feedback ticket 11 a Ministry may make the Discipleship Goal optional, and the email required, on its own form (see *A Ministry Controls Its Intake Forms*); somebody who leaves an optional goal unanswered is ranked on availability alone, as somebody whose option was removed is.
 
-Gender is required because it feeds suggestion — gender is an absolute constraint, so a missing value would make a person unsuggestable entirely — and no Ministry's form can make it optional.
+Gender is required because it feeds suggestion - gender is an absolute constraint, so a missing value would make a person unsuggestable entirely - and no Ministry's form can make it optional.
 Since Pastor feedback ticket 13 a Ministry may remove the gender question from a form altogether, with every answer to it; the gender pairing rules then cannot be applied to anybody who fills in that form, and the surfaces that apply them say so (see *Removing a question* under *A Ministry Controls Its Intake Forms*).
 
 There is one intake form. Gender is a required field on that same form, selected by the person while they complete it, and it feeds the pairing eligibility and suggestion rules from there. There is no separate gender intake form and no separate gender intake workflow.
@@ -465,14 +465,14 @@ Summarizing recurring concern themes requires a body of concerns that two pilot 
 
 A relationship becomes `Stalled` when either is true:
 
-1. **Gone silent** — two consecutive weekly check-ins with no response
-2. **Responding, not meeting** — three consecutive `2` replies
+1. **Gone silent** - two consecutive weekly check-ins with no response
+2. **Responding, not meeting** - three consecutive `2` replies
 
 The second condition exists because a leader who answers promptly every week to say they did not meet is fully responsive and never silent, so the first condition never fires while the relationship quietly dies.
 
 Three weeks rather than two, because a run of busy weeks is ordinary life. `docs/non-goals.md` is explicit that a missed meeting is not wrongdoing, and this threshold must not be tightened into a punishment.
 
-The care item states which condition fired. "Responding, not meeting — 3 weeks" and "gone silent — 2 weeks" call for completely different conversations, and an admin must know which one they are walking into before they pick up the phone.
+The care item states which condition fired. "Responding, not meeting - 3 weeks" and "gone silent - 2 weeks" call for completely different conversations, and an admin must know which one they are walking into before they pick up the phone.
 
 ## Settled: Participation Is Dated, Never Deleted
 
@@ -492,13 +492,13 @@ Intake offers six ranges: 18–24, 25–34, 35–44, 45–54, 55–64, 65+.
 
 The age constraint is restated over them: **a leader is not suggested for a participant more than one band above them.** A leader in 25–34 is suggested for participants up to 35–44, but not 45–54.
 
-This is coarser than the ten-year gap it replaces, and deliberately so — Discipler no longer holds exact ages, and a rule must not imply more precision than the data behind it. It remains explainable in one sentence, which the suggestion ADR requires of every input, and manual pairing still overrides it.
+This is coarser than the ten-year gap it replaces, and deliberately so - Discipler no longer holds exact ages, and a rule must not imply more precision than the data behind it. It remains explainable in one sentence, which the suggestion ADR requires of every input, and manual pairing still overrides it.
 
 ## Settled: Pause Is Leader-Controlled, Bounded, and Visible
 
-A leader may pause a relationship they lead. The transition to `Paused` is immediate and requires no admin approval. An admin may pause a relationship in their ministry on the same terms and through the same rules — a pause is one act however it was asked for, and the two routes differ only in who asked.
+A leader may pause a relationship they lead. The transition to `Paused` is immediate and requires no admin approval. An admin may pause a relationship in their ministry on the same terms and through the same rules - a pause is one act however it was asked for, and the two routes differ only in who asked.
 
-> **Built (ticket 17).** Both routes exist. The keyword route reaches the same rules through the same events — `relationship.paused` and `relationship.resumed`, read back by `relationship_pauses` — rather than through the `relationship.pause` and `relationship.resume` commands themselves, which take a named admin account an inbound text does not have. The events carry `route` (`admin` or `keyword`) and a null `pausedBy`/`resumedBy` on the keyword side, so the record says who asked without putting an account id and a person id in one field.
+> **Built (ticket 17).** Both routes exist. The keyword route reaches the same rules through the same events - `relationship.paused` and `relationship.resumed`, read back by `relationship_pauses` - rather than through the `relationship.pause` and `relationship.resume` commands themselves, which take a named admin account an inbound text does not have. The events carry `route` (`admin` or `keyword`) and a null `pausedBy`/`resumedBy` on the keyword side, so the record says who asked without putting an account id and a person id in one field.
 
 A pause runs for exactly one of five periods: 1 week, 2 weeks, 4 weeks, 8 weeks, or 12 weeks. The default is 2 weeks and the maximum is 12. No other duration is permitted.
 
@@ -508,17 +508,17 @@ Pausing never removes, archives, ends, or hides a relationship. Membership is un
 
 `Paused` masks the relationship's underlying derived state; it does not rewrite the history behind it. No new unanswered check-ins accrue during a pause, and the pause does not answer the old ones. On resume the underlying state resurfaces, so a relationship that was `Stalled` when it was paused is `Stalled` again on resume and stays there until an answered check-in clears that condition. **Resuming never sets `Healthy` on its own.**
 
-A pause taken while that relationship's check-in question is open **withdraws** the question. No next-day reminder goes out — the reminder is a text to somebody who has just stepped back, which is the one message a pause exists to stop — and the conversation moves on to the relationships still running, skipping in silence any paused alongside it.
+A pause taken while that relationship's check-in question is open **withdraws** the question. No next-day reminder goes out - the reminder is a text to somebody who has just stepped back, which is the one message a pause exists to stop - and the conversation moves on to the relationships still running, skipping in silence any paused alongside it.
 
 Withdrawn is not passed over. A passed-over question is a silence the leader owns and the Stalled rule counts; a withdrawn one is Discipler's to take back, so the relationship-week it belonged to accrues no silence at all and never ages into `Stalled`. Only the question that was actually open is withdrawn: a question already asked and already lapsed before the pause was taken is a silence that had accrued before anybody stepped back, and the pause does not unsay it.
 
-> This rule was first written for the keyword exchange — *a keyword resolving to the relationship whose check-in question is currently open withdraws that pending question, so a pause never accrues silence against itself*. It is settled here as general: it belongs to the pause, not to the route the pause arrived by. Ticket 17 inherits it rather than building it.
+> This rule was first written for the keyword exchange - *a keyword resolving to the relationship whose check-in question is currently open withdraws that pending question, so a pause never accrues silence against itself*. It is settled here as general: it belongs to the pause, not to the route the pause arrived by. Ticket 17 inherits it rather than building it.
 
 A leader may resume early by replying `RESUME`. That resume is also immediate, requires no admin approval, and releases the Resume Message. A relationship resumed early never reaches its pause expiry, so no follow-up item is created for it.
 
-A leader selects the duration in a single confirmation exchange rather than in the original message. Discipler replies naming the relationship and the default — *"Pause check-ins with Emily for 2 weeks? Reply YES to confirm, or reply 1, 4, 8, or 12 for a different number of weeks."* — and both written and numeric forms of the reply are accepted. The confirmation exists so that a stray tap never pauses anything, and it means the common case costs a leader two texts.
+A leader selects the duration in a single confirmation exchange rather than in the original message. Discipler replies naming the relationship and the default - *"Pause check-ins with Emily for 2 weeks? Reply YES to confirm, or reply 1, 4, 8, or 12 for a different number of weeks."* - and both written and numeric forms of the reply are accepted. The confirmation exists so that a stray tap never pauses anything, and it means the common case costs a leader two texts.
 
-> **Supersedes:** an earlier settled rule releasing the **Starter Message** on resume. A resume now sends its own message — *"Your discipleship with [name] has been resumed!"*, to everyone in the relationship, named as every text names a relationship (see **Group Name** in `CONTEXT.md`) — because *you have been paired* is true on the day the match is made and false a fortnight later, and a ministry that said it twice would be telling somebody they had been matched to the person they have been meeting all year. What the old rule was reaching for is unchanged and still holds: everyone in a resumed relationship hears that it is running again, and expiry still sends nothing. See **Resume Message** in `CONTEXT.md`.
+> **Supersedes:** an earlier settled rule releasing the **Starter Message** on resume. A resume now sends its own message - *"Your discipleship with [name] has been resumed!"*, to everyone in the relationship, named as every text names a relationship (see **Group Name** in `CONTEXT.md`) - because *you have been paired* is true on the day the match is made and false a fortnight later, and a ministry that said it twice would be telling somebody they had been matched to the person they have been meeting all year. What the old rule was reaching for is unchanged and still holds: everyone in a resumed relationship hears that it is running again, and expiry still sends nothing. See **Resume Message** in `CONTEXT.md`.
 
 > **Supersedes:** an earlier settled rule making `START` the early-resume keyword. `START` is now carrier-level re-opt-in only and carries no domain meaning; `RESUME` resumes a paused relationship. See **Settled: Keyword Routing and Eligibility** for the reasoning.
 
@@ -540,11 +540,11 @@ The admin decides what happens next: resuming the relationship, which releases t
 
 > **Settled 2026-08-31, while building ticket 17: either side may text `SWAP`.** A participant
 > is sent no invitation link and does not decline a match, so `SWAP` is the one way they can say
-> the pairing is wrong without going silent — and going silent is the ambiguity the care rules
+> the pairing is wrong without going silent - and going silent is the ambiguity the care rules
 > already struggle to read. The `swap_requested` item therefore carries **which side asked**,
 > because the admin's next move differs by it: unpair and re-pair the participant, or release
 > the leader from the relationship. It is the role held *in the relationship named*, not a
-> property of the person — a dual-role person asking to swap out of the relationship they are
+> property of the person - a dual-role person asking to swap out of the relationship they are
 > discipled in is a participant here whatever else they lead.
 >
 > Every other relationship keyword stays a leader's. A participant receives no check-ins, so
@@ -552,7 +552,7 @@ The admin decides what happens next: resuming the relationship, which releases t
 > `participant_keyword` item instead, which is where somebody who wants out and has no other
 > route is heard.
 
-Receiving a swap request does not end the relationship, remove the leader, remove the participant, return anyone to the pairing pool, create a replacement relationship, reassign anybody, or set the relationship to `Ended`. It is not a relationship-state transition. The relationship holds its existing state — including `Paused` — and remains intact until an admin acts.
+Receiving a swap request does not end the relationship, remove the leader, remove the participant, return anyone to the pairing pool, create a replacement relationship, reassign anybody, or set the relationship to `Ended`. It is not a relationship-state transition. The relationship holds its existing state - including `Paused` - and remains intact until an admin acts.
 
 The admin must be able to see which leader requested the swap, which relationship the request concerns, that the leader is asking for a different participant, and that the relationship remains intact while awaiting a decision.
 
@@ -580,7 +580,7 @@ Because eligibility is per command, ambiguity is rarer than the raw relationship
 
 **Discipler must never infer the target relationship from Check-In Sequence position.** The sequence position disambiguates a check-in *answer*; it must not be borrowed to disambiguate a keyword, because `RESUME` and `SWAP` normally arrive with no open sequence and the two cases would then behave differently for no reason a leader could predict.
 
-`SWAP` is eligible on an unaccepted relationship because from that state it reads as a decline. Without it a leader who has been matched with someone they know is wrong has no way to say so — their only option is a silence indistinguishable from being on holiday, which is exactly the ambiguity the five-day follow-up item asks the admin to resolve.
+`SWAP` is eligible on an unaccepted relationship because from that state it reads as a decline. Without it a leader who has been matched with someone they know is wrong has no way to say so - their only option is a silence indistinguishable from being on holiday, which is exactly the ambiguity the five-day follow-up item asks the admin to resolve.
 
 ## Settled: `START` Is Carrier-Level Only
 
@@ -588,7 +588,7 @@ Because eligibility is per command, ambiguity is rarer than the raw relationship
 
 The keyword set is `STOP`, `HELP`, `PAUSE`, `RESUME`, and `SWAP`.
 
-Three reasons the resume keyword was renamed rather than the collision arbitrated. `START` is a carrier-reserved word: carriers and the delivery vendor act on it before Discipler's webhook is consulted, so any domain meaning attached to it is contingent on vendor configuration that may later have to change. Arbitrating by opt-out state — carrier re-opt-in today, relationship resume tomorrow, same word — produces a rule that cannot be explained to a leader in one sentence. And making `START` do both at once would release a Starter Message to third parties as a side effect of someone fixing their own opt-out.
+Three reasons the resume keyword was renamed rather than the collision arbitrated. `START` is a carrier-reserved word: carriers and the delivery vendor act on it before Discipler's webhook is consulted, so any domain meaning attached to it is contingent on vendor configuration that may later have to change. Arbitrating by opt-out state - carrier re-opt-in today, relationship resume tomorrow, same word - produces a rule that cannot be explained to a leader in one sentence. And making `START` do both at once would release a Starter Message to third parties as a side effect of someone fixing their own opt-out.
 
 ## Settled: One Keyword Exchange, Recency Wins
 
@@ -600,11 +600,11 @@ At most one keyword exchange is open per person at a time; a second keyword repl
 
 An unanswered keyword exchange expires after twenty-four hours **with no reminder**, and expiry raises nothing and changes nothing. A check-in question is Discipler's question and is worth re-sending once; a keyword exchange is something the leader initiated, and re-prompting someone about a request they abandoned is nagging.
 
-Clarification handling inside a keyword exchange is identical to a check-in: at most two re-prompts, then Discipler stops re-prompting but keeps listening until the exchange expires. A leader who mistypes twice and replies correctly nineteen hours later still gets their pause — they asked for it and never withdrew the request.
+Clarification handling inside a keyword exchange is identical to a check-in: at most two re-prompts, then Discipler stops re-prompting but keeps listening until the exchange expires. A leader who mistypes twice and replies correctly nineteen hours later still gets their pause - they asked for it and never withdrew the request.
 
 A keyword arriving where a relationship's check-in question is currently open **withdraws that pending question** rather than leaving it to age. Otherwise pausing a relationship would contribute to it being flagged `Stalled` on resume, which is precisely what the pause rules exist to prevent.
 
-A bare, exact keyword is still a keyword during the concern detail step. The `D` is already recorded and the badge already raised, so nothing is lost by treating it as one, and the alternative records `PAUSE` as the text of someone's hardest week while ignoring a request to step back. Prose containing the word is unaffected — matching is whole-message.
+A bare, exact keyword is still a keyword during the concern detail step. The `D` is already recorded and the badge already raised, so nothing is lost by treating it as one, and the alternative records `PAUSE` as the text of someone's hardest week while ignoring a request to step back. Prose containing the word is unaffected - matching is whole-message.
 
 ## Settled: No Inbound Message Falls Through to Silence
 
@@ -616,7 +616,7 @@ A participant has no dashboard and no account, so texting back is the only chann
 
 ## Settled: Participants Are Not Told When a Leader Pauses
 
-A pause is between a leader and their ministry. The participant's relationship has not changed, they are not returned to the pool, and they have never received a check-in — so a message saying their check-ins are paused would be explaining the absence of something they never knew existed.
+A pause is between a leader and their ministry. The participant's relationship has not changed, they are not returned to the pool, and they have never received a check-in - so a message saying their check-ins are paused would be explaining the absence of something they never knew existed.
 
 The admin sees the pause on the dashboard and receives a follow-up item when the period expires, so a human is in the loop on the timeline that matters and can decide whether the participant should hear from someone.
 
@@ -698,15 +698,15 @@ See `docs/consent-language.md` and `src/domain/rates-line.ts`.
 
 ## Settled: Replies Are Matched Whole-Message, Not by Substring
 
-Discipler advertises the explicit form — *"Reply 1 for yes, 2 for no"*, *"Reply A for outstanding, B for good, C for okay, D for concern"* — because digits and letters avoid both typos and an unbounded space of word variants. Behind that, an enumerated list of tokens, synonyms, and known typos is accepted: `yes`, `y`, `yeah`, `nope`, `great`, `good`, `ok`, `okay`, `concern`, and misspellings including `gret` and `oncern`.
+Discipler advertises the explicit form - *"Reply 1 for yes, 2 for no"*, *"Reply A for outstanding, B for good, C for okay, D for concern"* - because digits and letters avoid both typos and an unbounded space of word variants. Behind that, an enumerated list of tokens, synonyms, and known typos is accepted: `yes`, `y`, `yeah`, `nope`, `great`, `good`, `ok`, `okay`, `concern`, and misspellings including `gret` and `oncern`.
 
 **Matching is against the whole message**, after stripping punctuation, emoji, and a closed list of leading and trailing pleasantries. It is not a substring search.
 
-> **Supersedes:** the earlier rule that matching "tolerates surrounding text." Under substring matching, *"it wasn't great"* contains `great` and resolves to **outstanding** — silently converting a relationship that needs care into a healthy one, with nobody ever finding out. *"no concerns"* contains both `no` and `concern`. Sentiment is never inferred from free text, and a substring search over a sentence is exactly that inference, made badly.
+> **Supersedes:** the earlier rule that matching "tolerates surrounding text." Under substring matching, *"it wasn't great"* contains `great` and resolves to **outstanding** - silently converting a relationship that needs care into a healthy one, with nobody ever finding out. *"no concerns"* contains both `no` and `concern`. Sentiment is never inferred from free text, and a substring search over a sentence is exactly that inference, made badly.
 
 The closed strippable list must never contain a fragment that inverts meaning when removed. `we didn't` is part of a token, never a wrapper: stripping it from *"yes we didn't"* would produce the opposite of what was said.
 
-A reply containing two answers — *"1 and it was great"* — is unreadable and draws a clarification. Advancing two steps on one message lets a leader skip past the meeting question without being asked it, and recording a satisfaction rating for a meeting nobody confirmed happened breaks the ordering guarantee that a meeting is established before its quality is.
+A reply containing two answers - *"1 and it was great"* - is unreadable and draws a clarification. Advancing two steps on one message lets a leader skip past the meeting question without being asked it, and recording a satisfaction rating for a meeting nobody confirmed happened breaks the ordering guarantee that a meeting is established before its quality is.
 
 Every unreadable reply is recorded in history. Extending the enumerated list from observed pilot typos is deferred, not rejected, and the data for it accumulates from the first week whether or not it is acted on.
 
@@ -717,7 +717,7 @@ A relationship's care item reports how long the condition has held, and the unit
 - **Gone silent** reports days since last contact
 - **Responding, not meeting** reports the number of weeks reported as no meeting
 
-The two cannot share a counter. Days since last contact is already fourteen or more when silence fires, and roughly seven when not-meeting fires — a relationship going nowhere for three weeks would read as more recent than one silent for a fortnight.
+The two cannot share a counter. Days since last contact is already fourteen or more when silence fires, and roughly seven when not-meeting fires - a relationship going nowhere for three weeks would read as more recent than one silent for a fortnight.
 
 The relationship state derivation returns state, care reason, **and** the reason's duration. The duration is derived output, never a UI inference, for the same reason the care reason is.
 
@@ -779,10 +779,10 @@ The typed words are shown to an admin on the person page's intake answers and on
 The availability grid is seven days by twelve hours, so an overlap is a count out of eighty-four shared cells.
 The tiers are that count and nothing else:
 
-- **Excellent fit** — four or more shared cells, spanning at least two distinct days.
-- **Good fit** — two or three shared cells.
-- **Recommended** — exactly one shared cell.
-- **No Schedule Overlap** — zero. A separate section, for visibility only, never
+- **Excellent fit** - four or more shared cells, spanning at least two distinct days.
+- **Good fit** - two or three shared cells.
+- **Recommended** - exactly one shared cell.
+- **No Schedule Overlap** - zero. A separate section, for visibility only, never
   presented as a fit.
 
 The two-distinct-days requirement on Excellent fit is what stops four cells that are
@@ -798,27 +798,27 @@ one day is most of that day, not four separate chances to meet.
 > **Conflicts with `docs/adr/0001-pairing-suggestion-inputs.md`,** which defines
 > **Excellent fit** as meaningful overlap *plus a matching Discipleship Goal* and
 > **Good fit** as meaningful overlap *with differing goals*. Under the cutoffs above
-> the Goal plays no part in which tier a suggestion lands in. What the Goal now does —
-> order candidates within a tier, or gate Excellent as ADR-0001 has it — is open. See
+> the Goal plays no part in which tier a suggestion lands in. What the Goal now does -
+> order candidates within a tier, or gate Excellent as ADR-0001 has it - is open. See
 > `docs/open-questions.md`.
 
 ## Settled: A Ministry Owns Its Timezone, Language, Cadence, and Pairing Constraints
 
 There is one settings surface, three sections, one form:
 
-- **Ministry** — display name, timezone, `from_name`. The timezone matters more than
+- **Ministry** - display name, timezone, `from_name`. The timezone matters more than
   it looks: every availability slot, the check-in cadence, the ISO week boundary, and
   the month the rates line is counted in are all resolved against it.
-- **Language** — `leader_noun` and `participant_noun`, with a live message preview
+- **Language** - `leader_noun` and `participant_noun`, with a live message preview
   underneath. This is the section that earns the tab: it is where a ministry sees its
   own words in its own messages.
-- **Pairing** — `suggest_gender_match`, `suggest_max_age_band_gap`, and the check-in
+- **Pairing** - `suggest_gender_match`, `suggest_max_age_band_gap`, and the check-in
   day and hour.
 
 **What stays out, deliberately:** message structure, reply tokens, and the opt-out
 footer. Message structure and reply tokens are a state machine, and the opt-out footer
 is a carrier obligation; none of the three is a ministry's to vary. They are not
-rendered as disabled fields either — a greyed-out box invites *can you turn that on
+rendered as disabled fields either - a greyed-out box invites *can you turn that on
 for us?* They are simply not on the screen.
 
 > **Amended (Exponential launch, 2026-10-30):** Settings gains *What the check-in says*, under the check-in day and hour, where an Admin rewrites the check-in's four sentences.
@@ -879,7 +879,7 @@ meaningful overlap plus a matching goal. That is withdrawn, and the ADR is amend
 rather than superseded. Gating was the reading that contradicted the ADR: it lets a
 pair with six shared cells across four days and a differing goal be capped at Good fit
 beside a pair with two cells and a matching goal, which is the Goal outranking
-availability at the tier boundary — forbidden by *availability overlap is always
+availability at the tier boundary - forbidden by *availability overlap is always
 dominant* in the same document.
 
 The reason sentence carries the goal only when it matches. *"Four shared time slots.
@@ -903,7 +903,7 @@ and limits nothing else.
 
 - A Participant may be at most N age bands above their Leader.
 - There is no limit below. A 65+ Leader with an 18–24 Participant is five bands down
-  and permitted — an older person discipling a younger one is the common case.
+  and permitted - an older person discipling a younger one is the common case.
 
 N is the Ministry setting `suggest_max_age_band_gap`, and its unit is *the number of
 age bands a Participant may be above their Leader*. The default is `1`, which is
@@ -946,19 +946,19 @@ They are stored as words, so a stored `concern` never becomes `okay`, and no sto
 
 A relationship-week counts as **unanswered** for the consecutive-unanswered counter
 when the relationship was covered by an open Check-In Sequence that week and no reply
-arrived for it — whether or not its question was ever sent.
+arrived for it - whether or not its question was ever sent.
 
 This is not a technicality. A question waits twenty-four hours, is re-sent once, and
 waits twenty-four hours again before the sequence advances, so a fully silent Leader
 with four relationships needs eight days to work through one sequence. A new week
 arrives first and abandons it. Under a rule that counted only questions actually sent,
 that Leader's third and fourth relationships would never be asked, would never accrue a
-counter, and would stay `Healthy` indefinitely — which is exactly the invisible failure
+counter, and would stay `Healthy` indefinitely - which is exactly the invisible failure
 the Stalled thresholds exist to catch, arriving on the Leader most in need of catching.
 
 The test is checkable from history alone: the sequence existed, its ordering covered the
 relationship, no reply landed. Weeks stay genuinely absent only where they are already
-settled as absent — `Paused` and `Awaiting Leader Acceptance` send no check-ins and
+settled as absent - `Paused` and `Awaiting Leader Acceptance` send no check-ins and
 accrue no silence.
 
 The counter remains anchored to the ISO week in the Ministry timezone. See
@@ -977,8 +977,8 @@ that raises the Concern.
 
 This is asserted as a case in the state derivation's table-driven tests rather than
 written as a precedence rule. A precedence rule would be dead code that becomes
-silently wrong the moment something else can raise a Concern — Participant check-ins,
-or an Admin raising one by hand — whereas the assertion fails loudly at exactly that
+silently wrong the moment something else can raise a Concern - Participant check-ins,
+or an Admin raising one by hand - whereas the assertion fails loudly at exactly that
 moment.
 
 Concern badges are unaffected and outlive the week. A relationship may be `Stalled`
@@ -989,7 +989,7 @@ a state.
 
 A relationship ends with two recorded facts: a required free-text `ended_reason`, which
 already exists and is enforced in the database, and a required `ended_outcome` of
-exactly two values — `completed` or `discontinued`.
+exactly two values - `completed` or `discontinued`.
 
 The free text alone cannot answer the question the ending exists to answer. A ministry
 asking later whether a relationship finished well or broke down is asking for a count,
@@ -997,7 +997,7 @@ and free text cannot be counted or classified retrospectively once a pilot has w
 a hundred sentences.
 
 Two values, deliberately. The question is binary, and a third value invites a taxonomy
-nobody has agreed — after which every row written before it was added is
+nobody has agreed - after which every row written before it was added is
 unclassifiable.
 
 Ending remains recorded against the acting Admin, and `Ended` remains terminal.
@@ -1060,7 +1060,7 @@ its own column, so an opted-out Person's row still shows their relationships. Th
 choice is only about which fact the status column carries.
 
 Participation Status values are therefore not strictly disjoint in what they describe,
-and that was already true — `No Intake Submitted` describes a different fact again.
+and that was already true - `No Intake Submitted` describes a different fact again.
 
 ## Settled: The Intake Form Is Not a Withdrawal Route
 
@@ -1073,14 +1073,14 @@ Admin sent producing a withdrawal that reads as the Person's own act is the wron
 shape, and the consent record has no column for it.
 
 The dead end this leaves is closed in copy rather than in schema: the refusal message
-names the real route — *if you no longer want text messages, reply STOP to any message
+names the real route - *if you no longer want text messages, reply STOP to any message
 from us*.
 
 **Contact-sharing consent is different, and it is a live gap.** It is asked as an
 explicit choice between granted and declined, but only a grant writes a record, and the
 sending layer reads the record's existence. A Person who granted contact sharing and
 later re-submits declining it therefore leaves the earlier grant standing, and their
-Leader keeps seeing their number — which the Leader Dashboard checks at display time
+Leader keeps seeing their number - which the Leader Dashboard checks at display time
 precisely so that it can be withdrawn.
 
 A consent record must therefore carry the decision, not merely its own existence, and
@@ -1094,13 +1094,13 @@ A prompt is **timed out** at the moment a reply to it can no longer change anyth
 The per-phone hold released on timeout depends on this, and it spans four tickets, so
 the four cases are stated together:
 
-- **Check-in question** — forty-eight hours after the original send: twenty-four to the
+- **Check-in question** - forty-eight hours after the original send: twenty-four to the
   reminder, twenty-four more before the sequence advances. Also timed out immediately
   when a new week's sequence begins.
-- **Concern detail request** — the same forty-eight hours. The `D` and the badge are
+- **Concern detail request** - the same forty-eight hours. The `D` and the badge are
   already recorded, so nothing is lost by passing over it.
-- **Keyword Exchange** — twenty-four hours after it opened, with no reminder.
-- **Messages expecting no reply** — the Welcome Message, the Starter Message, the
+- **Keyword Exchange** - twenty-four hours after it opened, with no reminder.
+- **Messages expecting no reply** - the Welcome Message, the Starter Message, the
   closing thank-you, and a reminder re-send. These are never open and **never hold the
   phone at all**. A Starter Message that opened a hold would block its own
   relationship's first check-in.
@@ -1108,8 +1108,8 @@ the four cases are stated together:
 One consequence follows: the longest a scheduled message can wait behind a hold is
 forty-eight hours.
 
-This once carried a second consequence — that a held message consumes no nudge budget
-— which no longer says anything, because there is no nudge budget for it to spend. A
+This once carried a second consequence - that a held message consumes no nudge budget -
+which no longer says anything, because there is no nudge budget for it to spend. A
 hold delays a check-in and nothing else.
 
 ## Settled: A Reply Is Answered at Once, and One Drain Runs per Ministry
@@ -1330,13 +1330,13 @@ what to do about it:
 | `pause_expired` | the tick, at the end of the selected period | the selected period |
 | `swap_requested` | a Leader or Participant texting `SWAP` | which side asked |
 | `participant_keyword` | a Participant texting a recognized keyword | which keyword |
-| `invitation_number_disputed` | *not my number* on the invitation flow | — |
-| `match_declined` | a Participant declining the match on the reveal page | — |
+| `invitation_number_disputed` | *not my number* on the invitation flow | - |
+| `match_declined` | a Participant declining the match on the reveal page | - |
 | `group_placement_wanted` | a Person on the group Intake link with no group in mind | none, the Person only |
 
 Every one is an act or a condition that no later event undoes, which is what qualifies
 it: a Follow-Up Item is never cleared by the event that raised it and never clears
-itself. Derived states are excluded for the same reason — `Stalled` clears on an
+itself. Derived states are excluded for the same reason - `Stalled` clears on an
 answered check-in, so it could never satisfy that property.
 
 `match_declined` is the sixth and was previously unrecorded anywhere. Participants are
@@ -1346,8 +1346,8 @@ and without an item it reaches nobody.
 
 > **Settled: a participant does not decline, and `match_declined` is withdrawn.** A participant
 > consented to be paired at intake, and declining is asking them the question again on a page.
-> What a participant may ask for instead is a **swap** — the same request a leader makes, reaching
-> an admin as a request rather than a state change — and somebody who simply stops meeting or stops
+> What a participant may ask for instead is a **swap** - the same request a leader makes, reaching
+> an admin as a request rather than a state change - and somebody who simply stops meeting or stops
 > replying says so through the silence the care rules already read. Either way the admin unpairs and
 > re-pairs, which is a pastoral decision and stays one.
 >
@@ -1368,15 +1368,15 @@ It closes when an Admin puts the Person into a group with `group.add_participant
 The item offers exactly the groups the group Intake link would offer them: accepted, named, unended, and of their declared gender or mixed.
 
 `invitation_number_disputed` is a persistent item and not a transient notification. It
-is the highest-stakes condition on the list — a wrong number means that Leader's
-check-ins reach a stranger indefinitely — and a notification that scrolls out of view is
+is the highest-stakes condition on the list - a wrong number means that Leader's
+check-ins reach a stranger indefinitely - and a notification that scrolls out of view is
 the failure the Follow-Up Item exists to prevent.
 
 ## Settled: Conditions Dedupe, Events Accumulate
 
 The tick re-evaluates its conditions every time it runs, so `relationship_unaccepted` is
 true on day five, day six, and day seven. At most one **open** item exists per
-relationship for each of the two condition kinds — `relationship_unaccepted` and
+relationship for each of the two condition kinds - `relationship_unaccepted` and
 `pause_expired`.
 
 The other four kinds are records that a person did something, and a second occurrence is
@@ -1394,12 +1394,12 @@ Resolution records when and by whom, and nothing else. No free-text note.
 
 Resolve is one click inline in the Care Needed view alongside the contact details, and
 a note field adds a writing task to a surface designed not to have one. The actions an
-Admin actually took — resumed, ended — are already recorded as facts of their own.
+Admin actually took - resumed, ended - are already recorded as facts of their own.
 
 Recording the acting Admin is consistent with the audit already required for viewing and
 resolving a Concern, and for ending a relationship.
 
 **Raising an item and resolving one each append a history event.** The Follow-Up Item
 table is mutable operational state, so without that append a Ministry cannot ask later
-how many care items it raised or how quickly it closed them — a quarterly-report question
+how many care items it raised or how quickly it closed them - a quarterly-report question
 whose data is unreconstructable if it is not written down as it happens.

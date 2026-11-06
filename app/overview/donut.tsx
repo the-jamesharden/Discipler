@@ -13,6 +13,8 @@
  * clear, and the numbers read as a column next to it.
  */
 
+import { WholeWords } from '../whole-words'
+
 export interface DonutSegment {
   readonly label: string
   readonly value: number
@@ -68,7 +70,9 @@ export const Donut = ({
         <p className="donut-figure">{figure}</p>
         <ul className="donut-legend">
           {total === 0 ? (
-            <li className="muted">{emptyLabel}</li>
+            <li className="muted">
+              <WholeWords text={emptyLabel} />
+            </li>
           ) : (
             segments.map((segment) => (
               <li key={segment.label}>

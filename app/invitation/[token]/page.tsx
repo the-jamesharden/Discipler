@@ -129,7 +129,7 @@ export default async function InvitationPage({
   if (done === 'disputed') {
     return (
       <Centred ministryName={ministryName}>
-        <h1 style={{ textAlign: 'center' }}>Thanks — we’ve passed that on</h1>
+        <h1 style={{ textAlign: 'center' }}>Thanks - we’ve passed that on</h1>
         <p className="muted" style={{ textAlign: 'center' }}>
           Nothing has changed on your account. Someone from the ministry will be in
           touch to put the number right.

@@ -280,7 +280,7 @@ describe('what the texts call a 1:2 pair', () => {
         }),
       ),
     ).toEqual([
-      'ABC Church via Discipler: Done — your check-ins about Ana Diaz and Sam Park are paused for 2 weeks. ' +
+      'ABC Church via Discipler: Done - your check-ins about Ana Diaz and Sam Park are paused for 2 weeks. ' +
         'Reply RESUME any time to start them again sooner.',
     ])
   })

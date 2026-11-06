@@ -367,7 +367,10 @@ td .empty, li .empty { padding: 0; text-align: left; }
    from the figure above it and pushed a four-line legend under the ring on a phone. */
 ul.donut-legend { list-style: none; font-size: 0.82rem; margin: 0; padding: 0; }
 .donut-legend li { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.3rem; }
-.donut-legend li.muted { text-align: center; text-wrap: balance; }
+/* The empty ring's one sentence has no colour key, so it is a line of text and not a
+   row: as a flex row, the word kept whole on one line (`app/whole-words.tsx`) became
+   a column of its own. */
+.donut-legend li.muted { display: block; text-align: center; text-wrap: balance; }
 .donut-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
 
 /* The growth chart (Pastor feedback, ticket 05; the mock-up is

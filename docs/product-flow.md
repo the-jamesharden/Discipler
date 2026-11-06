@@ -54,13 +54,13 @@ CHECK-IN RHYTHM  (weekly, one sequence per leader)
    ↓
 RELATIONSHIP STATE
    ├── Healthy
-   ├── Stalled       — 2 weeks silent, or 3 weeks not meeting
-   ├── Needs Care    — a concern raised this week
-   ├── Paused        — leader paused this relationship for 1/2/4/8/12 weeks
+   ├── Stalled       - 2 weeks silent, or 3 weeks not meeting
+   ├── Needs Care    - a concern raised this week
+   ├── Paused        - leader paused this relationship for 1/2/4/8/12 weeks
    │                   (default 2); check-ins suppressed, nobody returns to
    │                   the pool, relationship stays visible on both surfaces;
    │                   expiry raises admin review and resumes nothing
-   └── Ended         — terminal, with a reason
+   └── Ended         - terminal, with a reason
    ↓
 WEEK-BY-WEEK HISTORY
    ├── admin dashboard: Overview, Check-Ins, Suggested Pairs,
@@ -73,7 +73,7 @@ WEEK-BY-WEEK HISTORY
 
 ## The core primitive
 
-A discipleship relationship is **one leader and N participants**. A relationship with one participant is one-to-one; a relationship with more is a group. There is no separate group entity, one state machine, and one check-in cadence. Copy branches on how many participants a relationship has — never on a group-versus-one-to-one distinction.
+A discipleship relationship is **one leader and N participants**. A relationship with one participant is one-to-one; a relationship with more is a group. There is no separate group entity, one state machine, and one check-in cadence. Copy branches on how many participants a relationship has - never on a group-versus-one-to-one distinction.
 
 ## A church arrives
 
@@ -93,17 +93,17 @@ Every text the church's people get comes from Discipler's shared numbers, starts
 
 ## Roster and intake
 
-Roster membership, intake completion, and pairing eligibility are three different facts. A person uploaded by an admin appears as `No Intake Submitted`, cannot be paired, and receives nothing. Only completing intake — where they give both consents themselves — moves them to `Ready to Pair`. Importing a person is never consent.
+Roster membership, intake completion, and pairing eligibility are three different facts. A person uploaded by an admin appears as `No Intake Submitted`, cannot be paired, and receives nothing. Only completing intake - where they give both consents themselves - moves them to `Ready to Pair`. Importing a person is never consent.
 
-**Intake is the single consent gate.** Completing the form creates the SMS consent record, and nothing else does. Discipler sends no SMS to anyone who has not completed intake, and pairs nobody who has not completed intake — on either side of the relationship. Finding an intake-less person on a roster is ordinary, because an import puts a whole congregation there at once; it is a fact about the roster, not a licence to pair them or text them.
+**Intake is the single consent gate.** Completing the form creates the SMS consent record, and nothing else does. Discipler sends no SMS to anyone who has not completed intake, and pairs nobody who has not completed intake - on either side of the relationship. Finding an intake-less person on a roster is ordinary, because an import puts a whole congregation there at once; it is a fact about the roster, not a licence to pair them or text them.
 The one other consent is the Admin's own at sign-up, which lets Discipler text that Admin a code and the test check-in and nothing else; it is not an Intake and pairs nobody (`docs/consent-language.md`).
 
 There are two ways to reach the form, and they produce the same record with a different `source`:
 
-- **A pastor sends the link** — by email, group chat, or however they already reach that person. The primary path.
-- **A QR code** — the same link, and the one that works when a room of leaders can do it together at a meeting.
+- **A pastor sends the link** - by email, group chat, or however they already reach that person. The primary path.
+- **A QR code** - the same link, and the one that works when a room of leaders can do it together at a meeting.
 
-An admin cannot attest to consent on a congregant's behalf, at import or anywhere else. Inbound-keyword opt-in — where a person texts a join word and the inbound message is the consent — is post-V1; if it ships it becomes a third source here, having been decided rather than assumed.
+An admin cannot attest to consent on a congregant's behalf, at import or anywhere else. Inbound-keyword opt-in - where a person texts a join word and the inbound message is the consent - is post-V1; if it ships it becomes a third source here, having been decided rather than assumed.
 
 ## Suggestion
 
@@ -118,11 +118,11 @@ Somebody on the group Intake link who meant to sign up for one-to-one disciplesh
 It links to the discipleship wizard carrying the answers they already gave that both forms ask, so it opens on the mentor-or-mentee question and Continue passes the screens those answers already fill; Back still shows them, filled.
 Following it writes nothing, and the way runs one direction only: the discipleship wizard has no link back to the group form.
 
-Constraints filter before anything is ranked. Gender must match and is absolute — manual pairing cannot override it. The age band constraint governs suggestion only and an admin may pair across it. Whoever survives is ranked by availability overlap, with Discipleship Goal separating candidates who already have comparable overlap, and ties broken by who has waited longest since intake.
+Constraints filter before anything is ranked. Gender must match and is absolute - manual pairing cannot override it. The age band constraint governs suggestion only and an admin may pair across it. Whoever survives is ranked by availability overlap, with Discipleship Goal separating candidates who already have comparable overlap, and ties broken by who has waited longest since intake.
 
 Every suggestion states its reason in one plain sentence. An input that cannot be explained that way is out of scope by construction. See `docs/adr/0001-pairing-suggestion-inputs.md`.
 
-People who share no availability with any eligible leader appear in a **No Schedule Overlap** section — listed for visibility, never presented as a fit.
+People who share no availability with any eligible leader appear in a **No Schedule Overlap** section - listed for visibility, never presented as a fit.
 
 ## Acceptance
 

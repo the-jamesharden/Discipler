@@ -1,4 +1,4 @@
-# Discipler — Open Questions
+# Discipler - Open Questions
 
 The original seed list of 78 questions was worked through in the grilling session. Most are now settled and recorded in `docs/product-rules.md`, `CONTEXT.md`, `docs/adr/`, and the surface documents. This file now holds only what genuinely remains.
 
@@ -10,9 +10,9 @@ Every question about intake, suggestion, acceptance, the check-in rhythm, relati
 
 The three inbound-keyword gaps are closed and recorded in `docs/product-rules.md` and `docs/check-in-rhythm.md`:
 
-- **Which relationship a keyword applies to** — resolved by eligibility for the requested action. One eligible relationship applies directly, several draw a numbered menu, none draws a plain reply. The target is never inferred from Check-In Sequence position.
-- **How a leader chooses a pause duration** — a single confirmation exchange carrying the default and the alternatives.
-- **`START` carrying two meanings** — resolved by renaming rather than arbitrating. `START` is carrier-level re-opt-in only; `RESUME` resumes a paused relationship.
+- **Which relationship a keyword applies to** - resolved by eligibility for the requested action. One eligible relationship applies directly, several draw a numbered menu, none draws a plain reply. The target is never inferred from Check-In Sequence position.
+- **How a leader chooses a pause duration** - a single confirmation exchange carrying the default and the alternatives.
+- **`START` carrying two meanings** - resolved by renaming rather than arbitrating. `START` is carrier-level re-opt-in only; `RESUME` resumes a paused relationship.
 
 ## Resolved: does leading a relationship make a person `Paired`?
 
@@ -107,10 +107,10 @@ what the whole report means. Settle it alongside ticket 16's Roster completeness
 fit. The grid is seven days by five blocks, so an overlap is a count out of
 thirty-five shared cells, and the tiers are that count:
 
-- **Excellent fit** — 4+ shared cells, spanning at least 2 distinct days
-- **Good fit** — 2–3 shared cells
-- **Recommended** — exactly 1
-- **No Schedule Overlap** — zero
+- **Excellent fit** - 4+ shared cells, spanning at least 2 distinct days
+- **Good fit** - 2–3 shared cells
+- **Recommended** - exactly 1
+- **No Schedule Overlap** - zero
 
 The two-distinct-days requirement on Excellent fit is the part that earns its keep:
 four blocks all falling on one Saturday is most of that Saturday rather than four
@@ -143,7 +143,7 @@ ADR is amended rather than superseded.
 
 Gating was the reading that contradicted ADR-0001, not the one that departed from it.
 Under gating a pair with six shared cells across four days and a differing goal is
-capped at Good fit, sitting beside a pair with two cells and a matching goal — the Goal
+capped at Good fit, sitting beside a pair with two cells and a matching goal - the Goal
 outranking availability at the tier boundary, which the same ADR forbids in the sentence
 *availability overlap is always dominant*.
 
@@ -196,13 +196,13 @@ Settled 2026-08-27. Recorded in
 ## Resolved: where Ministry-level settings live
 
 There was no settings surface and no timezone anywhere in the product. Ticket 22 adds
-one surface with three sections in one form — **Ministry** (display name, timezone,
+one surface with three sections in one form - **Ministry** (display name, timezone,
 `from_name`), **Language** (`leader_noun`, `participant_noun`, with a live message
 preview), and **Pairing** (`suggest_gender_match`, `suggest_max_age_band_gap`, and the
 check-in day and hour).
 
 Message structure, reply tokens, and the opt-out footer stay out, and are not rendered
-as disabled fields either — a greyed-out box invites a request to enable it.
+as disabled fields either - a greyed-out box invites a request to enable it.
 
 This moves the age constraint from *fixed at ten years for V1* to a configurable band
 gap, which is the unit it was already evaluated in. Gender matching is unchanged.
@@ -217,8 +217,8 @@ Settled 2026-08-27.
 - **`checkin.start` outlives the justification it was kept for.** Ticket 08b replaced it as the weekly trigger, and ticket 11 withdrew the Admin "send one additional check-in" action it was then kept for (`docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`). It survives only as 08a's test seam, and it carries no cadence check: it can open a second sequence inside one ISO week, which sits against *One sequence per Leader per week*. That rule currently holds only because nothing routes to the command, and on the current reading nothing will. Deciding it means either withdrawing the command or giving the rule a guard that does not depend on nobody calling it.
 - **The Participant reveal branch is unreachable and has not been withdrawn.** Ticket 12 stopped minting a Participant's Invitation Link and ADR-0011 settled that only a Leader is sent one, so the Participant branch of `app/invitation/[token]/page.tsx` and the Participant scoping in `src/platform/supabase/invitation-reader.ts` can no longer be reached by anything. They are kept rather than deleted, alongside an `it.skip` in `invitation-over-http.test.ts` that is now the only description of what that branch does. Deciding it means deciding whether a Participant ever gets a web surface of their own; until then the code and its test are dead weight that reads as live.
   Since 2026-09-24 a Participant does have one read-only page, their Material page (ADR-0028); it is a page of its own and reaches none of this branch, which is still unreachable.
-- **Cancelling a relationship leaves its `relationship_unaccepted` item standing.** Ticket 07 raised this and asked for it to be settled: a Follow-Up Item persists until an Admin acts on it, and resolving is its own recorded act with its own actor and time, so cancelling deliberately does not resolve the item — `tests/integration/cancelling-a-relationship.test.ts` asserts it. The cost is that Care Needed can list an item about a relationship that no longer exists, which is a row an Admin closes for no reason. Deciding it means choosing between the audit rule as written and a Care Needed list with nothing dead on it; if it is the latter, it is a one-line change to the cancel command.
-- **Re-issuing an Invitation Link settled three more things by inference.** Ticket 06 recorded only *"Re-issuing an expired link. Nothing does it."* The implementation had to answer four questions the ticket did not, and answered them by analogy with `intake.reopen` rather than by asking. The first — whether a link that is still live is re-sent or replaced — has since been decided the other way and is settled below. Three are still nobody's decision but a human's, and each is cheap to reverse now and awkward later. (1) The text reuses the **tick's reminder wording**, so a Leader cannot tell an Admin's personal chase from the automatic one. (2) A Leader with **no phone number on file** produces nothing at all, and the Admin is told nothing was sent rather than why — as are the other cases that fall out of the same snapshot: a Leader who is opted out, one whose SMS consent does not stand, and one with no live invitation row. (3) The affordance is offered on **role and state together** — a Leader, on a relationship not yet accepted — so a Participant never sees it, per ADR-0011.
+- **Cancelling a relationship leaves its `relationship_unaccepted` item standing.** Ticket 07 raised this and asked for it to be settled: a Follow-Up Item persists until an Admin acts on it, and resolving is its own recorded act with its own actor and time, so cancelling deliberately does not resolve the item - `tests/integration/cancelling-a-relationship.test.ts` asserts it. The cost is that Care Needed can list an item about a relationship that no longer exists, which is a row an Admin closes for no reason. Deciding it means choosing between the audit rule as written and a Care Needed list with nothing dead on it; if it is the latter, it is a one-line change to the cancel command.
+- **Re-issuing an Invitation Link settled three more things by inference.** Ticket 06 recorded only *"Re-issuing an expired link. Nothing does it."* The implementation had to answer four questions the ticket did not, and answered them by analogy with `intake.reopen` rather than by asking. The first - whether a link that is still live is re-sent or replaced - has since been decided the other way and is settled below. Three are still nobody's decision but a human's, and each is cheap to reverse now and awkward later. (1) The text reuses the **tick's reminder wording**, so a Leader cannot tell an Admin's personal chase from the automatic one. (2) A Leader with **no phone number on file** produces nothing at all, and the Admin is told nothing was sent rather than why - as are the other cases that fall out of the same snapshot: a Leader who is opted out, one whose SMS consent does not stand, and one with no live invitation row. (3) The affordance is offered on **role and state together** - a Leader, on a relationship not yet accepted - so a Participant never sees it, per ADR-0011.
 ## Resolved: re-issuing an Invitation Link replaces it
 
 Every re-issue mints a new token over the old one, expired or not, and the superseded
@@ -234,8 +234,8 @@ whole of the authentication.
 
 Which makes a wrong number the flow's highest-stakes condition, and ticket 06 says so:
 *a wrong number sends that Leader's check-ins to a stranger indefinitely*.
-`invitation.dispute_number` records it and — deliberately, so a forwarded link can never
-re-point an account — changes nothing else. So a live credential sat on a stranger's
+`invitation.dispute_number` records it and - deliberately, so a forwarded link can never
+re-point an account - changes nothing else. So a live credential sat on a stranger's
 phone for the rest of its window and nothing in the product could end it. The trade is
 now the other way round: a Leader who lost the text finds the older message dead, which
 an Admin can fix with a sentence, where a stranger's live link could not be fixed at all.
@@ -256,22 +256,22 @@ soon to set up a time to meet and kick things off!"* Somebody about to be contac
 a stranger is owed the stranger's name; the number is a different thing and is not
 sent at all, because the Leader is the one who reaches out. No outbound message in the
 product now discloses a phone number, so contact-sharing consent governs one surface
-only — Nudge, which reveals a number to an Admin rather than texting it to anyone.
+only - Nudge, which reveals a number to an Admin rather than texting it to anyone.
 
-The consequence worth naming: the send-time disclosure path — `disclosesPersonId`,
+The consequence worth naming: the send-time disclosure path - `disclosesPersonId`,
 `withSharedContact`, `OutboundQueue.contactToShare` and the `discloses_person_id`
-column — is now reached by no product write path. It is kept, still tested against a
+column - is now reached by no product write path. It is kept, still tested against a
 forged row, and should be either given a use or removed deliberately rather than left
 to rot.
 
-**The decline link comes out of that message — and then so does the link.** It was
+**The decline link comes out of that message - and then so does the link.** It was
 the Participant's only self-serve route to say the match is not right, which
 reopened ticket 06's question of whether they should have one at all.
 
 **Settled 2026-08-30: they should not.** A Participant consented to be paired at
 Intake, and declining is asking them the same question again on a web page. What
 they may ask for instead is a **swap**, which reaches an Admin as a request rather
-than a state change — and a Participant who simply stops meeting or stops replying
+than a state change - and a Participant who simply stops meeting or stops replying
 has said so through the silence the care rules already read. Either way an Admin
 unpairs and re-pairs, which is a pastoral decision and stays one.
 
@@ -280,7 +280,7 @@ Two consequences are **deliberately not** taken here, because neither is this
 ticket's: withdrawing `match.decline`, its route and the `match_declined` kind is
 ticket 06's work and has to leave the enum value intact for whatever history
 already carries it; and a Participant-initiated swap is a capability nothing has
-built — `swap_requested` is raised by nobody today, and ticket 17 still frames
+built - `swap_requested` is raised by nobody today, and ticket 17 still frames
 `SWAP` as a Leader's keyword.
 
 **Since built, 2026-08-31.** The second consequence is no longer outstanding: ticket 17
@@ -300,7 +300,7 @@ Settled 2026-08-30. Recorded in ticket 12, and in `docs/product-rules.md`: the c
 
 A paused pair gets **no next-day reminder**. The reminder is a text to somebody who has
 just told their Admin they are stepping back, which is the one message a Pause exists
-to stop — so the question Discipler had out is withdrawn on the first tick that notices,
+to stop - so the question Discipler had out is withdrawn on the first tick that notices,
 rather than at the lapse a day later, and the conversation moves on to the
 relationships still running.
 
@@ -308,10 +308,10 @@ Withdrawn, not passed over. A passed-over question is a silence the Leader owns 
 `Stalled` counts; this one is Discipler's to take back, so the relationship-week it
 belonged to is dropped from `relationship_weeks` entirely. That settles the spec's
 *a pause never accrues silence against itself* as general rather than belonging to the
-Keyword Exchange route it was written for — ticket 17 inherits the rule rather than
+Keyword Exchange route it was written for - ticket 17 inherits the rule rather than
 building it.
 
-Settled 2026-08-30. Recorded in ticket 12, and in `docs/product-rules.md` under *Settled: Pause Is Leader-Controlled, Bounded, and Visible*, which now states the withdrawal rule as the Pause's rather than the keyword exchange's — including the half a Pause must **not** reach: a question already asked and already lapsed is a silence that had accrued before anybody stepped back.
+Settled 2026-08-30. Recorded in ticket 12, and in `docs/product-rules.md` under *Settled: Pause Is Leader-Controlled, Bounded, and Visible*, which now states the withdrawal rule as the Pause's rather than the keyword exchange's - including the half a Pause must **not** reach: a question already asked and already lapsed is a silence that had accrued before anybody stepped back.
 
 ## Resolved: who names a group, and when
 
@@ -385,8 +385,8 @@ the case it does not cover: a Ministry whose only Admin has lost their own passw
 There is nobody with the tier to reset them, the route refuses a self-targeted POST by
 design, and ticket 30's self-service change requires a session they cannot get.
 
-One-time codes to the phone number close it — `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`
-says the number is the credential, so a code sent to it is the recovery that follows —
+One-time codes to the phone number close it - `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`
+says the number is the credential, so a code sent to it is the recovery that follows -
 and they remain post-launch. The question is what happens before then.
 
 What needs answering: whether anything ships ahead of one-time codes, and if so what

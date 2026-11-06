@@ -44,7 +44,7 @@ The product is already built on this. The per-phone prompt serialisation says, i
 many words, that *a phone can only hold one thread regardless of how many people are
 reachable on it*. That rule has nothing to serialise if a number reaches exactly one
 Person. Inbound routing stays unambiguous not because a number names one human, but
-because serialisation guarantees only one prompt on that number is open at a time —
+because serialisation guarantees only one prompt on that number is open at a time -
 the two are a pair, and keying identity on the number alone quietly discards one.
 
 ## Considered options
@@ -54,7 +54,7 @@ makes the second person on a shared phone unrepresentable, and it fails silently
 importing a couple produces one Person and one refused row reading *already on the
 Roster*. An Admin scanning a few hundred rows has no reason to look twice, and the
 wife is simply not in the product. Nobody finds out until she is one of the people
-nobody discipled — the exact failure this ticket's *report, never drop* rule exists to
+nobody discipled - the exact failure this ticket's *report, never drop* rule exists to
 prevent. Rejected.
 
 **A surrogate key with no uniqueness at all.** Every upload of the same spreadsheet
@@ -68,7 +68,7 @@ files the whole congregation again. Rejected.
   number match. Two people sharing a phone both import.
 - Near-duplicates become possible: *Emily Johnson* in one export and *Em Johnson* in
   the next, on the same number, are two Person rows. This is the right side of the
-  trade — a near-duplicate is visible on the Roster, next to itself, sorted by name,
+  trade - a near-duplicate is visible on the Roster, next to itself, sorted by name,
   and can be merged; a congregant who was never imported is invisible, and no screen
   will ever show her absence.
 - Merging two Person rows that turn out to be one human is unbuilt. It belongs with
@@ -78,13 +78,13 @@ files the whole congregation again. Rejected.
 - Ministry isolation is unaffected: the index is scoped to a Ministry, and one human
   belonging to two congregations holds two Person rows that share nothing.
 
-## Amendment — the number recognises, the name confirms
+## Amendment - the number recognises, the name confirms
 
 *Accepted after the ticket 06 review.*
 
 The decision above holds: identity is name **and** number, the index is unchanged, and
 two people on a shared phone are two Person rows. What was wrong was leaving *recognition*
-entirely to the pair, because it made an unmatched name mean "new Person" by default —
+entirely to the pair, because it made an unmatched name mean "new Person" by default -
 and that default is what turns a rename into a duplicate.
 
 Acceptance stores the name a Leader typed, which is often not the name the spreadsheet
@@ -102,7 +102,7 @@ So recognition is now two-stage, and neither stage guesses:
    `same_number_different_name`, which files nobody and reports the row.
 
 `same_number_different_name` is the honest answer to a question with two ordinary
-answers — the same Person renamed, or the second person on a shared phone — and the
+answers - the same Person renamed, or the second person on a shared phone - and the
 Admin who uploaded the file is the one who knows which. Merging still does not happen
 automatically and still belongs with Roster completeness; what has changed is that the
 ambiguity now reaches somebody instead of being resolved by a default.

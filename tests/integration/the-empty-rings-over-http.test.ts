@@ -80,6 +80,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the empty rings', () => {
 
     expect(html).toContain('Nothing answered last week')
     expect(html).toContain('Nothing rated last week')
-    expect(html).not.toContain('No check-ins last week')
+    // With or without the span that keeps "check-ins" on one line, so this cannot pass
+    // only because the markup moved.
+    expect(html).not.toMatch(/No (?:<span class="nowrap">)?check-ins(?:<\/span>)? last week/)
   })
 })

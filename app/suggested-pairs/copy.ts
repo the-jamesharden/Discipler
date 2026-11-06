@@ -28,7 +28,7 @@ export const CREATE_RELATIONSHIP = 'Create relationship'
 
 export const NO_SCHEDULE_OVERLAP = 'No Schedule Overlap'
 export const NO_SCHEDULE_OVERLAP_NOTE =
-  'These people share no availability with any eligible leader, so they cannot be ranked. Listed for visibility, not as a fit — you can still pair them manually.'
+  'These people share no availability with any eligible leader, so they cannot be ranked. Listed for visibility, not as a fit - you can still pair them manually.'
 export const PAIR = 'Pair'
 
 /** `Intake Sep 1`, beside a name on the No Schedule Overlap list. */
