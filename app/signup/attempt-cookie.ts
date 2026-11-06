@@ -29,3 +29,12 @@ export const setAttemptCookie = (
     maxAge: PENDING_SIGNUP_KEPT_HOURS * 60 * 60,
   })
 }
+
+/**
+ * The attempt is spent, so its cookie goes with it. By a date in the past, not `maxAge: 0`:
+ * a route that also sets a cookie through `next/headers`, as signing in does, has Next read
+ * this one back and write it again, and that drops a zero, leaving a live empty cookie.
+ */
+export const clearAttemptCookie = (response: NextResponse): void => {
+  response.cookies.set(SIGN_UP_ATTEMPT_COOKIE, '', { path: '/signup', expires: new Date(0) })
+}

@@ -1,6 +1,13 @@
 import type { ReactNode } from 'react'
 import { FONTS_URL } from './fonts'
 
+/**
+ * Every page rendered for its request, none of them ahead of time (Exponential launch,
+ * ticket 37). The Content-Security-Policy's nonce is one request's, and a page built ahead
+ * of time would carry no nonce on Next's own inline scripts and so never hydrate.
+ */
+export const dynamic = 'force-dynamic'
+
 export const metadata = {
   title: 'Discipler',
   description: 'The operating system around discipleship relationships.',

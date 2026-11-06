@@ -1266,6 +1266,9 @@ There are three offers:
   A yearly church gets one month at the rate it pays off its first bill, rather than a free year.
 - **A church plant** gets a free year after its trial, once James or Lerone approves its application by operator command.
   A plant that came through `EXPO26` gets its free days, then the free year, then the Exponential year.
+  Approved after its trial has ended, its free year starts at its next bill, and a bill already paid stays paid; any refund is James's by hand.
+  One card or bank account has one plant year, and a method with no fingerprint, such as Stripe Link, cannot be checked and is approved.
+  A decision stands: the command will not approve what it declined, or decline what it approved.
 
 Offers do not otherwise combine: a referral month gives way to the Exponential special offer and to a church plant's year, whichever applies, because each saves the church more.
 Each church can use each offer once.
@@ -1292,13 +1295,15 @@ Any Admin of the church can manage billing.
 
 ## Settled: Referrals
 
-Each church has one referral link, `trydiscipler.com/r/<code>`, whose code is random and unguessable and never the church's name.
+Each church has one referral link, `app.trydiscipler.com/r/<code>`, whose code is random and unguessable and never the church's name.
 "Get a new link" replaces it at once and retires the old code, which then opens sign-up at the normal price.
 
 The Refer page has one Copy button, which copies an approved note with the link; Discipler itself sends no invitation.
 The invited church's first paid month is free.
-The inviting church earns one month free, applied automatically after the invited church pays its first real bill, held for a while after that payment and taken back if the payment is refunded or disputed.
-Where both churches pay with the same card or bank account, or share an email domain, the credit goes to James for review instead; so does a credit earned by a church billed outside Stripe.
+The inviting church earns one month free, applied automatically after the invited church pays its first real bill, held for a while after that payment and taken back if the payment is refunded or disputed in that time.
+It is one month of the inviting church's own price, $97 or $147, however that church bills, taken off its next bills as a credit on its Stripe balance.
+Where both churches pay with the same card or bank account, share an email domain or are one Stripe customer, the credit goes to James for review instead; so does a credit earned by a church billed outside Stripe, or by a church with no subscription running.
+What the inviting church's own history records is that a referral signed up, is paying and earned a credit, under an ID that opens nothing, and no page lists those.
 
 No page lists the churches a church invited, and an invited church is never named to the church that invited it.
 An applied credit shows on the inviting church's Billing page, which is the only thing one church learns about another through a referral.

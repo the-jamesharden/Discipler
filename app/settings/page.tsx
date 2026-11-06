@@ -7,9 +7,11 @@ import {
 } from '~/domain/ministry-settings'
 import { getMinistrySettingsReader } from '~/service/container'
 import { NotAnAdmin, PageShell } from '../shell'
+import { BillingCard } from './billing/card'
 import { AdminNav } from '../top-nav'
 import { TimezoneSelect } from '../timezone-select'
 import { CheckInWordsBlock } from './check-in-words'
+import { LivePreview } from './live-preview'
 import {
   AGE_NOT_ASKED,
   DAYS,
@@ -74,6 +76,8 @@ export default async function MinistrySettingsPage({
       actions={<AdminNav admin={admin} />}
       admin={admin}
     >
+      <BillingCard admin={admin} timeZone={settings.timezone} />
+
       {refusals.length > 0 ? (
         <p className="toast error" role="alert">
           Nothing was saved. {refusals.join(' ')}
@@ -315,7 +319,7 @@ export default async function MinistrySettingsPage({
           It shows what was typed and normalises nothing. `readWording` is where
           trimming and collapsing live, and it says so itself -- *one definition,
           because it is one rule and two copies of it would drift* -- and a copy of
-          that rule in this string is a copy nothing typechecks. So a word an Admin
+          that rule in the browser is a copy that could drift. So a word an Admin
           is mid-way through typing appears as they typed it, and the moment they
           save, the server renders what will actually be sent.
 
@@ -323,34 +327,7 @@ export default async function MinistrySettingsPage({
           is a fallback and not a field: an empty *Messages read as* speaks as the
           ministry name, which is the same rule `speakingName` applies on the
           server. */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            const spoken = () => {
-              const from = document.getElementById('fromName')
-              const name = document.getElementById('name')
-              return (from && from.value) || (name && name.value) || ''
-            }
-
-            for (const input of document.querySelectorAll('[data-preview]')) {
-              const key = input.dataset.preview
-              const words = document.querySelectorAll(
-                '[data-preview-word="' + key + '"]'
-              )
-              if (words.length === 0) continue
-
-              const saved = Array.from(words).map((word) => word.textContent)
-
-              input.addEventListener('input', () => {
-                const typed = key === 'readsAs' ? spoken() : input.value
-                words.forEach((word, index) => {
-                  word.textContent = typed || saved[index]
-                })
-              })
-            }
-          `,
-        }}
-      />
+      <LivePreview />
     </PageShell>
   )
 }

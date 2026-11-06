@@ -724,9 +724,9 @@ export type Command =
       readonly changedBy: string
     }
   /**
-   * An Admin has watched these setup steps tick, or been shown the badge at 100%
-   * (Exponential launch, ticket 26). Sent by the bar itself, and only when there was
-   * something new to play.
+   * An Admin has watched these setup steps tick, been shown the badge at 100%
+   * (Exponential launch, ticket 26), or had the onboarding modal open (ticket 27). Sent
+   * by the bar and the modal themselves, and only when there was something new.
    */
   | {
       readonly type: 'setup.mark_seen'
@@ -735,6 +735,39 @@ export type Command =
       readonly seenBy: string
       readonly steps: readonly SetupStep[]
       readonly badge: boolean
+      readonly onboarding: boolean
+    }
+  /**
+   * An Admin pressed Done on the tour's last step (Exponential launch, ticket 27), which
+   * is setup step 2. Leaving the tour earlier sends nothing.
+   */
+  | {
+      readonly type: 'setup.finish_tour'
+      readonly ministryId: MinistryId
+      /** The Admin's account, from the session and never from the page. */
+      readonly finishedBy: string
+    }
+  /**
+   * An Admin pressed a test check-in's button on a card that showed the agreement
+   * (Exponential launch, ticket 28): "By sending, you agree to receive texts from
+   * Discipler at this number". Their own consent, kept apart from the send, because a
+   * first press sends a code rather than the test.
+   */
+  | {
+      readonly type: 'test_check_in.agree'
+      readonly ministryId: MinistryId
+      /** The Admin's account, from the session and never from the page. */
+      readonly sentBy: string
+    }
+  /**
+   * An Admin sends themselves a test check-in (Exponential launch, ticket 28). The phone
+   * is the one on their own Roster row, which is the only phone this can ever text.
+   */
+  | {
+      readonly type: 'test_check_in.send'
+      readonly ministryId: MinistryId
+      /** The Admin's account, from the session and never from the page. */
+      readonly sentBy: string
     }
   /**
    * The six ways an Admin edits one of the Ministry's two Intake forms (Pastor

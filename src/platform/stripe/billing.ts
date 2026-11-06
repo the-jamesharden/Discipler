@@ -36,6 +36,17 @@ const stillAwaitsPaymentMethod = (subscription: Stripe.Subscription): boolean =>
   return typeof pending === 'string' || pending.status !== 'succeeded'
 }
 
+/**
+ * When a Subscription on a schedule ends because Discipler told its schedule to, which is
+ * how one is cancelled: Stripe's billing page will not, and a schedule does not take an
+ * ending on the Subscription itself (ticket 33). Only where the schedule was expanded.
+ */
+const endOfItsSchedule = (subscription: Stripe.Subscription): Date | null => {
+  const { schedule } = subscription
+  if (!schedule || typeof schedule === 'string' || schedule.end_behavior !== 'cancel') return null
+  return dateOf(schedule.phases.at(-1)?.end_date)
+}
+
 export const factsOf = (subscription: Stripe.Subscription): StripeSubscriptionFacts => {
   // Discipler sells one thing, so a Subscription has one item.
   const item = subscription.items.data[0]
@@ -52,7 +63,8 @@ export const factsOf = (subscription: Stripe.Subscription): StripeSubscriptionFa
     currentPeriodEndsAt,
     cancelsAt:
       dateOf(subscription.cancel_at) ??
-      (subscription.cancel_at_period_end ? currentPeriodEndsAt : null),
+      (subscription.cancel_at_period_end ? currentPeriodEndsAt : null) ??
+      endOfItsSchedule(subscription),
     namedChurch: subscription.metadata?.[STRIPE_CHURCH_METADATA_KEY] ?? null,
   }
 }
@@ -65,7 +77,7 @@ export const createStripeBilling = (client: () => Stripe = stripeClient): Stripe
       customer: customerId,
       status: 'all',
       limit: 100,
-      expand: ['data.pending_setup_intent'],
+      expand: ['data.pending_setup_intent', 'data.schedule'],
     })
     return data.map(factsOf)
   },

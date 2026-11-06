@@ -1,12 +1,16 @@
+import { signUpIsOpen } from '~/platform/sign-up-switch'
 import { Centred } from '../shell'
+import { CREATE_AN_ACCOUNT } from '../signup/copy'
 import { signInFailureMessage } from './failures'
 import { signInNoticeMessage } from './notices'
 
 /**
- * One sign-in form for every user. The credential is a phone number and a password,
- * for Admins and Leaders alike -- email is optional at Intake, so a Person may hold
- * a relationship without Discipler ever learning an address for them. See
- * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
+ * One sign-in form for every user: one box for who they are, and a password. An Admin
+ * who signed up with an email may type either, and everybody else types their phone,
+ * because email is optional at Intake, so a Person may hold a relationship without
+ * Discipler ever learning an address for them. See
+ * `docs/adr/0030-an-admin-signs-in-with-email-or-phone.md`, and ADR-0008 for everybody
+ * without an email.
  *
  * The design's two role buttons are not here. Which surface a person lands on is
  * decided at `/` from what they hold, not from a button they pressed.
@@ -38,10 +42,21 @@ export default async function LoginPage({
 
       <form method="post" action="/auth/sign-in">
         <div className="field">
-          <label className="label" htmlFor="phone">
-            Phone number
+          <label className="label" htmlFor="login">
+            Email or phone
           </label>
-          <input id="phone" name="phone" type="tel" required autoComplete="tel" />
+          {/* Text, not `tel` or `email`, because it is either; and no capital or
+              correction from a phone's keyboard on somebody's address. */}
+          <input
+            id="login"
+            name="login"
+            type="text"
+            required
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+          />
         </div>
 
         <div className="field">
@@ -55,18 +70,36 @@ export default async function LoginPage({
             required
             autoComplete="current-password"
           />
+          {/* Only while sign-up is open: until then no account holds an email, so
+              the page could only say a link went when none did. */}
+          {signUpIsOpen(process.env) ? (
+            <p className="hint">
+              <a href="/login/forgot">Forgot your password?</a>
+            </p>
+          ) : null}
         </div>
 
-        <button type="submit">Sign in</button>
+        <button type="submit" className="full sec">
+          Sign in
+        </button>
       </form>
 
-      {/* One-time codes are post-launch. Until they ship a lost password is an
-          Admin reset, and saying so is better than a link that goes nowhere. The
-          closing line is the prototype's, and it is true of the product. */}
+      {/* Only while sign-up is open, so production's page does not offer a 404. A
+          plain link and not `next/link`, which would fetch sign-up's first page ahead
+          of anybody asking for it. */}
+      {signUpIsOpen(process.env) ? (
+        <>
+          <div className="divider-or">new to Discipler?</div>
+          <a className="btn full" href="/signup">
+            {CREATE_AN_ACCOUNT}
+          </a>
+        </>
+      ) : null}
+
       <p className="card-note">
         People being discipled have no account and no dashboard. They take part
-        entirely over text. Forgotten your password? Ask whoever runs Discipler at
-        your church to reset it.
+        entirely over text. Leaders who sign in with a phone number: if you&apos;ve
+        forgotten your password, ask whoever runs Discipler at your church to reset it.
       </p>
     </Centred>
   )

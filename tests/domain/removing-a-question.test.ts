@@ -239,7 +239,7 @@ describe('a removal, through the boundary', () => {
           question: {
             wording: 'When could you meet?',
             menteeWording: null,
-            hint: 'Select every hour that could work — not just your best one.',
+            hint: 'Select every hour that could work - not just your best one.',
             required: true,
           },
           // People, as the Admin was warned; every submission, as the delete takes.

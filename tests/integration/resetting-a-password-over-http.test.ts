@@ -322,7 +322,7 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
       method: 'POST',
       redirect: 'manual',
       headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': aNetwork() },
-      body: new URLSearchParams({ phone: leader.phone, password: leader.password }),
+      body: new URLSearchParams({ login: leader.phone, password: leader.password }),
     })
     const theirCookie = theirSignIn.headers
       .getSetCookie()

@@ -16,6 +16,7 @@ import {
   CHURCH_PLANT_WINDOW,
   EMAIL_CODE,
   EXPONENTIAL_OFFER,
+  NEW_CHURCH_LIMITS,
   MONTHLY_PRICE_CENTS,
   OFFICE_HOURS_EVERY_WEEKS,
   PASSWORD_RESET_LINK_MINUTES,
@@ -175,6 +176,9 @@ export const HELP_FACTS: Readonly<Record<string, string>> = {
   testCheckInsPerDay: String(TEST_CHECK_INS_PER_DAY),
   testCheckInOpen: duration(TEST_CHECK_IN_OPEN_HOURS, 'hour'),
   checkInSentenceLongest: String(CHECK_IN_SENTENCE.longest),
+  newChurchFirstDays: duration(NEW_CHURCH_LIMITS.firstDays, 'day'),
+  newChurchPeople: String(NEW_CHURCH_LIMITS.peopleOnTheRoster),
+  newChurchTextsPerWeek: NEW_CHURCH_LIMITS.textsPerWeek.toLocaleString('en-US'),
 
   // Billing, offers and referrals.
   trialDays: duration(TRIAL_DAYS, 'day'),

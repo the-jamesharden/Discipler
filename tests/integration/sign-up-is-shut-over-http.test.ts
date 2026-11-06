@@ -8,7 +8,17 @@ import { baseUrl, skipUnlessAppIsRunning } from '../support/app'
  * page may show a person that sign-up exists.
  */
 describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the switch off', () => {
-  it.each(['human-check', 'send-code', 'resend-code', 'confirm-code', 'payment/open'])('answers 404 at %s', async (route) => {
+  it('is not offered on the sign-in page, which would be offering a 404', async () => {
+    const response = await fetch(`${baseUrl}/login`, { redirect: 'manual' })
+    const html = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(html).not.toContain('Create an account')
+    expect(html).not.toContain('new to Discipler?')
+    expect(html).not.toContain('href="/signup"')
+  })
+
+  it.each(['human-check', 'send-code', 'resend-code', 'confirm-code', 'apply-code', 'payment/open'])('answers 404 at %s', async (route) => {
     const response = await fetch(`${baseUrl}/signup/${route}`, {
       method: 'POST',
       redirect: 'manual',
@@ -26,7 +36,7 @@ describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the swit
     expect(response.headers.getSetCookie().filter((cookie) => cookie.includes('signup'))).toEqual([])
   })
 
-  it.each(['/signup', '/signup?code=EXPO26', '/signup?again=1', '/signup/email', '/signup/code', '/signup/account'])(
+  it.each(['/signup', '/signup?code=EXPO26', '/signup?again=1', '/signup/email', '/signup/code', '/signup/account', '/signup/payment', '/signup/payment?redirect_status=succeeded'])(
     'answers 404 at the page %s, and the page says nothing about sign-up',
     async (path) => {
       const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual' })
@@ -40,10 +50,57 @@ describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the swit
         'Check your email',
         'Set up your account',
         'challenges.cloudflare.com',
-        'Email me a code',
+        'This will be your login email.',
+        'Add a card or bank account',
+        'js.stripe.com',
       ]) {
         expect(html).not.toContain(giveaway)
       }
     },
   )
+
+  // A shut page answers through Next's error shell and is drawn in the browser from the
+  // response, so its words and its stylesheet are in the response but not as markup. Next's own 404 carried a
+  // dark-mode rule that drew it black under the app's dark green; the app's has none.
+  it("answers 404 at a shut page with the app's own not-found page, on the app's colours in any scheme", async () => {
+    const response = await fetch(`${baseUrl}/signup`, { redirect: 'manual' })
+    const html = await response.text()
+
+    expect(response.status).toBe(404)
+    expect(html).toContain('This page could not be found.')
+    expect(html).not.toContain('prefers-color-scheme')
+  })
+
+  it('answers 404 at a referral link, and points at nothing', async () => {
+    const response = await fetch(`${baseUrl}/r/k7m2qp9xab`, { redirect: 'manual' })
+
+    expect(response.status).toBe(404)
+    expect(response.headers.get('location')).toBeNull()
+  })
+
+  it('answers 404 at the small read the payment step asks', async () => {
+    const response = await fetch(`${baseUrl}/signup/payment/access`, { redirect: 'manual' })
+
+    expect(response.status).toBe(404)
+  })
+
+  // Not behind the switch, because an email already sent has promised it. A link that is
+  // not signed is still nothing at all, and says nothing about sign-up.
+  it.each(['/signup/reminders-off', '/signup/reminders-off?t=nonsense'])('answers 404 at %s', async (path) => {
+    const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual' })
+
+    expect(response.status).toBe(404)
+    expect(await response.text()).not.toContain('send me reminders')
+  })
+
+  it('stops nothing for a token that is not signed', async () => {
+    const response = await fetch(`${baseUrl}/signup/reminders-off/stop`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ t: `${crypto.randomUUID()}.${'0'.repeat(64)}` }),
+    })
+
+    expect(response.status).toBe(404)
+  })
 })

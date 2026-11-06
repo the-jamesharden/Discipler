@@ -1,3 +1,5 @@
+import { isUsPhone } from './phone-check'
+import type { PhoneNumber } from './roster'
 import type { NewHistoryEvent } from './history'
 import type { MinistryId } from './ids'
 
@@ -113,6 +115,23 @@ const wholeNumber = (value: unknown, field: string): number => {
   return value
 }
 
+/**
+ * Whether this Admin can never send a test check-in, because their own phone cannot receive
+ * a Verify code (`isUsPhone`). Without this a live church with a Canadian Admin would stay
+ * below 100% for good (James, 2026-11-05). No phone on file is a thing they can fix, so it
+ * does not count. Everybody else's step stays the church's.
+ */
+export const phoneCannotTakeATest = (ownPhone: string | null): boolean =>
+  ownPhone !== null && !isUsPhone(ownPhone as PhoneNumber)
+
+const cannotSendATest = (ownPhone: unknown): boolean => {
+  if (ownPhone === undefined) throw new Error('The setup meter arrived with no answer for the Admin’s phone')
+  if (ownPhone !== null && typeof ownPhone !== 'string') {
+    throw new Error('The setup meter arrived with a phone that is not a phone')
+  }
+  return phoneCannotTakeATest(ownPhone)
+}
+
 /** The `setup` part of a page's document (`app.setup_meter_of`). */
 export const setupMeterOf = (row: Readonly<Record<string, unknown>>): SetupMeter => {
   if (row.finished === true) return { shown: false }
@@ -123,7 +142,10 @@ export const setupMeterOf = (row: Readonly<Record<string, unknown>>): SetupMeter
   }
   if (!Array.isArray(row.seen)) throw new Error('The setup meter arrived with nothing about what was seen')
 
-  const done = stepsDone(answered as Readonly<Record<string, unknown>>)
+  const done = stepsDone({
+    ...(answered as Readonly<Record<string, unknown>>),
+    ...(cannotSendATest(row.own_phone) ? { test_check_in: true } : {}),
+  })
   const seen: readonly unknown[] = row.seen
 
   return {

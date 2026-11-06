@@ -86,14 +86,14 @@ export const aNetwork = (): string => {
 }
 
 /**
- * A phone number and a password, which is the credential for every user. See
- * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
+ * The sign-in box and a password. A phone for anybody, or `login` for exactly what was
+ * typed. See `docs/adr/0030-an-admin-signs-in-with-email-or-phone.md`, and ADR-0008 for
+ * everybody without an email.
  */
 export const signInAs = async (
-  credential: {
-    readonly phone: string
-    readonly password: string
-  },
+  credential:
+    | { readonly phone: string; readonly password: string }
+    | { readonly login: string; readonly password: string },
   network: string = aNetwork(),
 ) => {
   const response = await fetch(`${baseUrl}/auth/sign-in`, {
@@ -103,7 +103,10 @@ export const signInAs = async (
       'content-type': 'application/x-www-form-urlencoded',
       'x-forwarded-for': network,
     },
-    body: new URLSearchParams({ phone: credential.phone, password: credential.password }),
+    body: new URLSearchParams({
+      login: 'login' in credential ? credential.login : credential.phone,
+      password: credential.password,
+    }),
   })
 
   return { response, cookie: cookiesFrom(response) }
@@ -112,7 +115,13 @@ export const signInAs = async (
 export const signIn = async (ministry: MinistryFixture) =>
   signInAs({ phone: ministry.adminPhone, password: ministry.adminPassword })
 
-export const getPage = async (path: string, cookie: string) => {
-  const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual', headers: { cookie } })
+/**
+ * The same build with sign-up open (`scripts/locked-tests.sh`), for what only exists then.
+ * `baseUrl` runs with it shut, as production does.
+ */
+export const signUpOpenUrl = process.env.SIGN_UP_OPEN_URL ?? ''
+
+export const getPage = async (path: string, cookie: string, server = baseUrl) => {
+  const response = await fetch(`${server}${path}`, { redirect: 'manual', headers: { cookie } })
   return { response, html: await response.text() }
 }

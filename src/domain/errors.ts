@@ -5,6 +5,7 @@ import type { IntakeFormRefusal } from './intake-form'
 import type { MinistrySettingsRefusal } from './ministry-settings'
 import type { RemovalRefusal } from './removal'
 import type { ShortNameRefusal } from './short-name'
+import type { TestCheckInRefusal } from './test-check-in'
 
 /**
  * Refusals travel as codes, never as prose. The same rule the sign-in page follows:
@@ -220,6 +221,18 @@ export class RosterImportRefused extends Error {
   constructor(readonly refusal: RosterImportRefusal) {
     super(refusal)
     this.name = 'RosterImportRefused'
+  }
+}
+
+/**
+ * An import that would take a new church's Roster past its limit (Exponential launch,
+ * ticket 37). Refused whole, like every other refusal of an import, and with nothing
+ * written. Apart from `RosterImportRefused` because its route also tells support@.
+ */
+export class NewChurchRosterLimitReached extends Error {
+  constructor() {
+    super('new_church.roster_limit_reached')
+    this.name = 'NewChurchRosterLimitReached'
   }
 }
 
@@ -758,5 +771,13 @@ export class PasswordResetRefused extends Error {
   constructor(readonly refusal: PasswordResetRefusal) {
     super(refusal)
     this.name = 'PasswordResetRefused'
+  }
+}
+
+/** Why a test check-in did not go (Exponential launch, ticket 28). The card words each. */
+export class TestCheckInRefused extends Error {
+  constructor(readonly refusal: TestCheckInRefusal) {
+    super(refusal)
+    this.name = 'TestCheckInRefused'
   }
 }

@@ -20,15 +20,22 @@
     "db:stop": "supabase stop",
     "seed": "vite-node -c vitest.config.ts scripts/seed-demo.ts",
     "setup-link": "vite-node -c vitest.config.ts scripts/setup-link.ts",
+    "church-plant": "vite-node -c vitest.config.ts scripts/church-plant.ts",
+    "referral-review": "vite-node -c vitest.config.ts scripts/referral-review.ts",
     "shared-number": "vite-node -c vitest.config.ts scripts/shared-number.ts",
+    "new-church-limit": "vite-node -c vitest.config.ts scripts/new-church-limit.ts",
     "smoke:pages": "vite-node -c vitest.config.ts scripts/smoke-pages.ts",
     "email:check": "vite-node -c vitest.config.ts scripts/send-test-email.ts",
     "staging:text": "vite-node -c vitest.config.ts scripts/staging-text.ts",
-    "stripe:catalog": "vite-node -c vitest.config.ts scripts/stripe-catalog.ts"
+    "stripe:catalog": "vite-node -c vitest.config.ts scripts/stripe-catalog.ts",
+    "tour:capture": "vite-node -c vitest.config.ts scripts/capture-tour.ts"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^7.0.1",
+    "@stripe/stripe-js": "^10.2.1",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
+    "ai": "7.0.162",
     "markdown-it": "15.0.3",
     "next": "^15.5.4",
     "pg": "^8.16.3",

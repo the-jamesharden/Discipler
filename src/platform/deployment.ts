@@ -59,6 +59,10 @@ export const deploymentOf = (env: Environment): Deployment => {
   return isVercelProduction(env) ? 'production' : 'other'
 }
 
+const isVercelPreview = (env: Environment): boolean =>
+  env.DISCIPLER_ENVIRONMENT !== 'staging' &&
+  (env.VERCEL_TARGET_ENV ? env.VERCEL_TARGET_ENV === 'preview' : env.VERCEL_ENV === 'preview')
+
 const isVercelProduction = (env: Environment): boolean =>
   env.VERCEL_TARGET_ENV ? env.VERCEL_TARGET_ENV === 'production' : env.VERCEL_ENV === 'production'
 
@@ -122,9 +126,20 @@ export const deploymentRefusals = (env: Environment): string[] => {
   }
 
   if (deployment === 'staging') refusals.push(...stagingRefusals(env))
+  if (isVercelPreview(env)) refusals.push(...previewRefusals(env))
 
   return refusals
 }
+
+/**
+ * Stripe keys exist only on production, and on staging's sandbox (spec, Q33): a Preview
+ * deployment runs any branch, on production's database, so it must not also be able to
+ * take money. Any variable named for Stripe, and a live key under any name.
+ */
+const previewRefusals = (env: Environment): string[] =>
+  Object.entries(env)
+    .filter(([name, value]) => Boolean(value) && (name.includes('STRIPE') || STRIPE_LIVE_KEY.test(value ?? '')))
+    .map(([name]) => `${name} is set on a Preview deployment; Stripe keys belong on production and staging only.`)
 
 const stagingRefusals = (env: Environment): string[] => {
   const refusals: string[] = []

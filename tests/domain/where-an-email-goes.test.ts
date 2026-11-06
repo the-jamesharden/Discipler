@@ -42,6 +42,7 @@ describe('the routing', () => {
     ['twilioSpendPassed'],
     ['over200FollowUp'],
     ['deliverabilityCheck'],
+    ['askDisciplerSpendStopped'],
   ] as const)('sends %s to support@', (kind) => {
     expect(openEnvelope({ kind, subject, body, once: 'x' }).to).toEqual([
       'support@trydiscipler.com',
@@ -58,7 +59,7 @@ describe('the routing', () => {
     ['emailCode'],
     ['signUpAttemptNotice'],
     ['passwordReset'],
-    ['checkoutReminder'],
+    ['paymentReminder'],
     ['trialEnding'],
     ['churchPlantDecision'],
   ] as const)('sends %s to the Admin it is addressed to', (kind) => {
@@ -71,19 +72,22 @@ describe('the routing', () => {
     // A kind with no route here would be a kind nobody decided the inbox of.
     expect(Object.keys(EMAIL_KINDS).sort()).toEqual(
       [
+        'askDisciplerSpendStopped',
         'billingEventRefused',
         'bugReport',
-        'checkoutReminder',
         'churchPlantApplication',
         'churchPlantDecision',
         'dailyCapReached',
         'deliverabilityCheck',
         'emailCode',
         'featureRequest',
+        'newChurchLimitHit',
         'newSignUp',
         'numbersNearCapacity',
         'over200FollowUp',
+        'paymentReminder',
         'passwordReset',
+        'referralCreditReview',
         'signUpAttemptNotice',
         'supportRequest',
         'textingGateUnread',

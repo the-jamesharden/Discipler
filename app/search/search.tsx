@@ -33,7 +33,7 @@ import {
   TO_OPEN,
 } from './copy'
 import { labelParts, termsOf, type DirectoryIcon, type DirectoryRow } from './match'
-import { directoryFor, type SearchNames } from './pages'
+import { directoryFor, pagesNow, type SearchNames } from './pages'
 
 /**
  * Search (Exponential launch, ticket 24; `.lavish/top-nav-search/`, layout B). A
@@ -102,7 +102,7 @@ const LabelOf = ({ label, terms }: { readonly label: string; readonly terms: rea
 
 const rowId = (index: number): string => `search-row-${index}`
 
-export const SearchDirectory = () => {
+export const SearchDirectory = ({ offerRefer }: { readonly offerRefer: boolean }) => {
   const dialog = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLDivElement>(null)
@@ -185,7 +185,7 @@ export const SearchDirectory = () => {
     }
   }, [show, close])
 
-  const groups = useMemo(() => directoryFor(query, names), [query, names])
+  const groups = useMemo(() => directoryFor(query, names, pagesNow(offerRefer)), [query, names, offerRefer])
   const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups])
   const terms = useMemo(() => termsOf(query), [query])
   const typed = query.trim() !== ''

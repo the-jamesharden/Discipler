@@ -91,7 +91,7 @@ const awaitingNow = (subscription: StripeSubscriptionFacts): boolean =>
  * sitting there, and Discipler's own is an opening that was never settled, which holds
  * even if Stripe should clear that field once the setup intent is canceled.
  */
-const everBegan = async (
+export const everBegan = async (
   unit: BillingUnit,
   subscription: StripeSubscriptionFacts,
 ): Promise<boolean> => {

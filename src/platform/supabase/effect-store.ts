@@ -6,7 +6,11 @@ import type {
   OpenIntendedPairing,
   PairingSideSnapshot,
 } from '~/domain/intended-pairing'
+import type { CheckInQuestion } from '~/domain/check-in'
 import { checkInWordsInForce, type CheckInWords } from '~/domain/check-in-words'
+import { TEST_CARD_CONSENT_VERSION } from '~/domain/consent'
+import { TEST_CHECK_INS_PER_DAY } from '~/domain/launch-terms'
+import { testCheckInId, testCheckInsLapsedBy } from '~/domain/test-check-in'
 import { isParticipationStatus } from '~/domain/participation'
 import { GENDERS, isOneOf } from '~/domain/intake'
 import type { PoolClient } from 'pg'
@@ -158,6 +162,7 @@ import {
   type OpenSequence,
 } from '~/domain/check-in'
 import type { EffectStore, InboundReader, InboundSender, UnitOfWork } from '~/service/ports'
+import { newChurchRosterRoom } from './new-church-limits'
 
 /**
  * The participation caps live in indexes, because they can only be judged against
@@ -883,6 +888,23 @@ const activateInTheDatabase = async (
   )
 }
 
+/**
+ * What a test that has ended still had on the queue: a question held back by the day's
+ * limit or a new church's week would otherwise arrive after it could take an answer.
+ */
+const withholdWhatATestStillHadToSay = async (
+  client: PoolClient,
+  tests: readonly string[],
+  at: Date,
+): Promise<void> => {
+  if (tests.length === 0) return
+  await client.query(
+    `update outbound_message set withheld_at = $2, withheld_reason = 'test_check_in_ended'
+      where test_check_in_id = any($1::uuid[]) and sent_at is null and withheld_at is null`,
+    [tests, at],
+  )
+}
+
 const unitFor = (client: PoolClient): UnitOfWork => ({
   async peopleOnRoster() {
     // Scoped by the policy on `person`, not by a ministry_id in this statement: the
@@ -912,6 +934,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     return { people, namesByNumber, removed }
   },
 
+  newChurchRosterRoom: (at) => newChurchRosterRoom(client, at),
+
   async peopleWhoCompletedIntake() {
     // Scoped by the policy on `intake_submission`, like the Roster read above: the
     // connection has already declared which Ministry it acts for.
@@ -919,6 +943,184 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       `select distinct person_id from intake_submission`,
     )
     return new Set<PersonId>(rows.map((row) => personId(row.person_id)))
+  },
+
+  async testCheckInStanding(sentBy, { locked }) {
+    const { rows: people } = await client.query<{ id: string; phone: string | null }>(
+      `select p.id, p.phone
+         from person p
+        where p.user_id = $1
+          and not exists (select 1 from person_removal r where r.person_id = p.id and r.restored_at is null)
+        limit 1`,
+      [sentBy],
+    )
+    const person = people[0]
+
+    // Both, so that a real check-in opening and a test being sent each see what the other
+    // committed. In the tick's order, the Ministry's and then the Person's: the tick holds
+    // the first while it waits for the second, so the other way round is a deadlock, and a
+    // reply holds only the Person's, so this cannot close a cycle with one.
+    if (locked) {
+      await client.query(
+        `select pg_advisory_xact_lock(hashtextextended(app.command_ministry_id()::text, 0))`,
+      )
+    }
+    if (locked && person) {
+      await client.query(`select pg_advisory_xact_lock(hashtextextended($1, 0))`, [person.id])
+    }
+
+    const { rows: churches } = await client.query<{ timezone: string }>(`select timezone from ministry`)
+    const timeZone = churches[0]?.timezone
+    if (!timeZone) throw new Error('This test check-in has no Ministry to text for')
+
+    const { rows: sent } = await client.query<{ opened_at: Date }>(
+      `select opened_at from test_check_in where sent_by = $1 order by opened_at desc limit $2`,
+      [sentBy, TEST_CHECK_INS_PER_DAY],
+    )
+    const sentAt = sent.map((row) => row.opened_at)
+
+    if (!person?.phone) {
+      return {
+        personId: null,
+        phone: null,
+        optedOut: false,
+        smsDecision: null,
+        agreed: false,
+        sentAt,
+        realQuestionOpen: false,
+        timeZone,
+      }
+    }
+
+    const { rows } = await client.query<{
+      opted_out: boolean
+      decision: boolean | null
+      agreed: boolean
+      question_on_the_phone: boolean
+    }>(
+      `select exists (select 1 from person_opt_out o where o.person_id = $1 and o.ended_at is null) as opted_out,
+              (select c.granted
+                 from consent_record c
+                where c.person_id = $1 and c.consent = 'sms'
+                order by c.decided_at desc, c.created_at desc
+                limit 1) as decision,
+              exists (select 1
+                        from consent_record c
+                       where c.person_id = $1 and c.consent = 'sms'
+                         and c.source = 'ministry_setup' and c.granted) as agreed,
+              -- Out, or queued to go out, on this phone, for whoever on it.
+              exists (select 1
+                        from outbound_message m
+                       where m.prompt_key = $2
+                         and (m.prompt_state = 'open'
+                              or (m.message_kind <> 'no_reply' and m.sent_at is null and m.withheld_at is null))
+                     ) as question_on_the_phone`,
+      [person.id, person.phone],
+    )
+    const row = rows[0]!
+
+    return {
+      personId: personId(person.id),
+      phone: person.phone,
+      optedOut: row.opted_out,
+      smsDecision: row.decision,
+      agreed: row.agreed,
+      sentAt,
+      realQuestionOpen: row.question_on_the_phone,
+      timeZone,
+    }
+  },
+
+  async openTestCheckInOf(person) {
+    const { rows } = await client.query<{
+      id: string
+      question: CheckInQuestion
+      asked_at: Date
+      clarifications_sent: number
+      subject: string
+      words: CheckInWords
+    }>(
+      `select t.id, t.question, t.asked_at, t.clarifications_sent, t.subject, t.words
+         from test_check_in t
+         join person p on p.id = t.person_id and p.phone = t.phone
+        where t.person_id = $1 and t.ended_at is null`,
+      [person],
+    )
+    const row = rows[0]
+    return row
+      ? {
+          id: testCheckInId(row.id),
+          question: row.question,
+          askedAt: row.asked_at,
+          clarificationsSent: row.clarifications_sent,
+          subject: row.subject,
+          words: row.words,
+        }
+      : null
+  },
+
+  async recordTestCheckInAgreement({ ministryId, personId: person, decidedAt }) {
+    await client.query(
+      `insert into consent_record (ministry_id, person_id, consent, granted, version, source, decided_at)
+       values ($1, $2, 'sms', true, $3, 'ministry_setup', $4)`,
+      [ministryId, person, TEST_CARD_CONSENT_VERSION, decidedAt],
+    )
+  },
+
+  async openTestCheckIn(test) {
+    await client.query(
+      `insert into test_check_in
+         (id, ministry_id, person_id, sent_by, phone, opened_at, question, asked_at, subject, words)
+       values ($1, $2, $3, $4, $5, $6, 'met', $6, $7, $8)`,
+      [test.id, test.ministryId, test.personId, test.sentBy, test.phone, test.openedAt, test.subject, test.words],
+    )
+  },
+
+  async answerTestCheckIn({ id, nextQuestion, askedAt, met, satisfaction }) {
+    await client.query(
+      `update test_check_in
+          set question = coalesce($2, question),
+              asked_at = $3,
+              clarifications_sent = 0,
+              met = coalesce($4, met),
+              satisfaction = coalesce($5, satisfaction)
+        where id = $1`,
+      [id, nextQuestion, askedAt, met, satisfaction],
+    )
+  },
+
+  async clarifyTestCheckIn(id) {
+    await client.query(
+      `update test_check_in set clarifications_sent = clarifications_sent + 1 where id = $1`,
+      [id],
+    )
+  },
+
+  async endTestCheckIn({ ministryId, on, how, at }) {
+    const { rows } = await client.query<{ id: string }>(
+      `update test_check_in
+          set ended_at = $4, ended_how = $5
+        where ministry_id = $1
+          and ended_at is null
+          and (id = $2 or phone = $3)
+        returning id`,
+      [ministryId, 'id' in on ? on.id : null, 'phone' in on ? on.phone : null, at, how],
+    )
+    // An Admin who answered has their thank-you on its way. Any other ending says nothing.
+    if (how !== 'completed') await withholdWhatATestStillHadToSay(client, rows.map((row) => row.id), at)
+  },
+
+  async sweepTestCheckIns({ ministryId, askedNoLaterThan, at }) {
+    const { rows } = await client.query<{ id: string }>(
+      `update test_check_in
+          set ended_at = $3, ended_how = 'timed_out'
+        where ministry_id = $1
+          and ended_at is null
+          and asked_at <= $2
+        returning id`,
+      [ministryId, askedNoLaterThan, at],
+    )
+    await withholdWhatATestStillHadToSay(client, rows.map((row) => row.id), at)
   },
 
   async churchHasAccess(): Promise<boolean> {
@@ -1249,10 +1451,11 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                   from unnest(setup_steps_seen || $2::text[]) as step
                  order by step
               ),
-              setup_badge_seen_at = coalesce(setup_badge_seen_at, $3)
+              setup_badge_seen_at = coalesce(setup_badge_seen_at, $3),
+              onboarding_opened_at = coalesce(onboarding_opened_at, $4)
         where user_id = $1
           and tier = 'admin'`,
-      [seen.userId, seen.steps, seen.badgeSeenAt],
+      [seen.userId, seen.steps, seen.badgeSeenAt, seen.onboardingOpenedAt],
     )
 
     if (rowCount !== 1) throw new Error('This command has no Admin to mark the setup meter seen for')
@@ -4091,8 +4294,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         `insert into outbound_message
            (ministry_id, person_id, to_phone, body, enqueued_at, scheduled_for,
             discloses_person_id, prompt_key, prompt_state, message_kind,
-            carries_rates_line, not_before)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            carries_rates_line, not_before, test_check_in_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           message.ministryId,
           message.personId,
@@ -4128,6 +4331,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           // When a spread check-in may leave, and null on anything that may go on
           // the next pass (Exponential launch, ticket 07).
           message.notBefore,
+          // Only so that a test check-in that ends can close its unsent texts.
+          message.testCheckInId ?? null,
         ],
       )
     }
@@ -4193,7 +4398,7 @@ export const createPostgresInboundReader = (
   const pool = new pg.Pool({ connectionString })
 
   return {
-    async resolveSender(fromPhone: string, toNumber: string | null): Promise<InboundSender | null> {
+    async resolveSender(fromPhone: string, toNumber: string | null, now: Date): Promise<InboundSender | null> {
       const client = await pool.connect()
       try {
         // Inside a transaction, like every other read here. `set local` outside
@@ -4201,10 +4406,20 @@ export const createPostgresInboundReader = (
         // connection would go back to the pool unreset.
         await client.query('begin')
         await client.query('set local role discipler_command')
-        const { rows } = await client.query<{ ministry_id: string; person_id: string }>(
-          `select ministry_id, person_id from app.sender_of_inbound($1, $2)`,
-          [fromPhone, toNumber],
+        // An open test first: a reply to it has one meaning, even from a phone two people
+        // on a Roster share, which resolves to nobody below (Exponential launch, ticket 28).
+        // Only while it can take a reply. Past the hour the text is handled as with no test,
+        // whether or not the sweep has written the ending yet.
+        const { rows: answering } = await client.query<{ ministry_id: string; person_id: string }>(
+          `select ministry_id, person_id from app.sender_of_open_test($1, $2, $3)`,
+          [fromPhone, toNumber, testCheckInsLapsedBy(now)],
         )
+        const { rows } = answering[0]
+          ? { rows: answering }
+          : await client.query<{ ministry_id: string; person_id: string }>(
+              `select ministry_id, person_id from app.sender_of_inbound($1, $2)`,
+              [fromPhone, toNumber],
+            )
         // Rolled back rather than committed: this reads and writes nothing, and a
         // rollback is what resets the role.
         await client.query('rollback')

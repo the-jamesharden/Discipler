@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { ComponentType } from 'react'
 import { upcomingOfficeHours } from '~/domain/office-hours'
 import { newestUndismissed } from '~/domain/whats-new'
+import { signUpIsOpen } from '~/platform/sign-up-switch'
 import type { SignedInAdmin } from '~/service/ports'
 import { CHANGE_YOUR_PASSWORD, SIGN_OUT } from './account/copy'
 import { NEXT_OFFICE_HOURS } from './help/office-hours'
@@ -144,7 +145,7 @@ const AccountCircle = ({ admin }: { readonly admin: SignedInAdmin }) => (
 
 export const AdminNav = ({ admin }: { readonly admin: SignedInAdmin }) => (
   <div className="top-nav">
-    {REFER_A_CHURCH.href ? (
+    {signUpIsOpen(process.env) && REFER_A_CHURCH.href ? (
       <Link className="refer" href={REFER_A_CHURCH.href}>
         <Gift />
         <span className="refer-text">{REFER_A_CHURCH.label}</span>
@@ -156,6 +157,6 @@ export const AdminNav = ({ admin }: { readonly admin: SignedInAdmin }) => (
     </Link>
     <AccountCircle admin={admin} />
     <TopNavMenusClose />
-    <SearchDirectory />
+    <SearchDirectory offerRefer={signUpIsOpen(process.env)} />
   </div>
 )

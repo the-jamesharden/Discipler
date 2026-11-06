@@ -17,12 +17,15 @@ import { createMinistryWithAdmin, localSupabase, signInAs } from '../support/loc
  */
 
 const PAGE_FUNCTIONS = [
+  'ask_discipler_page',
   'assign_material_page',
+  'billing_page',
   'check_ins_card_page',
   'check_ins_page',
   'edit_material_page',
   'follow_up_card_page',
   'follow_up_page',
+  'home_page',
   'intake_forms_page',
   'material_page',
   'materials_page',
@@ -30,9 +33,12 @@ const PAGE_FUNCTIONS = [
   'overview_card_page',
   'overview_page',
   'pair_page',
+  'payment_step_page',
   'person_intake_page',
   'person_page',
+  'refer_page',
   'relationships_page',
+  'restart_page',
   'roster_page',
   'search_page',
   'settings_page',

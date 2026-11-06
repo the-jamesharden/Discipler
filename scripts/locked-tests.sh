@@ -78,6 +78,8 @@ done
 # Never 3000: a server somebody left there answers just as happily, from a build
 # of code this checkout may not have. A second checkout takes a port of its own.
 PORT="${LOCKED_TESTS_PORT:-3100}"
+# The same build with sign-up open, for what only exists then. See below.
+OPEN_PORT=$((PORT + 1))
 WHO="$ROOT ($(git rev-parse --abbrev-ref HEAD))"
 # The reset, build and server logs, kept out of the working tree.
 LOG_DIR="$STATE_DIR/logs/$(basename "$ROOT")"
@@ -86,12 +88,15 @@ mkdir -p "$LOG_DIR"
 printf 'who:     %s\npid:     %s\nsince:   %s\ncheckout: %s\n' "$WHO" "$$" "$(date)" "$ROOT" >"$HOLDER_FILE"
 
 SERVER_PID=""
+OPEN_SERVER_PID=""
 cleanup() {
   if [ -n "$SERVER_PID" ]; then
-    kill "$SERVER_PID" 2>/dev/null || true
+    kill "$SERVER_PID" $OPEN_SERVER_PID 2>/dev/null || true
     # The listener renames itself to next-server, and may outlive the process that
-    # started it. The port is this checkout's alone, so whatever listens on it is ours.
-    for pid in $(lsof -tnP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true); do kill "$pid" 2>/dev/null || true; done
+    # started it. The ports are this checkout's alone, so whatever listens on them is ours.
+    for port in "$PORT" "$OPEN_PORT"; do
+      for pid in $(lsof -tnP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true); do kill "$pid" 2>/dev/null || true; done
+    done
   fi
   rm -f "$HOLDER_FILE"
 }
@@ -139,6 +144,10 @@ if [ "$FORCE_RESET" = 1 ] || [ "$WANT" != "$HAVE" ]; then
   # The CLI is a global install here (Homebrew), not a project dependency. `npx
   # supabase` would go to the registry and can stop on an install prompt.
   command -v supabase >/dev/null || die "the supabase CLI is not on PATH"
+  # `supabase link` pins the linked project's service versions here, and a reset obeys
+  # them: production's Storage would migrate the shared database past the Storage that
+  # is running, and every upload then fails with 42P10. The next link writes them again.
+  rm -f "$ROOT"/supabase/.temp/{gotrue,postgres,rest,storage}-version "$ROOT/supabase/.temp/storage-migration"
   if supabase db reset >"$LOG_DIR/db-reset.log" 2>&1 &&
     grep -Eq 'Reset local database|Finished supabase db reset' "$LOG_DIR/db-reset.log"; then
     printf '%s\n' "$WANT" >"$SCHEMA_FILE"
@@ -181,13 +190,23 @@ export APP_URL="http://127.0.0.1:$PORT"
 # The webhook's signing secret, for the server below and the tests that sign for it.
 # Real secrets stay out of a test run: a process's environment beats `.env.local`.
 export STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-whsec_locked_tests_only}"
-# The setup meter's bar is off on production until tickets 27 and 28 ship, and is what its
-# suite tests.
-export SETUP_METER_ON=true
+# Texts and Verify codes are recorded, not sent, whatever `.env.local` says: a suite over
+# HTTP presses a real test check-in's button, and nothing here may text a real phone.
+export MESSAGE_TRANSPORT=record
+# The same for the other three that leave this machine. `next start` reads `.env.local`, but
+# never over a variable already set, even to nothing, and each of them refuses without a key.
+export TURNSTILE_SECRET_KEY=""
+export RESEND_API_KEY=""
+export STRIPE_SECRET_KEY=""
+# Ask Discipler is off on production until AI Gateway has its budget, and its suite tests it.
+# No suite over HTTP asks the model anything, and this environment holds no gateway credential.
+export ASK_DISCIPLER_ON=true
 
 if [ "$SERVE" = 1 ]; then
-  squatter="$(lsof -tnP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)"
-  [ -z "$squatter" ] || die "port $PORT already has a listener (pid $squatter). It is this checkout's port, so it is a server left from an earlier run: stop it, then run this again."
+  for port in "$PORT" "$OPEN_PORT"; do
+    squatter="$(lsof -tnP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+    [ -z "$squatter" ] || die "port $port already has a listener (pid $squatter). It is this checkout's port, so it is a server left from an earlier run: stop it, then run this again."
+  done
 
   note "build: $ROOT"
   npm run build >"$LOG_DIR/build.log" 2>&1 || { tail -30 "$LOG_DIR/build.log" >&2; die "the build failed; see $LOG_DIR/build.log"; }
@@ -202,6 +221,21 @@ if [ "$SERVE" = 1 ]; then
     sleep 1
   done
   [ "$ready" = 1 ] || { tail -20 "$LOG_DIR/server.log" >&2; die "the server did not answer on $APP_URL"; }
+
+  # The server above runs with sign-up shut, as production does, and everything over HTTP
+  # is tested against that. What only exists while sign-up is open, such as the Refer page,
+  # is tested against this one, which is the same build and the same database.
+  export SIGN_UP_OPEN_URL="http://127.0.0.1:$OPEN_PORT"
+  note "serve, with sign-up open: $SIGN_UP_OPEN_URL"
+  SIGN_UP_OPEN=true node node_modules/next/dist/bin/next start -p "$OPEN_PORT" >"$LOG_DIR/server-open.log" 2>&1 &
+  OPEN_SERVER_PID=$!
+  ready=0
+  for _ in $(seq 1 60); do
+    if curl -s -o /dev/null "$SIGN_UP_OPEN_URL/login"; then ready=1; break; fi
+    kill -0 "$OPEN_SERVER_PID" 2>/dev/null || break
+    sleep 1
+  done
+  [ "$ready" = 1 ] || { tail -20 "$LOG_DIR/server-open.log" >&2; die "the server with sign-up open did not answer on $SIGN_UP_OPEN_URL"; }
   # With a server up, a skipped over-HTTP suite is a failure, not a pass.
   export CI=1
 else

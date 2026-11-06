@@ -9,7 +9,7 @@
 
 **Blocked by:** 23 (shipped)
 
-**Status:** ready-for-human
+**Status:** shipped
 
 ## The rule
 
@@ -124,3 +124,7 @@ Each is in `directoryPages` (`app/search/pages.ts`) already, and nothing is list
 Built, but not `shipped`: the last Acceptance line, `npm run smoke:pages`, has not been run, and it is James's to run on production after the migrations are pushed and before the merge.
 Move this ticket to `shipped` when it passes.
 It is parked in `docs/open-questions.md`, under "Open: what wave 3 left James to do in Stripe and on production".
+
+**Shipped on 2026-11-04 in PR 39, merge ea4b8c6.**
+The page check ran after the migrations were pushed and before the merge, through the API and not by `npm run smoke:pages`, because that needs the production database address.
+All 21 page functions in `public` answered `admin` as the Admin of Example Ministry, and `anon` and `service_role` can execute none of them.

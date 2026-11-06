@@ -7,6 +7,7 @@ import {
   type PersonId,
 } from '~/domain/ids'
 import { phoneNumber } from '~/domain/roster'
+import { newChurchTextRoom } from './new-church-limits'
 import type {
   ClaimOutcome,
   ContactDetails,
@@ -156,6 +157,15 @@ export const createPostgresOutboundQueue = (
         console.error(`Could not read texting access for ministry ${ministryId}`, error)
       }
 
+      // Its own transaction too, and for the same reason: a limit nobody could read
+      // silences nobody.
+      let textRoom: number | null = null
+      try {
+        textRoom = await inMinistry(ministryId, (client) => newChurchTextRoom(client, at))
+      } catch (error) {
+        console.error(`Could not read the new church limit for ministry ${ministryId}`, error)
+      }
+
       return inMinistry(ministryId, async (client): Promise<DueMessages> => {
         if (hasAccess === false) {
           // Every unsent row, a spread check-in's included. Closed rather than left
@@ -166,7 +176,7 @@ export const createPostgresOutboundQueue = (
               where ministry_id = $1 and sent_at is null and withheld_at is null`,
             [ministryId, at, 'church_has_no_access' satisfies WithholdingReason],
           )
-          return { messages: [], closedWithoutAccess: rowCount ?? 0, accessUnread: false }
+          return { messages: [], closedWithoutAccess: rowCount ?? 0, accessUnread: false, textRoom: null }
         }
 
         const { rows } = await client.query<{
@@ -206,6 +216,7 @@ export const createPostgresOutboundQueue = (
           ),
           closedWithoutAccess: 0,
           accessUnread: hasAccess !== true,
+          textRoom,
         }
       })
     },

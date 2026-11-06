@@ -3,6 +3,7 @@ import {
   isConfirmedAndLive,
   isStripeEventActedOn,
   type StripeEventRefusal,
+  type StripeInboxEntry,
   type StripeSubscriptionFacts,
 } from '~/domain/billing'
 import type { Clock } from '~/domain/clock'
@@ -43,6 +44,8 @@ export interface StripeEventWork {
   readonly trials: StripeTrials
   readonly alerts: SupportAlerts
   readonly clock: Clock
+  /** What this event means for a referral credit (ticket 32), after it is recorded. */
+  readonly creditOnEvent: (entry: StripeInboxEntry, church: MinistryId, customerId: string) => Promise<void>
 }
 
 /** How long one attempt holds an event, comfortably past a function's time limit. */
@@ -159,7 +162,18 @@ export const processStripeEvent = async (
   // write that fails: the sweep comes back for this, and finds the record already there.
   if (recorded.subscription) {
     await settleConfirmedTrial(work, church, customerId, recorded.subscription)
+    // Stripe's billing page sets the customer's default only (ticket 33). Repeating this
+    // changes nothing, so a retry is safe.
+    if (entry.type === 'customer.updated' && isConfirmedAndLive(recorded.subscription)) {
+      await work.trials.followCustomersDefault(customerId, recorded.subscription.id)
+    }
+    // Only ever about one invoice, so a card changed later on is not put back.
+    if (entry.type === 'invoice.paid' && entry.invoiceId && isConfirmedAndLive(recorded.subscription)) {
+      await work.trials.firstBillSetsCustomersDefault(customerId, recorded.subscription.id, entry.invoiceId)
+    }
   }
+
+  await work.creditOnEvent(entry, church, customerId)
 
   await inbox.finish(eventId, { outcome: 'recorded', church }, clock.now())
   return 'recorded'

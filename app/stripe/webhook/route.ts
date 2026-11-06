@@ -9,7 +9,8 @@ import { getStripeEventInbox, processStripeEventAfterTheResponse } from '~/servi
  *
  * The body is read raw, because the signature is over the bytes Stripe sent and a
  * parsed and reserialised body would not match them. A refused request gets a 400 and
- * nothing else, whichever check it failed.
+ * nothing else, whichever check it failed. What turns other addresses away first is a
+ * Vercel Firewall rule (`docs/stripe-webhook-addresses.md`), not this.
  *
  * All this does with an event it admits is keep it and answer, because Stripe gives up
  * on an endpoint that is slow, and the work reads Stripe's own API. A replayed event

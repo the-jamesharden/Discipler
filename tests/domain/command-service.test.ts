@@ -82,6 +82,30 @@ describe('applying a command\'s effects', () => {
         closeOutstandingReply: async () => {
           throw new Error('no conversation should have been closed')
         },
+        testCheckInStanding: async () => {
+          throw new Error('Not stubbed')
+        },
+        openTestCheckInOf: async () => {
+          throw new Error('Not stubbed')
+        },
+        recordTestCheckInAgreement: async () => {
+          throw new Error('Not stubbed')
+        },
+        openTestCheckIn: async () => {
+          throw new Error('Not stubbed')
+        },
+        answerTestCheckIn: async () => {
+          throw new Error('Not stubbed')
+        },
+        clarifyTestCheckIn: async () => {
+          throw new Error('Not stubbed')
+        },
+        endTestCheckIn: async () => {
+          throw new Error('Not stubbed')
+        },
+        sweepTestCheckIns: async () => {
+          throw new Error('Not stubbed')
+        },
         sweepOutstandingReplies: async () => {
           throw new Error('no conversation should have been swept')
         },
@@ -348,6 +372,9 @@ describe('applying a command\'s effects', () => {
         peopleOnRoster: async () => {
           throw new Error('the Roster should not have been read')
         },
+        newChurchRosterRoom: async () => {
+          throw new Error('the Roster limit should not have been read')
+        },
       }).then(() => sink),
     )
 
@@ -423,7 +450,7 @@ describe('the command service', () => {
     // The tick against a quiet Ministry sweeps and does nothing else. The sweep is
     // unconditional -- the boundary has no cheaper way to learn whether any
     // conversation is still open than to close whatever the cutoffs catch.
-    expect(outcome.effects.map((effect) => effect.kind)).toEqual(['outstandingReply.sweep'])
+    expect(outcome.effects.map((effect) => effect.kind)).toEqual(['outstandingReply.sweep', 'testCheckIn.sweep'])
     expect(store.outstandingReplySweeps).toHaveLength(1)
     expect(store.history).toEqual([])
     expect(store.outbox).toEqual([])

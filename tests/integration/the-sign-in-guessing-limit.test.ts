@@ -7,8 +7,9 @@ import {
   createPostgresSignInLimit,
   type PostgresSignInLimit,
 } from '~/platform/supabase/sign-in-limit'
+import type { SignInAccount } from '~/service/ports'
 import { aNetwork } from '../support/app'
-import { aTestPhoneNumber, localSupabase } from '../support/local-supabase'
+import { aTestPhoneNumber, localSupabase, serviceRoleClient } from '../support/local-supabase'
 
 /**
  * The sign-in guessing limit at its port, against the real table (Exponential
@@ -38,7 +39,7 @@ describe('the sign-in guessing limit', () => {
 
   /** Ten wrong passwords, each kept as a failure. */
   const failTenTimes = async (
-    account: { phone: string } | { userId: string },
+    account: SignInAccount,
     network: () => string | null,
   ) => {
     for (let i = 0; i < FAILED_SIGN_INS_ALLOWED; i++) {
@@ -89,6 +90,109 @@ describe('the sign-in guessing limit', () => {
     await failTenTimes({ userId }, aNetwork)
 
     expect(await limit.attempt({ phone: userId }, aNetwork())).not.toBeNull()
+  })
+
+  describe('with an email (ticket 21)', () => {
+    const anAddress = () => `pastor.${randomUUID().slice(0, 8)}@grace.example`
+    const accounts: string[] = []
+
+    afterAll(async () => {
+      for (const id of accounts) await serviceRoleClient().auth.admin.deleteUser(id).catch(() => undefined)
+    })
+
+    /** The shape sign-up's opening leaves behind: both confirmed, and the address lower case. */
+    const anAccountHolding = async (email: string, phone: string | null = aTestPhoneNumber()) => {
+      const { data, error } = await serviceRoleClient().auth.admin.createUser({
+        email,
+        email_confirm: true,
+        password: 'a-long-enough-password',
+        ...(phone ? { phone, phone_confirm: true } : {}),
+      })
+      if (error) throw error
+      accounts.push(data.user.id)
+      return { phone: phone ?? '' }
+    }
+
+    it('counts ten by email against the phone of the account holding it', async () => {
+      const email = anAddress()
+      const { phone } = await anAccountHolding(email)
+      await failTenTimes({ email }, aNetwork)
+
+      expect(await limit.attempt({ phone }, aNetwork())).toBeNull()
+    })
+
+    it('counts ten by phone against the email of the account holding it', async () => {
+      const email = anAddress()
+      const { phone } = await anAccountHolding(email)
+      await failTenTimes({ phone }, aNetwork)
+
+      expect(await limit.attempt({ email }, aNetwork())).toBeNull()
+    })
+
+    it('adds the two together, so ten is ten and not twenty', async () => {
+      const email = anAddress()
+      const { phone } = await anAccountHolding(email)
+      for (let i = 0; i < FAILED_SIGN_INS_ALLOWED; i++) {
+        const account = i % 2 === 0 ? { email } : { phone }
+        expect(await limit.attempt(account, aNetwork())).not.toBeNull()
+      }
+
+      expect(await limit.attempt({ email }, aNetwork())).toBeNull()
+      expect(await limit.attempt({ phone }, aNetwork())).toBeNull()
+    })
+
+    it('is one account in any capitals', async () => {
+      const email = anAddress()
+      const { phone } = await anAccountHolding(email)
+      await failTenTimes({ email: email.toUpperCase() }, aNetwork)
+
+      expect(await limit.attempt({ email }, aNetwork())).toBeNull()
+      expect(await limit.attempt({ phone }, aNetwork())).toBeNull()
+    })
+
+    it('holds back an address nobody holds in just the same way, under its own count', async () => {
+      const email = anAddress()
+      await failTenTimes({ email }, aNetwork)
+
+      expect(await limit.attempt({ email }, aNetwork())).toBeNull()
+      expect(await limit.attempt({ email: email.toUpperCase() }, aNetwork())).toBeNull()
+      expect(await limit.attempt({ email: anAddress() }, aNetwork())).not.toBeNull()
+    })
+
+    it('counts an account with no phone under its address', async () => {
+      const email = anAddress()
+      await anAccountHolding(email, null)
+      await failTenTimes({ email }, aNetwork)
+
+      expect(await limit.attempt({ email }, aNetwork())).toBeNull()
+    })
+
+    it('still counts the network, whichever address it tries', async () => {
+      const network = aNetwork()
+      for (let i = 0; i < FAILED_SIGN_INS_ALLOWED; i++) {
+        expect(await limit.attempt({ email: anAddress() }, network)).not.toBeNull()
+      }
+
+      expect(await limit.attempt({ email: anAddress() }, network)).toBeNull()
+    })
+
+    it('holds no address, only its digest', async () => {
+      const email = anAddress()
+      await limit.attempt({ email }, aNetwork())
+
+      const { rows } = await pool.query<{ account_digest: string }>(
+        `select account_digest from sign_in_attempt
+          where account_digest = encode(sha256(convert_to($1, 'UTF8')), 'hex')`,
+        [`email:${email}`],
+      )
+
+      expect(rows).toHaveLength(1)
+      expect(JSON.stringify(rows)).not.toContain(email)
+    })
+
+    it('reads a NUL in a hand-made entry as any other wrong address', async () => {
+      expect(await limit.attempt({ email: `a\0${anAddress()}` }, aNetwork())).not.toBeNull()
+    })
   })
 
   it('lets the account try again once its oldest failure is fifteen minutes old', async () => {

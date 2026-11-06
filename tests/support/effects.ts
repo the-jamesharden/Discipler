@@ -22,7 +22,10 @@ import { settleRatesLine, type SettledMessage } from '~/domain/rates-line'
  */
 export const withoutTheSweep = (effects: readonly Effect[]): readonly Effect[] => {
   expect(effects.filter((effect) => effect.kind === 'outstandingReply.sweep')).toHaveLength(1)
-  return effects.filter((effect) => effect.kind !== 'outstandingReply.sweep')
+  expect(effects.filter((effect) => effect.kind === 'testCheckIn.sweep')).toHaveLength(1)
+  return effects.filter(
+    (effect) => effect.kind !== 'outstandingReply.sweep' && effect.kind !== 'testCheckIn.sweep',
+  )
 }
 
 /**

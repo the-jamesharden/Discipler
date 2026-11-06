@@ -46,7 +46,7 @@
 1. Stripe is provisioned through the Vercel Marketplace (slug `stripe`); the keys are Production-only, as Secret values, and a restricted key is used.
 2. Push the three migrations before the build that uses them goes live, because every signed-in page now requires the `billing` its page function adds.
 3. `STRIPE_SECRET_KEY` holds the restricted key, with read access to Subscriptions and Charges for this ticket; ticket 04 adds what it writes.
-4. In Stripe, create the webhook endpoint at `https://app.trydiscipler.com/stripe/webhook` on API version `2026-10-28.endive`, subscribed to exactly the twelve events above (`STRIPE_EVENTS_ACTED_ON` in `src/domain/billing.ts`), and put its `whsec_` in `STRIPE_WEBHOOK_SECRET`.
+4. In Stripe, create the webhook endpoint at `https://app.trydiscipler.com/stripe/webhook` on API version `2026-10-28.endive`, subscribed to exactly the thirteen events above (`STRIPE_EVENTS_ACTED_ON` in `src/domain/billing.ts`), and put its `whsec_` in `STRIPE_WEBHOOK_SECRET`.
 5. After the push, check the flag landed on the right three: `select m.name, b.billed_outside_stripe from ministry m left join ministry_billing b on b.ministry_id = m.id;` should show SAU BCM, Anthem Community Church and Example Ministry, all `true`, and no other row.
 
 ## Comments

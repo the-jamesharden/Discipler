@@ -1,20 +1,29 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { MinistryId } from '~/domain/ids'
+import type { NewChurchLimitsOutcome } from '~/service/new-church-limits-watch'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import type { SettledPairings } from '~/service/command-service'
+import type { PaymentReminderOutcome } from '~/service/payment-reminder-watch'
+import type { ReferralCreditSweep } from '~/service/referral-credits'
+import type { TrialEndingOutcome } from '~/service/trial-ending-watch'
 import type { StripeEventSweep } from '~/service/stripe-events'
 import type { SupportSweep } from '~/service/support-form'
 import {
   drainOutboundQueue,
   getCommandService,
   getMinistryDirectory,
+  sweepTheReferralCredits,
+  sweepAskDiscipler,
   sweepTheStripeEvents,
   sweepTheSupportSubmissions,
   sweepUnsavedUploads,
   tellSupportTheTextingGateIsUnread,
+  watchTheNewChurchLimits,
   watchTheOver200Churches,
+  watchThePaymentReminders,
   watchTheSharedNumbers,
+  watchTheTrialEndings,
   watchTheTwilioBalance,
 } from '~/service/container'
 
@@ -79,6 +88,8 @@ interface MinistryOutcome {
   readonly awaitingANumber: number
   /** Messages left for Twilio's daily limit to reset, see `DispatchOutcome`. */
   readonly waitingOnTheCap: number
+  /** Messages left for a new church's week to have room, see `DispatchOutcome`. */
+  readonly waitingOnTheNewChurchLimit: number
   /** Messages closed for good because the church holds no access, see `DispatchOutcome`. */
   readonly closedWithoutAccess: number
   /** The church's access could not be read, and its drain went on unchecked. */
@@ -89,7 +100,7 @@ interface MinistryOutcome {
 }
 
 const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> => {
-  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, waitingOnTheCap: 0, closedWithoutAccess: 0, accessUnread: false, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
+  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, waitingOnTheCap: 0, waitingOnTheNewChurchLimit: 0, closedWithoutAccess: 0, accessUnread: false, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
 
   try {
     // The tick first, then the drain, in that order and in the same run: the tick is
@@ -187,6 +198,17 @@ export async function GET(request: NextRequest) {
     stripeEvents = 'failed'
   }
 
+  // Then the referral credits whose hold is over (Exponential launch, ticket 32), after the
+  // sweep, so a refund the sweep just took in is seen. Caught on its own: a credit that
+  // could not be settled stays due, and the next pass comes back to it.
+  let referralCredits: ReferralCreditSweep | 'failed'
+  try {
+    referralCredits = await sweepTheReferralCredits()
+  } catch (error) {
+    console.error(`Sweeping the referral credits failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    referralCredits = 'failed'
+  }
+
   // Then the churches that stayed above the first price's limit for a month (Exponential
   // launch, ticket 14), last, so it reads what the sweep just recorded. Caught on its
   // own: nothing it found is lost, and the next pass asks again and tells what is owed.
@@ -206,6 +228,48 @@ export async function GET(request: NextRequest) {
     supportSubmissions = 'failed'
   }
 
+  // Then Ask Discipler's chats older than the privacy policy promises to keep them
+  // (Exponential launch, ticket 31). Whether or not the guide is on: a chat is deleted on
+  // its day. Caught on its own, and logged by name alone.
+  let askDisciplerChats: number | 'failed'
+  try {
+    askDisciplerChats = await sweepAskDiscipler()
+  } catch (error) {
+    console.error(`Sweeping Ask Discipler's chats failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    askDisciplerChats = 'failed'
+  }
+
+  // Then the one reminder to a church that left the payment step (Exponential launch,
+  // ticket 18). Caught on its own, and logged by name alone: nothing it found is lost,
+  // and the next pass that day asks again.
+  let paymentReminders: PaymentReminderOutcome | 'shut' | 'failed'
+  try {
+    paymentReminders = await watchThePaymentReminders()
+  } catch (error) {
+    console.error(`Watching the payment reminders failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    paymentReminders = 'failed'
+  }
+
+  // The email a week before a trial ends (Exponential launch, ticket 33), the same way.
+  let trialEndings: TrialEndingOutcome | 'no_stripe' | 'failed'
+  try {
+    trialEndings = await watchTheTrialEndings()
+  } catch (error) {
+    console.error(`Watching the trial endings failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    trialEndings = 'failed'
+  }
+
+  // Then the churches that hit a limit on their first weeks (Exponential launch, ticket 37).
+  // Caught on its own, and logged by name alone: what it found stays recorded, or is found
+  // again, and the next pass tells what is owed.
+  let newChurchLimits: NewChurchLimitsOutcome | 'failed'
+  try {
+    newChurchLimits = await watchTheNewChurchLimits()
+  } catch (error) {
+    console.error(`Watching the new church limits failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    newChurchLimits = 'failed'
+  }
+
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries
   // a non-2xx, and retrying the whole run to recover one Ministry would re-drain
   // every other one -- the outcomes say what happened instead, per Ministry, where
@@ -218,6 +282,7 @@ export async function GET(request: NextRequest) {
     failed: ran.reduce((total, one) => total + one.failed, 0),
     awaitingANumber: ran.reduce((total, one) => total + one.awaitingANumber, 0),
     waitingOnTheCap: ran.reduce((total, one) => total + one.waitingOnTheCap, 0),
+    waitingOnTheNewChurchLimit: ran.reduce((total, one) => total + one.waitingOnTheNewChurchLimit, 0),
     closedWithoutAccess: ran.reduce((total, one) => total + one.closedWithoutAccess, 0),
     accessUnread,
     settled: {
@@ -229,8 +294,13 @@ export async function GET(request: NextRequest) {
     capacity,
     twilioBalance,
     stripeEvents,
+    referralCredits,
     over200,
     supportSubmissions,
+    askDisciplerChats,
+    paymentReminders,
+    trialEndings,
+    newChurchLimits,
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,
       error: one.error,

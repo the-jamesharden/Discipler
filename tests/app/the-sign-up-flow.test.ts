@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   carriedFrom,
+  carrying,
   countdown,
   digitsOfCode,
+  emailPageArrival,
   signUpHref,
   stepAfterCodeRefusal,
   stepAfterSendRefusal,
@@ -102,5 +104,71 @@ describe('a refusal that means another page', () => {
     ]) {
       expect(stepAfterCodeRefusal(refusal)).toBeNull()
     }
+  })
+})
+
+describe('what a tab carries (ticket 20)', () => {
+  it('carries the code, the referral and that the offer was claimed, always in one order', () => {
+    expect(carriedFrom({ claimed: '1', ref: 'abc', code: 'EXPO26', sent: '1', again: '1' })).toBe('code=EXPO26&ref=abc&claimed=1')
+  })
+
+  it('adds a typed code to what is already carried, and changes it where there is one', () => {
+    expect(carrying('ref=abc', 'code', 'EXPO26')).toBe('code=EXPO26&ref=abc')
+    expect(carrying('', 'code', 'EXPO26')).toBe('code=EXPO26')
+    expect(carrying('code=expo26', 'code', 'EXPO26')).toBe('code=EXPO26')
+    expect(carrying('code=EXPO26', 'claimed', '1')).toBe('code=EXPO26&claimed=1')
+  })
+
+  it('says the code page was reached from "Continue", which nothing else carries on', () => {
+    expect(signUpHref('code', 'code=EXPO26', { sent: true })).toBe('/signup/code?code=EXPO26&sent=1')
+    expect(signUpHref('code', '', { sent: true })).toBe('/signup/code?sent=1')
+    expect(signUpHref('code', 'code=EXPO26')).toBe('/signup/code?code=EXPO26')
+  })
+})
+
+describe('arriving on the email and phone page (ticket 20)', () => {
+  const OPEN = new Date('2026-11-10T18:00:00Z')
+  const ENDED = new Date('2026-12-12T08:00:00Z')
+  const nothing = { code: null, claimed: false, refIsLive: false, at: OPEN }
+
+  it('with nothing, shows nothing, and offers the box', () => {
+    expect(emailPageArrival(nothing)).toEqual({ offerScreen: false, invited: false, codeRefusal: null, canTypeACode: true })
+  })
+
+  it('with the code, opens the offer until it is claimed', () => {
+    expect(emailPageArrival({ ...nothing, code: 'expo26' })).toEqual({
+      offerScreen: true,
+      invited: false,
+      codeRefusal: null,
+      canTypeACode: false,
+    })
+    expect(emailPageArrival({ ...nothing, code: 'EXPO26', claimed: true }).offerScreen).toBe(false)
+  })
+
+  it('with the code and a referral, shows only the offer', () => {
+    expect(emailPageArrival({ ...nothing, code: 'EXPO26', refIsLive: true })).toMatchObject({ offerScreen: true, invited: false })
+  })
+
+  it('with an expired code, says so, opens nothing, and leaves a referral standing', () => {
+    expect(emailPageArrival({ ...nothing, code: 'EXPO26', at: ENDED })).toMatchObject({
+      offerScreen: false,
+      codeRefusal: 'offer.code_expired',
+    })
+    expect(emailPageArrival({ ...nothing, code: 'EXPO26', refIsLive: true, at: ENDED }).invited).toBe(true)
+  })
+
+  it('with a code nobody knows, says so and opens nothing', () => {
+    expect(emailPageArrival({ ...nothing, code: 'EXPO25' })).toMatchObject({
+      offerScreen: false,
+      codeRefusal: 'offer.code_unknown',
+    })
+  })
+
+  it('claimed means nothing without a code that applies', () => {
+    expect(emailPageArrival({ ...nothing, claimed: true })).toEqual(emailPageArrival(nothing))
+  })
+
+  it('with a live referral, shows the banner and offers the box', () => {
+    expect(emailPageArrival({ ...nothing, refIsLive: true })).toMatchObject({ invited: true, canTypeACode: true })
   })
 })

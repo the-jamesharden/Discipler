@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react'
 import type { SetupStep } from '~/domain/setup-meter'
+import { afterOnboardingCloses } from './overview/onboarding/hold'
 import { SETUP_TITLE, type SetupMeterView, type SetupStepView } from './setup-meter-copy'
 
 /**
@@ -155,33 +156,41 @@ const Badge = ({
   const seal = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    thanks.current?.focus()
-    if (played.has('badge')) return
-    played.add('badge')
+    // Nothing plays behind the onboarding modal, whose first opening is the same page.
+    // The stylesheet keeps the badge out of sight until then.
+    let timer = 0
+    const holding = afterOnboardingCloses(() => {
+      thanks.current?.focus()
+      if (played.has('badge')) return
+      played.add('badge')
 
-    // It plays once whichever way the Admin leaves it, so this is said as it plays
-    // and not on the button.
-    tellTheServer({ steps: steps.map(({ step }) => step).join(','), badge: 'yes' })
+      // It plays once whichever way the Admin leaves it, so this is said as it plays
+      // and not on the button.
+      tellTheServer({ steps: steps.map(({ step }) => step).join(','), badge: 'yes' })
 
-    if (stillPlease() || !canvas.current) return
-    const onCanvas = canvas.current
-    const timer = window.setTimeout(() => {
-      const box = seal.current?.getBoundingClientRect()
-      if (!box) return
-      burst(onCanvas, box.left + box.width / 2, box.top + box.height / 2, {
-        pieces: 140,
-        // Out in every direction from the seal.
-        launch: () => {
-          const angle = Math.random() * Math.PI * 2
-          const speed = 4 + Math.random() * 9
-          return { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 4 }
-        },
-        smallest: 4,
-        gravity: 0.22,
-        lasts: 2200,
-      })
-    }, OPENING_MS)
-    return () => window.clearTimeout(timer)
+      if (stillPlease() || !canvas.current) return
+      const onCanvas = canvas.current
+      timer = window.setTimeout(() => {
+        const box = seal.current?.getBoundingClientRect()
+        if (!box) return
+        burst(onCanvas, box.left + box.width / 2, box.top + box.height / 2, {
+          pieces: 140,
+          // Out in every direction from the seal.
+          launch: () => {
+            const angle = Math.random() * Math.PI * 2
+            const speed = 4 + Math.random() * 9
+            return { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 4 }
+          },
+          smallest: 4,
+          gravity: 0.22,
+          lasts: 2200,
+        })
+      }, OPENING_MS)
+    })
+    return () => {
+      holding()
+      window.clearTimeout(timer)
+    }
   }, [steps])
 
   return (
@@ -214,7 +223,6 @@ const Badge = ({
 
 export const SetupMeterBar = ({ view }: { readonly view: SetupMeterView }) => {
   const bar = useRef<HTMLElement>(null)
-  const list = useRef<HTMLOListElement>(null)
   const pointer = useRef('')
   const [open, setOpen] = useState(false)
   // Steps to draw unticked for now, because their tick is still to come.
@@ -226,15 +234,6 @@ export const SetupMeterBar = ({ view }: { readonly view: SetupMeterView }) => {
   const hasBadge = view.badge !== null
   const unseen = view.unseen.join(',')
 
-  /** Slides a phone's row of steps across to one of them. */
-  const showInRow = (step: SetupStep | null) => {
-    const row = list.current
-    const item = step ? row?.querySelector<HTMLElement>(`[data-step="${step}"]`) : null
-    if (row && item) row.scrollLeft = item.offsetLeft - row.offsetLeft - 8
-  }
-
-  useEffect(() => showInRow(view.next), [view.next])
-
   useEffect(() => {
     // The badge says all of it at once, with every step marked seen as it plays.
     if (hasBadge) return
@@ -242,51 +241,54 @@ export const SetupMeterBar = ({ view }: { readonly view: SetupMeterView }) => {
     const toPlay = view.unseen.filter((step) => !played.has(step))
     if (toPlay.length === 0) return
 
-    for (const step of toPlay) played.add(step)
-    tellTheServer({ steps: toPlay.join(',') })
+    let timers: readonly number[] = []
 
-    // With reduced motion asked for they are simply ticked, as the server drew them.
-    if (stillPlease()) return
+    // Not behind the onboarding modal, where the Admin would miss it and it would still
+    // be marked seen.
+    const holding = afterOnboardingCloses(() => {
+      for (const step of toPlay) played.add(step)
+      tellTheServer({ steps: toPlay.join(',') })
 
-    setWaiting(new Set(toPlay))
-    setOpen(true)
+      // With reduced motion asked for they are simply ticked, as the server drew them.
+      if (stillPlease()) return
 
-    const timers = toPlay.map((step, index) =>
-      window.setTimeout(() => {
-        setWaiting((still) => new Set([...still].filter((other) => other !== step)))
-        setPopping((now) => new Set([...now, step]))
-        showInRow(step)
+      setWaiting(new Set(toPlay))
+      setOpen(true)
 
-        const canvas = bar.current?.querySelector('canvas')
-        const box = bar.current?.querySelector(`[data-step="${step}"] .box`)?.getBoundingClientRect()
-        const host = canvas?.getBoundingClientRect()
-        if (canvas && box && host) {
-          burst(canvas, box.left - host.left + box.width / 2, box.top - host.top + box.height / 2, {
-            pieces: 60,
-            // Up and out of the checkbox.
-            launch: () => ({ vx: (Math.random() - 0.5) * 9, vy: -(3 + Math.random() * 7) }),
-            smallest: 3,
-            gravity: 0.28,
-            lasts: 1300,
-          })
-        }
-
+      const pops = toPlay.map((step, index) =>
         window.setTimeout(() => {
-          setPopping((now) => new Set([...now].filter((other) => other !== step)))
-        }, POP_MS)
-      }, OPENING_MS + index * BETWEEN_POPS_MS),
-    )
-    const fold = window.setTimeout(
-      () => {
-        setOpen(false)
-        showInRow(view.next)
-      },
-      OPENING_MS + toPlay.length * BETWEEN_POPS_MS + LINGER_MS,
-    )
+          setWaiting((still) => new Set([...still].filter((other) => other !== step)))
+          setPopping((now) => new Set([...now, step]))
+
+          const canvas = bar.current?.querySelector('canvas')
+          const box = bar.current?.querySelector(`[data-step="${step}"] .box`)?.getBoundingClientRect()
+          const host = canvas?.getBoundingClientRect()
+          if (canvas && box && host) {
+            burst(canvas, box.left - host.left + box.width / 2, box.top - host.top + box.height / 2, {
+              pieces: 60,
+              // Up and out of the checkbox.
+              launch: () => ({ vx: (Math.random() - 0.5) * 9, vy: -(3 + Math.random() * 7) }),
+              smallest: 3,
+              gravity: 0.28,
+              lasts: 1300,
+            })
+          }
+
+          window.setTimeout(() => {
+            setPopping((now) => new Set([...now].filter((other) => other !== step)))
+          }, POP_MS)
+        }, OPENING_MS + index * BETWEEN_POPS_MS),
+      )
+      const fold = window.setTimeout(
+        () => setOpen(false),
+        OPENING_MS + toPlay.length * BETWEEN_POPS_MS + LINGER_MS,
+      )
+      timers = [...pops, fold]
+    })
 
     return () => {
+      holding()
       for (const timer of timers) window.clearTimeout(timer)
-      window.clearTimeout(fold)
     }
     // `unseen` stands for the list, which is a new array on each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -344,7 +346,7 @@ export const SetupMeterBar = ({ view }: { readonly view: SetupMeterView }) => {
         </div>
         <div className="more">
           <div>
-            <ol className="steps" ref={list}>
+            <ol className="steps">
               {view.steps.map(({ step, words, done, action }) => {
                 const ticked = done && !waiting.has(step)
                 const classes = [

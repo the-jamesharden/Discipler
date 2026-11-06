@@ -34,6 +34,8 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   'twilio_balance_fall',
   // The churches support@ follows up for staying above the limit (Exponential launch, ticket 14).
   'over_200_follow_up',
+  // The limits a church hit in its first weeks, and whether support@ knows (Exponential launch, ticket 37).
+  'new_church_limit_hit',
   // Each Pacific day Twilio's daily limit was reached (Exponential launch, ticket 07).
   'daily_cap_hold',
   // The human check and the email code at sign-up (Exponential launch, ticket 11).
@@ -41,8 +43,19 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   'pending_signup_send',
   // The Stripe webhook's inbox (Exponential launch, ticket 03).
   'stripe_event',
+  // Which Admins were told a trial is ending (Exponential launch, ticket 33).
+  'trial_ending_email',
   // One first free month and one plant year per card or bank account (ticket 04).
   'payment_fingerprint_grant',
   // The support form, from somebody not signed in as an Admin (Exponential launch, ticket 25).
   'signed_out_support_submission',
+  // Which church invited which, which neither church may read (Exponential launch, ticket 20).
+  'referral',
+  // The credit one church earns from another's first real payment (Exponential launch, ticket 32).
+  'referral_credit',
+  // "Forgot your password?": the links and the caps on asking for one (Exponential launch, ticket 22).
+  'password_reset_link',
+  'password_reset_request',
+  // Each month the AI Gateway refused Ask Discipler for spending (Exponential launch, ticket 31).
+  'ask_discipler_spend_stop',
 ]

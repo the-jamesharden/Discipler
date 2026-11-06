@@ -17,15 +17,15 @@ import { factsOf, stripeClient } from './billing'
  * A list, against Stripe's usual advice, because the spec's list is a rule and a
  * Dashboard setting is one nobody reviews.
  */
-const ACCEPTED_PAYMENT_METHODS = ['card', 'link', 'us_bank_account'] as const
+export const ACCEPTED_PAYMENT_METHODS = ['card', 'link', 'us_bank_account'] as const
 
 /** By instant bank sign-in only, never by microdeposits (spec, Billing). */
-const instantBankSignIn = (): Stripe.SubscriptionCreateParams.PaymentSettings.PaymentMethodOptions.UsBankAccount => ({
+export const instantBankSignIn = (): Stripe.SubscriptionCreateParams.PaymentSettings.PaymentMethodOptions.UsBankAccount => ({
   verification_method: 'instant',
   financial_connections: { permissions: ['payment_method'] },
 })
 
-const priceIdOf = async (client: Stripe, cycle: BillingCycle): Promise<string> => {
+export const priceIdOf = async (client: Stripe, cycle: BillingCycle): Promise<string> => {
   const { lookupKey } = startingPrice(cycle)
   const { data } = await client.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 })
   const price = data[0]
@@ -36,8 +36,24 @@ const priceIdOf = async (client: Stripe, cycle: BillingCycle): Promise<string> =
 const expandedSetupIntent = (subscription: Stripe.Subscription): Stripe.SetupIntent | null =>
   typeof subscription.pending_setup_intent === 'object' ? subscription.pending_setup_intent : null
 
+type PhaseDiscount = Stripe.SubscriptionScheduleUpdateParams.Phase.Discount
+
 const fingerprintOf = (method: Stripe.PaymentMethod): string | null =>
   method.card?.fingerprint ?? method.us_bank_account?.fingerprint ?? null
+
+export const idOfExpandable = (value: string | { readonly id: string } | null | undefined): string | null =>
+  typeof value === 'string' ? value : (value?.id ?? null)
+
+/** A running phase's discounts, said again as an update has to say them. */
+export const discountsKept = (phase: Stripe.SubscriptionSchedule.Phase): Stripe.Emptyable<PhaseDiscount[]> => {
+  const kept = (phase.discounts ?? []).flatMap((held): PhaseDiscount[] => {
+    const coupon = idOfExpandable(held.coupon)
+    if (coupon) return [{ coupon }]
+    const discount = idOfExpandable(held.discount)
+    return discount ? [{ discount }] : []
+  })
+  return kept.length > 0 ? kept : ''
+}
 
 export const createStripeTrials = (client: () => Stripe = stripeClient): StripeTrials => ({
   async createCustomer({ church, churchName, email }) {
@@ -118,13 +134,58 @@ export const createStripeTrials = (client: () => Stripe = stripeClient): StripeT
     return { fingerprint: fingerprintOf(method) }
   },
 
+  async followCustomersDefault(customerId, subscriptionId) {
+    const stripe = client()
+    const [customer, subscription] = await Promise.all([
+      stripe.customers.retrieve(customerId),
+      stripe.subscriptions.retrieve(subscriptionId),
+    ])
+    if (customer.deleted) return false
+    const chosen = idOfExpandable(customer.invoice_settings?.default_payment_method)
+    const held = idOfExpandable(subscription.default_payment_method)
+    // Only a Subscription holding one of its own needs telling; the rest follow the customer.
+    if (!chosen || !held || chosen === held) return false
+
+    await stripe.subscriptions.update(subscriptionId, { default_payment_method: chosen })
+    // A schedule made from the Subscription copied its default into its own settings, and
+    // would put the old one back at its next phase.
+    const scheduleId = idOfExpandable(subscription.schedule)
+    if (scheduleId) {
+      await stripe.subscriptionSchedules.update(scheduleId, {
+        default_settings: { default_payment_method: chosen },
+      })
+    }
+    return true
+  },
+
+  async firstBillSetsCustomersDefault(customerId, subscriptionId, invoiceId) {
+    const stripe = client()
+    const invoice = await stripe.invoices.retrieve(invoiceId)
+    if (invoice.billing_reason !== 'subscription_create') return false
+    if (idOfExpandable(invoice.parent?.subscription_details?.subscription) !== subscriptionId) return false
+
+    const [customer, subscription] = await Promise.all([
+      stripe.customers.retrieve(customerId),
+      stripe.subscriptions.retrieve(subscriptionId),
+    ])
+    if (customer.deleted) return false
+    const held = idOfExpandable(subscription.default_payment_method)
+    // Read from the Subscription each time, so a retry after a change on Stripe's billing
+    // page, which the Subscription has by then followed, finds the two agreeing.
+    if (!held || held === idOfExpandable(customer.invoice_settings?.default_payment_method)) return false
+
+    await stripe.customers.update(customerId, { invoice_settings: { default_payment_method: held } })
+    return true
+  },
+
   async schedulePhases(subscriptionId, phases: readonly PaidPhase[]) {
     const stripe = client()
     const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
-    const price = subscription.items.data[0]?.price?.id
-    const trialEnd = subscription.trial_end
-    if (!price || !trialEnd) {
+    const item = subscription.items.data[0]
+    const price = item?.price?.id
+    const trialing = subscription.status === 'trialing'
+    if (!price || (trialing && !subscription.trial_end)) {
       throw new Error('Only a Subscription with a price and a trial can be given these phases')
     }
 
@@ -134,18 +195,41 @@ export const createStripeTrials = (client: () => Stripe = stripeClient): StripeT
         : (subscription.schedule?.id ??
           (await stripe.subscriptionSchedules.create({ from_subscription: subscriptionId })).id)
     const schedule = await stripe.subscriptionSchedules.retrieve(scheduleId)
-    const start = schedule.phases[0]?.start_date
-    if (!start) throw new Error('A schedule made from a Subscription has no first phase')
 
     const items = [{ price, quantity: 1 }]
+
+    // What is running now, as it is: every setting of the current phase has to be said
+    // again, or an update unsets it. Past phases are left out, as Stripe allows.
+    const running = (): Stripe.SubscriptionScheduleUpdateParams.Phase => {
+      if (trialing) {
+        const start = schedule.phases[0]?.start_date
+        if (!start) throw new Error('A schedule made from a Subscription has no first phase')
+        const trialEnd = subscription.trial_end!
+        return { items, start_date: start, end_date: trialEnd, trial_end: trialEnd }
+      }
+
+      // Past its free days, a bill may already be paid, and it stays paid (James,
+      // 2026-11-04): this stretch keeps its price and discount until the next bill, and
+      // what is asked for begins there. The period's end, and not the phase's, because a
+      // discounted phase can have months still to run.
+      const startedAt = schedule.current_phase?.start_date
+      const phase = schedule.phases.find(({ start_date }) => start_date === startedAt)
+      const nextBill = item?.current_period_end
+      if (!phase || !nextBill) throw new Error('This Subscription has no current phase to keep until its next bill')
+      return {
+        items,
+        start_date: phase.start_date,
+        end_date: nextBill,
+        discounts: discountsKept(phase),
+        proration_behavior: 'none',
+      }
+    }
 
     await stripe.subscriptionSchedules.update(scheduleId, {
       end_behavior: 'release',
       proration_behavior: 'none',
       phases: [
-        // The free days as they are: every setting of the current phase has to be said
-        // again, or an update unsets it.
-        { items, start_date: start, end_date: trialEnd, trial_end: trialEnd },
+        running(),
         ...phases.map(({ couponId, interval, intervals }) => ({
           items,
           duration: { interval, interval_count: intervals },

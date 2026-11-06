@@ -118,6 +118,7 @@ describe('the relationships page answers in one read', () => {
       person_id: riverside.adminPersonId,
       full_name: riverside.adminName,
       whats_new_dismissed: [],
+      ask_discipler_tucked: false,
     })
 
     const dashboard = section(doc, 'dashboard')

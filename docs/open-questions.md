@@ -488,11 +488,14 @@ Raised on 2026-10-31 by the Exponential launch, ticket 09.
 The mock-up drew only the card asking for the code, so the refusal sentences in `app/account/phone/copy.ts` are drafts.
 What needs deciding: whether to approve or reword them.
 
-## Open: how an Admin with a non-US phone gets a test check-in
+## Resolved: how an Admin with a non-US phone gets a test check-in
 
 Raised on 2026-10-31 by the Exponential launch, ticket 09.
 A non-US number is refused before Twilio is called, and the SAU BCM Admin's phone is Canadian, so that Admin cannot be checked or sent a test check-in.
-What needs deciding: whether that stands, or that one Admin needs another way.
+Ticket 28 made this bite: step 3 of the setup bar is the test check-in, so that church could reach 100% and its badge only if an Admin with a US phone sent one.
+James decided on 2026-11-05 that step 3 counts as done for an Admin whose own phone is outside the US (`setupMeterOf` in `src/domain/setup-meter.ts`), and their card says test check-ins can only text US numbers for now.
+An Admin with no phone on file is not counted, since adding one is something they can fix.
+The onboarding card's line for that Admin is a draft, listed under *sign-up's numbers and wording*.
 
 ## Open: Supabase Auth's own password settings on production
 
@@ -635,7 +638,174 @@ Raised on 2026-11-03 by the Exponential launch, ticket 11.
 The spec gives none of these, so the build chose: 5 emails per address and 30 per network each hour, a human check lasting 30 minutes, a proven address lasting 60, and one human pass per address.
 The two emails, `codeEmail` and `signUpAttemptNotice` in `src/domain/sign-up-attempt.ts`, and the refusal sentences in `app/signup/copy.ts` are drafts.
 A phone outside the US is refused at sign-up (`signup.phone_not_us`), so a Canadian Admin, like SAU BCM's, could not sign up.
+
+Added on 2026-11-04 by ticket 17, all drafts inside the approved "Set up your account" screen, in `app/signup/copy.ts`:
+
+- A phone or email with an account: "That phone number or email already has a Discipler account. Sign in, or start again with a different one."
+- A church name, a full name, a timezone, the monthly or yearly choice or the terms refused by the server, which the button normally prevents: "Please enter your church or organization's name.", "Please enter your full name.", "Please choose your timezone.", "Please choose monthly or yearly.", "Please agree to the Terms of Service and Privacy Policy."
+- Something failing that the person cannot fix: "We couldn't set up your account just now. Please try again in a minute."
+- The email to support@ when a church signs up, `tellSupport` in `src/service/opening-a-church.ts`, which nobody outside the team reads.
+- A password refused here uses the wording every other password form already uses.
+
+Added on 2026-11-04 by ticket 19, the emails for James to word and the sentences inside the approved screen:
+
+- The church-plant application to james@ and lerone@, `tellTheFounders` in `src/service/opening-a-church.ts`.
+  Subject: "Church plant application from {church}".
+  Body: "{church} applied for the church plant year when it signed up.", then the answers each on a line under the page's own labels, then "Login email: {address}", "Anything else they'd like us to know:" with their words quoted, then "Its ordinary trial starts either way. Approve or decline it with the church-plant command, using this ID:" and the ID.
+- Approval to the church, during its trial, in `src/service/church-plant-decisions.ts`.
+  Subject: "Your church plant application".
+  Body: "Good news: {church}'s church plant application is approved. Your free year of Discipler begins when your free trial ends. You won't be charged during it. When the free year ends, billing carries on as you chose when you signed up. If you have any questions, just reply to this email."
+- Approval to the church, after its trial, with the same subject.
+  Body: "Good news: {church}'s church plant application is approved. Your free year of Discipler begins at your next bill, on {date}. You won't be charged during it, and anything you've already paid stays as it is. When the free year ends, billing carries on as you chose when you signed up. If you have any questions, just reply to this email."
+- Decline to the church, sent only with `--email`, with the same subject.
+  Body: "Thank you for telling us about {church}. We aren't able to offer your church the free year for church plants. Your subscription carries on just as it is. If you have any questions, or something has changed, just reply to this email."
+- An answer refused by the server, which the button normally prevents: "Please enter your launch date, or planned launch date.", "Please enter your sending or partner church.", "Please enter your average weekly attendance.", "Please enter your lead pastor's name.", and, only for a hand-made request, "One of your church plant answers is too long. Please shorten it."
+
+Added on 2026-11-04 by ticket 28, inside the approved test check-in card, in `app/overview/test-check-in/copy.ts`, `app/overview/onboarding/copy.ts` and `app/check-ins/copy.ts`:
+
+- A phone that replied STOP: "This phone has opted out of texts from Discipler, so we can't send a test. Reply START to any of our texts, then try again. Thank you!"
+- An Admin whose latest decision about texts is no: "You've told us not to text this phone, so we can't send a test. If that's changed, please email support@trydiscipler.com and we'll help. Thank you!"
+- An Admin with no phone on their own Roster row: "There's no phone on your own Roster row, so we have nowhere to send a test. Please add one on the Roster, then try again. Thank you!"
+- A press from a screen that did not show the agreement, which the card normally prevents: "Please read the line above the button, then press it again. Thank you!"
+- After "Text me a new code": "We texted a new code."
+- A request that never came back: "Something went wrong, and we couldn't tell if that worked. Please try again in a minute. Thank you!"
+- The list on Check-Ins: its heading "Test check-ins", beside it "Admins trying it out. Nothing from a test is counted.", and on each row the Test tag with "Met, outstanding", "Met, good", "Met, okay", "Met, concern", "Met", "Didn't meet", "Waiting for a reply" or "No reply".
+- A church with no access to texting reads the sentence every other surface uses, `app/texting-gate-copy.ts`.
+- Added on 2026-11-05, the card of an Admin whose own phone is outside the US, in `app/overview/onboarding/copy.ts`: "Test check-ins can only text US numbers for now, so this step is done for you."
+
+Added on 2026-11-04 by ticket 21, two checks only production can answer, neither of them a sentence:
+
+- Email sign-in needs Supabase's email provider left on. If it is off on production, every email sign-in reads "That email or phone and password did not match.", with nothing logged.
+- Any account already on production that holds an email can now sign in with it, proven or not. Every account Discipler makes without sign-up holds none, so the count of `auth.users` with an email should be zero until sign-up opens.
+
+Added on 2026-11-04 by ticket 18, all drafts inside the approved payment and reminder screens, in `app/signup/payment/copy.ts`:
+
+- While the webhook is on its way: "Finishing setup...", then "This is taking longer than usual." and the link "Go to Overview".
+- A method that left the page and came back failed: "That didn't go through, and nothing was saved. Please try again."
+- A card or bank that said no shows Stripe's own sentence, and anything else that failed: "We couldn't save that just now. Please try again, or use another card or bank account."
+- The route's refusal with something to retry has the button "Try again".
+- The page behind "Don't send me reminders": the sentence "Press the button and we won't remind you about finishing your account.", the button "Don't send me reminders", and then "You won't get another reminder."
+- The reminder has an HTML part beside its plain text, because the approved screen has a Start button, and every other email is plain text only.
+
+Added on 2026-11-04 by ticket 20, drafts inside the approved email and phone page and the email to support@:
+
+- A code in the address that nobody recognizes says the sentence mock-up 6 draws for a typed one: "We don't recognize that code, but your free trial still applies."
+- The email to support@, `tellSupport` in `src/service/opening-a-church.ts`, says "Offer: The first paid month free, invited by another church" for a church that came through a live referral link.
+
+Added on 2026-11-04 by ticket 22, drafts inside the approved forgot-password pages, in `app/login/forgot/copy.ts` and `app/login/forgot/[token]/copy.ts`:
+
+- An entry that is not an address: "That doesn't look like an email address. Please check it and try again."
+- A human check that did not pass: "We couldn't confirm you're a real person. Please try again."
+- A browser running no script, since Cloudflare needs one: "This page needs JavaScript. Please turn it on, or write to support@trydiscipler.com and we'll help."
+- A password that could not be set, with the link still live: "We couldn't save your new password just now. Please try again in a minute."
+- A refused password uses the wording every other password form already uses.
+- The reset email has an HTML part beside its plain text, because the approved screen has a button, as the payment reminder does.
+
+Also from ticket 22, three things to check on production before anybody relies on it:
+
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`, or every press of "Send me the link" reads as not a real person.
+- `RESEND_API_KEY` and `RESEND_EMAIL_DOMAIN`, or the page says "Email sent." and the only sign that nothing went is `A reset email for link ... did not go` in the log.
+- The link shows on the sign-in page whether or not sign-up is open, so until sign-up opens it answers "Email sent." to everybody and sends nobody anything, because nobody's account holds an address yet.
+
+Added on 2026-11-04 by ticket 32, the Refer page's words being James's own:
+
+- The email to james@ and lerone@ about a credit Discipler will not apply by itself, `referralCreditForReview` in `src/service/support-alerts.ts`, which nobody outside the team reads.
+  Subject: "A referral credit is waiting for you".
+  It names both churches, both Stripe customers, the opaque referral ID, and one sentence of why.
+- A shared email domain sends a credit to review, except a public one such as `gmail.com` (James, 2026-11-04).
+
+Also from ticket 32, for the Stripe steps below: the restricted key needs Invoices and Charges read, on top of what ticket 04 lists, and Customers write has to cover customer balance transactions.
+Nothing here has reached real Stripe, so a credit on a test clock on staging is the check: a church invited, its first real payment, 30 days, then a "Referral credit" on the inviting customer's next invoice.
+Ticket 32's review sends James an email: he settles it in Stripe or on the church's invoice, then marks it done with `npm run referral-review -- settle <credit id> credited|not-credited`.
+
+Added on 2026-11-04 by ticket 33, choices the screens did not draw:
+
+- An approved church plant gets no trial-ending email, because it is not about to be charged.
+  The alternative is a differently worded email, which would need its words.
+- A church on a schedule, which is every church with an offer, cannot cancel on Stripe's billing page: "Customers can't update or cancel subscriptions that currently have an update scheduled with a subscription schedule."
+  So Cancel subscription asks on Billing itself.
+  The alternative is to release the schedule first, which loses the offers Keep my subscription has to put back.
+- Whether Link stays a payment method is still open.
+  The page is right either way: a Link payer sees the badge "LINK", the word "Link" and no details under it, and the Settings line names Link too.
+- A church whose free month was refused is told nothing on Billing, because the mock-up draws no such state.
+
+Also from ticket 33, drafts inside the approved Billing screens, in `app/settings/billing/copy.ts`:
+
+- The bank payer's line, new wording from the ticket: "To use a different bank account, email support@trydiscipler.com."
+- The question for a church on a schedule: "Cancel your subscription? It would end on {date}.", "Check-ins keep going until then. After that they stop, and everything stays here to read.", with "Yes, cancel my subscription" and "Never mind".
+- The line under its buttons, in place of "These open Stripe's secure billing page, then bring you back here.": "Update payment method opens Stripe's secure billing page, then brings you back here."
+- The offers: "Church plant year" with "Free for your first year, through {date}", and "First month free" with "Your first paid month is free, through {date}".
+- The next bill's note for those two: "Free for your church plant year, then {price}" and "{price}, less your first month free".
+- Added on 2026-11-05, the Settings line in a trial when the first yearly bill is not the yearly price: "Free trial until {date}, then {first bill} for your first year, then {price} a year · {payment method}".
+- An ended church: the row "Ended" with its date and "Check-ins have stopped. Everything is still here.", and Restart Discipler in the Payment method card.
+- A bill: "Year from {month and year}" for a yearly bill, and "Processing" for a bank debit still on its way.
+- A failed payment with no retry to come: "{amount}, not yet paid" and "Everything keeps running in the meantime."
+- No method on file: "No payment method on file".
+- Stripe not answering: "We couldn't load your plan from Stripe just now. Please try again in a moment." and "We couldn't open Stripe's billing page just now. Please try again in a moment."
+- No Subscription that began: "No subscription yet", "Finish setting up" and "No bills yet."
+
+Also from ticket 33, drafts inside the approved restart page:
+
+- While the webhook is on its way: "Restarting Discipler...", then "This is taking longer than usual." and the link "Go to Billing".
+- A payment that failed: "That didn't go through, and you weren't charged. Please try again." and "We couldn't charge that just now. Please try again, or use another card or bank account."
+- No Stripe: "We can't take a payment here just now. Please try again in a moment."
+- A referral credit: "Your referral credit takes {amount} off today.", and where it covers the whole bill, "Your referral credit covers today, so nothing is charged." with "You can change or cancel any time in Settings, Billing."
+- The hint above the Payment Element: "Use the card or bank account on file, or add another."
+
+Also from ticket 33, what only James can do in Stripe, and what only a sandbox can answer:
+
+- Add `customer.updated` and `subscription_schedule.updated` to the webhook endpoint, which now listens for fifteen events.
+- Rerun the catalog, which now creates the billing page's configuration.
+  Until then Update payment method says Stripe's billing page could not be opened.
+- Give the restricted key Customer Sessions, Customer Portal sessions and configurations, and read on Invoices and Payment Methods.
+- Nothing here has met real Stripe.
+  A sandbox has to answer: whether Stripe's page offers a bank in the update step, which its documents say it cannot add by hand; how a schedule cancels and previews; whether the Payment Element shows the method on file; a bank restart; a past-due retry after a new method; how a bank's name is capitalized; and whether the amount the page confirms matches the charge.
+
+Added on 2026-11-04 by ticket 27, the few words the onboarding mock-ups do not draw, in `app/overview/onboarding/copy.ts`, `app/overview/tour/copy.ts` and `app/help/setup-videos.ts`:
+
+- The welcome window for an account with no full name: "Welcome", rather than "Welcome, {first name}".
+- The button that plays the video, read by screen readers: "Play James's welcome video".
+- The video's row in Help's Setup videos: "A welcome from James".
+- The tour's browser tab: "The 2-minute tour".
+- The tour's close button, read by screen readers: "Close the tour".
+- The tour's phone keeps the real composed check-in, whose four choices run A to D, where the mock-up's phone drew three.
+
 What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
+
+Added on 2026-11-04 by ticket 37, drafts for the limits on a new church's first weeks:
+
+- An import past the limit, in `app/roster/copy.ts`: "A new church can have up to 300 people on its Roster for its first 30 days, and this import would go past that, so none of it was added. Email support@trydiscipler.com and we'll help you get everyone on."
+- The Help page, in `app/help/content/roster-and-intake.md`: "For its first 30 days, a new church can have up to 300 people on its Roster and send up to 1,500 texts a week. An import that would go past that is refused, and texts past it wait until there is room. If your church is larger, email the same address and we will lift both."
+- The email to support@, `newChurchLimitHit` in `src/service/support-alerts.ts`, which nobody outside the team reads.
+  Subject: "{church} hit a limit on a new church".
+  Body: "{church} ({id}) is in its first 30 days and reached 300 people on its Roster. An import that would go past that is refused, with a sentence asking them to email support@. Someone filling in its Intake form is still added.", or "reached 1,500 texts in seven days. Anything further stays on the queue until the week has room or the limit is lifted, and nothing is lost.", then how to lift it.
+
+Two more for ticket 37's limits, both choices rather than words:
+
+- Whether a person filling in a new church's Intake form past 300 should be refused as well.
+  The build adds them and tells support@, because refusing a congregant for their church's size is worse than a Roster at 301.
+- Whether a new church's texts held past 1,500 in a week should still go when the week opens at an odd local hour.
+  The build lets the backlog go as soon as there is room, and nothing checks the hour there.
+  Room returns at the hour last week's texts went, or when somebody lifts the limit, so it is usually daytime and not always.
+  The daily cap's hold waits for each church's morning, and this one could be made to, if James wants the same care for a limit few churches should reach.
+
+Added on 2026-11-04 by ticket 31, Ask Discipler, whose on-screen words are all James's from the mock-up.
+The drafts are the ones no screen shows:
+
+- The email to support@ when the guide stops, `askDisciplerSpendStopped` in `src/service/support-alerts.ts`.
+  Subject: "Ask Discipler has stopped answering".
+  Body: "Vercel's AI Gateway refused a question from Ask Discipler for spending in {month} (UTC): the project's monthly budget has been reached, or the team's AI Gateway credits have run out.", then "Until that changes, every Admin who asks is told "Sorry, I couldn't answer just now. Please try again in a minute." and the question does not count toward their day. Nothing else in Discipler is affected.", then "A budget resets on the first of the month, UTC. To start sooner, look at the budget and the credits under AI Gateway in Vercel.", then "This email is sent once a month."
+- Screen-reader labels, in `app/help/ask/copy.ts`, which nobody sees.
+- The instructions the model is given, in `app/help/ask/instructions.ts`, which no Admin reads but which shape every answer.
+
+Raised on 2026-11-04 by the review of wave 4.
+A church plant's lines on the Settings card are drafts: "then free for your church plant year" and "Free for your church plant year, then $97 a month".
+While sign-up is shut the Help center still lists Referrals, which describes a header button that is not drawn then.
+James decided the rest on 2026-11-05.
+The lines above stay as drafts, and Referrals stays in the Help center while sign-up is shut.
+An ended church's Leaders need nothing: their only write is `/account`, which stays open.
+The five em dashes in the preset form sentences in `src/domain/intake-form.ts` are gone; stored form versions keep theirs, because a version never changes.
+"Sign in" stays the plain button while it is the only one on `/login`, as the spec says.
 
 ## Open: the check-in words' refusals and `Messages read as`
 
@@ -711,11 +881,12 @@ The spec says continuing past page two records a consent for that phone.
 The attempt's row keeps only its latest send, so as built the moment the person agreed could be lost.
 James decided on 2026-11-03: the record stays at opening, ticket 17 carries the time the person agreed, and the spec is reworded.
 
-## Open: nothing links to sign-up yet
+## Resolved: nothing links to sign-up yet
 
 Raised on 2026-11-03 by the Exponential launch, ticket 15.
-The spec and mock-up 1 draw "Create an account" on the sign-in page, and no ticket builds it.
-What needs deciding: whether it joins ticket 17, and whether `ref` stays the parameter name for `/r/<code>`.
+The spec and mock-up 1 draw "Create an account" on the sign-in page, and no ticket built it.
+Settled in the triage of 2026-11-04: it joins ticket 21, which rebuilds that page, and `ref` stays the parameter name for `/r/<code>`.
+Built by ticket 21: the button shows only while `signUpIsOpen` says so.
 
 ## Open: the edges of a free month and an offer
 
@@ -733,7 +904,6 @@ Raised on 2026-11-03 by the Exponential launch, tickets 04, 14, 24 and 25.
 Nothing in wave 3 has reached real Stripe, so its tests prove only what a fake can.
 Ticket 04's "For James" holds the steps: the catalog, the restricted key's access, the webhook's `setup_intent.succeeded`, the publishable key, the payment methods, and the staging check before the rehearsal.
 Until the key and the catalog are in place the tick reports `over200` as `failed` or `no_prices` and no email goes, and ticket 14 asks for one check of its price lookup against real Stripe after the deploy.
-Ticket 24 asks for `npm run smoke:pages` on production after the migrations are pushed and before the merge, and stays `ready-for-human` until it passes.
 Ticket 25's form was never drawn in a mock-up.
 What is left: those steps, looking at the form, and approving the drafted words in `app/signup/payment/copy.ts`, `app/texting-gate-copy.ts` and `app/help/contact/copy.ts` and the `textingGateUnread` email.
 
@@ -759,15 +929,15 @@ What needs deciding: whether a public link is acceptable or the call needs a wai
 Raised on 2026-11-03 by the Exponential launch, ticket 24.
 Search lists an Ask Discipler entry that needs an address, and ticket 31 may build a circle with none.
 Results open over the page rather than hanging from the bar.
-What needs deciding: whether ticket 31 gives the circle an address or removes the entry, and whether results stay over the page.
+Ticket 31 built the circle with no address, so the entry in `app/search/pages.ts` stays undrawn: a row would need an address that opens the chat, and it would go nowhere on a deployment with the guide switched off.
+What needs deciding: whether search opens the chat, with a hash address and a little script, or the entry is removed, and whether results stay over the page.
 
 ## Resolved: the setup meter cannot reach 100% yet
 
 Raised on 2026-11-03 by the Exponential launch, ticket 26.
 Steps 2 and 3, the tour and the test check-in, wait for tickets 27 and 28, so every church stays below 100%, and a church with only those left has no "Next:" line, though the spec says "always showing".
 SAU BCM will read 5 of 7, and an Admin's first sign-in plays every finished step's confetti at once.
-James decided on 2026-11-03 that the bar waits for them: `SETUP_METER_ON` stays unset on production until 27 and 28 ship.
-Until then `getting-started.md`, `settings.md` and `test-check-in.md` in the help pages describe a bar that is not drawn.
+James decided on 2026-11-03 that the bar waits for them, and ticket 28 removed the switch when it shipped, so nothing needs setting on production.
 
 ## Open: Leaders on the support form
 

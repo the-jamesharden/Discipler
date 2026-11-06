@@ -52,6 +52,8 @@ export const HUMAN_CHECK_ACTIONS = {
   openChurch: 'signup_open',
   /** The support form, for somebody who is not signed in (ticket 25). */
   contactSupport: 'support_contact',
+  /** "Send me the link", for a forgotten password (ticket 22). */
+  forgotPassword: 'forgot_password',
 } as const
 
 export type HumanCheckAction = (typeof HUMAN_CHECK_ACTIONS)[keyof typeof HUMAN_CHECK_ACTIONS]
@@ -88,6 +90,12 @@ export interface PendingSignup {
   readonly humanPassedAt: Date
   readonly email: EmailAddress | null
   readonly phone: PhoneNumber | null
+  /**
+   * When "Continue" was pressed for this phone, which is the time of the Admin's
+   * consent. A resend keeps it, because the agreement was the press, and another phone
+   * moves it, because the agreement was for that number. Null exactly when `phone` is.
+   */
+  readonly agreedAt: Date | null
   /**
    * The current code, sealed. Null before a code, after one is used, and for an
    * address that already has an account: no code exists for that attempt, so none

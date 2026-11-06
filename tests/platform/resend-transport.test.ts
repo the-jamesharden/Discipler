@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   emailBody,
   EmailEnvelope,
+  EmailField,
+  emailHtml,
   emailSubject,
   openEnvelope,
   UnescapedEmailField,
@@ -60,8 +62,27 @@ describe('handing an email to Resend', () => {
       subject: 'Discipler can send email',
       text: 'If you can read this, SPF, DKIM and DMARC let it through.',
     })
-    // Plain text only: there is no HTML part for a field to be read into.
+    // No design was composed, so there is no HTML part for a field to be read into.
     expect(body).not.toHaveProperty('html')
+  })
+
+  it('sends an HTML part only beside the plain text, as the domain composed it', async () => {
+    const fetched = respondWith(200, { id: 'email-1' })
+    const church = EmailField.line('Grace & <b>Truth</b>')
+
+    await transport.deliver(
+      openEnvelope({
+        kind: 'deliverabilityCheck',
+        subject: emailSubject`A designed email`,
+        body: emailBody`For ${church}`,
+        html: emailHtml`<p>For ${church}</p>`,
+        once: 'check-2',
+      }),
+    )
+
+    const { body } = sent(fetched)
+    expect(body.text).toBe('For Grace & <b>Truth</b>')
+    expect(body.html).toBe('<p>For Grace &amp; &lt;b&gt;Truth&lt;/b&gt;</p>')
   })
 
   it('keys every message, so a retry within a day does not send it twice', async () => {

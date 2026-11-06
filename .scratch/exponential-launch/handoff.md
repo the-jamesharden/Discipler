@@ -82,7 +82,7 @@ What they left for a human is in `docs/open-questions.md`.
 
 Tickets 04, 05, 14, 15, 16, 24, 25, 26 and 30 were built on 2026-11-03 and merged into one branch, `launch/wave-3-2026-11-03`, and James's decisions on them are in the spec and `docs/open-questions.md`.
 Their nine migrations, dated 20261104, are not pushed; James says when, and they must be pushed before the merge.
-Eight are `shipped`, which reaches `main` only with the merge; 24 is `ready-for-human` until James runs `npm run smoke:pages` on production, after the migrations are pushed and before the merge.
+All nine are `shipped`: PR 39 merged on 2026-11-04 as ea4b8c6, after its nine migrations were pushed and the page check passed.
 Sign-up stays shut until `SIGN_UP_OPEN=true`, which waits for ticket 17, because until then the flow stops after the email is verified.
 From the deploy, the texting gate checks every text and the over-200 watch runs on the tick.
 What they left for a human is in `docs/open-questions.md`.
@@ -91,7 +91,11 @@ What they left for a human is in `docs/open-questions.md`.
 - `npm run stripe:catalog` creates the Stripe product, prices and coupons, once per account, staging's sandbox first.
 - Operator-only tables added: `over_200_follow_up`, `payment_fingerprint_grant`, `signed_out_support_submission`.
 
-Next: triage 17 to 22, rewrite 18 and 19, then build the next wave in the same way, one worktree per ticket merged into one launch branch cut from `origin/main`.
+Tickets 17 to 22 were triaged on 2026-11-04, and 18 and 19 rewritten for the mock-up 1 changes.
+James answered every question the same day, and mock-up 6 the same afternoon, so 20 and 22 are `ready-for-agent`.
+Each church's referral code and the `referral` table moved from ticket 32 to ticket 20.
+
+Next: James approves mock-up 6, then build in this order, one worktree per ticket merged into one launch branch cut from `origin/main`: 17 first; then 18, 19 and 21 side by side; then 20, because 19 and 20 both change the opening transaction; then 22 and 32.
 
 ## Blocked on James
 

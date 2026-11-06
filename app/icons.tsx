@@ -93,6 +93,30 @@ export const Cross = () => (
   </Line>
 )
 
+/** A gift with its bow, on the Refer page's own heading. */
+export const GiftOpen = () => (
+  <Line>
+    <rect x="3" y="8" width="18" height="4" rx="1" />
+    <path d="M12 8v13M19 12v9H5v-9" />
+    <path d="M7.5 8a2.5 2.5 0 010-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 010 5" />
+  </Line>
+)
+
+/** A tick, on Copy once it has copied. */
+export const Tick = () => (
+  <Line>
+    <path d="M5 12.5l4.5 4.5L19 7.5" />
+  </Line>
+)
+
+/** Two pages, on Copy. */
+export const CopyPages = () => (
+  <Line>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15V6a2 2 0 012-2h9" />
+  </Line>
+)
+
 /** A gift, on Refer a church. */
 export const Gift = () => (
   <Line>

@@ -19,10 +19,12 @@ const STANDING_REFUSAL = {
 /**
  * Sign-up's third page: the 6-digit code emailed to them, in one box (Exponential
  * launch, ticket 16; mock-up 1's `s3-code.html`). An address with an account gets a
- * notice and not a code, and this page reads the same for it (ticket 11).
+ * notice and not a code, and this page reads the same for it (ticket 11). Arriving from
+ * the email page's "Continue" opens the popup in mock-up 6's `c2-code-sent.html`.
  */
 export default async function CodePage({ searchParams }: { searchParams: SearchParams }) {
-  const carried = carriedFrom(await searchParams)
+  const params = await searchParams
+  const carried = carriedFrom(params)
   const standing = await standingOnPage('code', carried)
   const refusal = STANDING_REFUSAL[standing.code]
 
@@ -38,6 +40,7 @@ export default async function CodePage({ searchParams }: { searchParams: SearchP
         email={standing.email}
         resendInSeconds={standing.resendInSeconds}
         refusedOnArrival={refusal ? signUpRefusalMessage(refusal) : null}
+        justSent={params.sent !== undefined}
         carried={carried}
       />
       <p className="card-note">{CODE_PAGE.cantFindIt}</p>

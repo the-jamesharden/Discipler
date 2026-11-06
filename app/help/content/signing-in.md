@@ -9,7 +9,7 @@ You stay signed in on your own devices for a long time, so you won't often need 
 
 ## Forgot your password?
 
-If you signed up with an email, press **Forgot password?** on the sign-in page.
+If you signed up with an email, press **Forgot your password?** on the sign-in page.
 We email you a link to choose a new password, and it works for {{passwordResetLink}}.
 
 A Discipler who forgets theirs asks an Admin, who resets it from that person's page on the Roster.

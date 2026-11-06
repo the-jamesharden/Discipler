@@ -2,8 +2,10 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import type { SignedInAdmin } from '~/service/ports'
 import { CHANGE_YOUR_PASSWORD, SIGN_OUT } from './account/copy'
+import { BillingBanner, isReadOnly } from './billing-banner'
 import { BotanicalFrame } from './botanical'
 import { ADMIN_TABS, type AdminTab } from './admin-tabs'
+import { AskDiscipler } from './ask-discipler'
 import { ArrowLeft } from './icons'
 import { SearchBar } from './search/search'
 import { SetupMeter } from './setup-meter'
@@ -131,6 +133,8 @@ export const AdminShell = ({
   title,
   subtitle,
   followUpCount,
+  readOnly = isReadOnly(admin),
+  saysItsOwnBilling = false,
   children,
 }: {
   readonly admin: SignedInAdmin
@@ -138,6 +142,10 @@ export const AdminShell = ({
   readonly title?: string
   readonly subtitle?: string
   readonly followUpCount: number
+  /** Whether its controls are drawn off. Billing is how a church comes back, so it says no. */
+  readonly readOnly?: boolean
+  /** Whether the page says the banner's sentence itself, as Billing does for a failed payment. */
+  readonly saysItsOwnBilling?: boolean
   readonly children: ReactNode
 }) => {
   const badge = followUpCount
@@ -159,9 +167,14 @@ export const AdminShell = ({
 
       <TabBar current={current} followUpCount={badge} />
 
-      <SetupMeter admin={admin} />
+      {saysItsOwnBilling ? null : <BillingBanner admin={admin} />}
 
-      <main>{children}</main>
+      {/* Drawn without it, as the mock-up has an ended church: there is nothing to set up. */}
+      {isReadOnly(admin) ? null : <SetupMeter admin={admin} />}
+
+      <main className={readOnly ? 'read-only' : undefined}>{children}</main>
+
+      <AskDiscipler admin={admin} />
     </div>
   )
 }
@@ -200,6 +213,7 @@ export const PageShell = ({
   back,
   actions,
   admin,
+  banners,
   wide = false,
   children,
 }: {
@@ -209,6 +223,8 @@ export const PageShell = ({
   readonly actions?: ReactNode
   /** The Admin, on an Admin's page, for the setup meter under the header. A Leader's has none. */
   readonly admin?: SignedInAdmin
+  /** The Admin, on a page that carries the billing banners and not the setup meter. */
+  readonly banners?: SignedInAdmin
   /** The Leader Dashboard's two-column layout needs the whole width. */
   readonly wide?: boolean
   readonly children: ReactNode
@@ -224,8 +240,10 @@ export const PageShell = ({
         {actions}
       </div>
     </header>
-    {admin ? <SetupMeter admin={admin} /> : null}
-    <main>{children}</main>
+    {admin ?? banners ? <BillingBanner admin={(admin ?? banners)!} /> : null}
+    {admin && !isReadOnly(admin) ? <SetupMeter admin={admin} /> : null}
+    <main className={isReadOnly(admin) ? 'read-only' : undefined}>{children}</main>
+    {admin ? <AskDiscipler admin={admin} /> : null}
   </div>
 )
 

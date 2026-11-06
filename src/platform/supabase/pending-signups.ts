@@ -32,6 +32,7 @@ interface PendingSignupRow {
   human_passed_at: Date
   email: string | null
   phone: string | null
+  agreed_at: Date | null
   code_digest: string | null
   code_sent_at: Date | null
   code_tries: number
@@ -39,7 +40,7 @@ interface PendingSignupRow {
   spent_at: Date | null
 }
 
-const COLUMNS = `id, human_passed_at, email, phone, code_digest, code_sent_at, code_tries, verified_at, spent_at`
+const COLUMNS = `id, human_passed_at, email, phone, agreed_at, code_digest, code_sent_at, code_tries, verified_at, spent_at`
 
 const pendingFrom = (row: PendingSignupRow | undefined): PendingSignup | null =>
   row
@@ -48,6 +49,7 @@ const pendingFrom = (row: PendingSignupRow | undefined): PendingSignup | null =>
         humanPassedAt: row.human_passed_at,
         email: row.email as EmailAddress | null,
         phone: row.phone as PhoneNumber | null,
+        agreedAt: row.agreed_at,
         codeDigest: row.code_digest,
         codeSentAt: row.code_sent_at,
         codeTries: row.code_tries,
@@ -66,6 +68,8 @@ const KEPT_FOR_MS = PENDING_SIGNUP_KEPT_HOURS * 60 * 60 * 1000
 /** Two classes, so an address and a network can never be the same lock. */
 const EMAIL_LOCKS = 7_313_101
 const NETWORK_LOCKS = 7_313_102
+/** One attempt's opening, a third class, so it can never be mistaken for those. */
+const OPENING_LOCKS = 7_313_103
 
 export const createPostgresPendingSignups = (connectionString: string): PostgresPendingSignups => {
   const pool = new pg.Pool({ connectionString })
@@ -159,8 +163,11 @@ export const createPostgresPendingSignups = (connectionString: string): Postgres
 
           async issue({ phone, codeDigest, at }) {
             const { rows } = await client.query<{ code_sends: number }>(
+              // `agreed_at` moves only with the phone: a resend is not a second
+              // agreement, and the agreement to another number is a new one.
               `update pending_signup
                   set email = $2, phone = $3, code_digest = $4, code_sent_at = $5,
+                      agreed_at = case when phone is distinct from $3 then $5 else agreed_at end,
                       code_tries = 0, code_sends = code_sends + 1
                 where attempt_digest = $1
                 returning code_sends`,
@@ -207,6 +214,31 @@ export const createPostgresPendingSignups = (connectionString: string): Postgres
         `update pending_signup set code_digest = null, code_sent_at = null where attempt_digest = $1`,
         [attemptDigest(attempt)],
       )
+    },
+
+    async opening(attempt, work) {
+      // A connection of its own and never one of the pool's, because `work` reads the
+      // pool: a burst of openings each holding a pooled connection could otherwise sit
+      // waiting for one another's. A transaction's lock rather than a session's,
+      // because a pooled database connection is only this one's while a transaction is
+      // open. Advisory rather than the row's, because the row's lock would block the
+      // opening's own `spendPendingSignup`.
+      const client = new pg.Client({ connectionString })
+      // The lock is all this connection is for, and losing it ends the wait and nothing
+      // else. `pg` throws an unlistened error event, which would take the process down.
+      client.on('error', () => undefined)
+      await client.connect()
+      try {
+        await client.query('begin')
+        await client.query('select pg_advisory_xact_lock($1, hashtext($2))', [
+          OPENING_LOCKS,
+          attemptDigest(attempt),
+        ])
+        return await work()
+      } finally {
+        // Ending the connection ends its transaction, which lets the lock go.
+        await client.end().catch(() => undefined)
+      }
     },
 
     async close() {

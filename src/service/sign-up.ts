@@ -118,12 +118,14 @@ export interface ProvenSignUp {
   readonly pendingSignupId: string
   readonly email: EmailAddress
   readonly phone: PhoneNumber
+  /** When "Continue" was pressed for this phone: the time of the consent. */
+  readonly agreedAt: Date
 }
 
 export interface SignUp {
   /** Page one: spends a Turnstile token, and starts an attempt if it passes. */
   passHumanCheck(humanToken: string): Promise<HumanCheckPassing>
-  /** Page two's "Email me a code", with what was typed. */
+  /** Page two's "Continue", with what was typed. */
   sendCode(request: {
     readonly attempt: string | null | undefined
     readonly email: string
@@ -142,6 +144,8 @@ export interface SignUp {
   }): Promise<CodeConfirming>
   /** Which page this visitor belongs on, and what it needs to show. */
   standing(attempt: string | null | undefined): Promise<SignUpStanding>
+  /** Whether this attempt has opened its church, which `standing` reads as no attempt at all. */
+  attemptIsSpent(attempt: string | null | undefined): Promise<boolean>
   /**
    * For ticket 17, before it opens a church: the proven address and the phone, after
    * a second Turnstile token from "Set up your account" has passed. The token is not
@@ -319,6 +323,12 @@ export const createSignUp = ({
       return standingOf(token && (await signUps.read(token)), clock.now())
     },
 
+    async attemptIsSpent(attempt) {
+      const token = readAttemptToken(attempt)
+      const pending = token && (await signUps.read(token))
+      return Boolean(pending && pending.spentAt)
+    },
+
     async readyToOpen({ attempt, humanToken }) {
       const token = readAttemptToken(attempt)
       const pending = token && (await signUps.read(token))
@@ -328,7 +338,14 @@ export const createSignUp = ({
       if (!(await humanCheck.verify(humanToken, HUMAN_CHECK_ACTIONS.openChurch))) {
         return { refusal: 'signup.not_human' }
       }
-      return { ready: { pendingSignupId: pending.id, email: standing.email, phone: standing.phone } }
+      return {
+        ready: {
+          pendingSignupId: pending.id,
+          email: standing.email,
+          phone: standing.phone,
+          agreedAt: pending.agreedAt!,
+        },
+      }
     },
   }
 }

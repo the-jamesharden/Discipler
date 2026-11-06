@@ -12,6 +12,10 @@
  * the compiler refuses it, and so does the tag at run time for anything cast past
  * the compiler.
  *
+ * An email whose approved design has a button may also carry an HTML part, made by
+ * `emailHtml`, which is the same rule with one more escape: a field's value reaches
+ * the markup only as text. Its plain text goes with it, always.
+ *
  * **No email Discipler composes carries congregation data**: no name from the Roster,
  * no phone number, no Concern and no referred church's name. Resend keeps what it
  * sends, and an inbox is read by whoever can read it. The types refuse the congregation
@@ -20,7 +24,9 @@
  * is a plain string everywhere in the domain, so nothing can tell a congregant's name
  * from a church's: an email says "something needs your attention" and links into
  * the signed-in app, and never names who. What somebody typed into the support form is
- * theirs and not composed, so a name in it can reach support@ (`./support-form`).
+ * theirs and not composed, so a name in it can reach support@ (`./support-form`). A
+ * church-plant application's answers are the same kind of thing, the applicant's own words
+ * about their own church, and reach only the founders (ticket 19).
  */
 import type { Branded } from './branded'
 import type { ConcernId, PersonId } from './ids'
@@ -149,7 +155,7 @@ export class EmailField {
   }
 
   /**
-   * A link into Discipler: a reset link, Checkout's "Start", "Open Billing". Only
+   * A link into Discipler: a reset link, the payment reminder's "Start", "Open Billing". Only
    * to `trydiscipler.com` or a subdomain of it over https, or to a developer's own
    * machine, and never with a sign-in in the address, so no email can send
    * anybody somewhere that only looks like Discipler. Taken as a `URL`, which has
@@ -263,11 +269,64 @@ export class EmailBody {
     return new EmailBody(interleave(strings, fieldsIn(fields)))
   }
 
+  /** Bodies one after another, for a part only some emails have. Each was composed. */
+  static joined(...parts: readonly EmailBody[]): EmailBody {
+    return new EmailBody(parts.map((part) => part.text).join(''))
+  }
+
   get text(): string {
     return this.#text
   }
 
   static isBody(value: unknown): value is EmailBody {
+    return typeof value === 'object' && value !== null && #text in value
+  }
+}
+
+/** The characters that could end a text node or an attribute. */
+const HTML_ESCAPES: Readonly<Record<string, string>> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+}
+
+const escapedForHtml = (text: string): string => text.replace(/[&<>"']/g, (one) => HTML_ESCAPES[one]!)
+
+/** An HTML part composed by `emailHtml`, and nothing else. */
+export class EmailHtml {
+  readonly #text: string
+
+  private constructor(text: string) {
+    this.#text = text
+  }
+
+  /** @internal Only `emailHtml` calls this. */
+  static compose(strings: TemplateStringsArray, fields: readonly unknown[]): EmailHtml {
+    const escaped = fieldsIn(fields)
+    // Quoted lines say who wrote them with `> `, which markup would not keep.
+    if (escaped.some(EmailField.isMultiline)) {
+      throw new UnescapedEmailField('A quoted field cannot go in an HTML part.')
+    }
+    return new EmailHtml(
+      strings.reduce((text, literal, index) => {
+        const field = escaped[index]
+        return text + literal + (field ? escapedForHtml(field.text) : '')
+      }, ''),
+    )
+  }
+
+  /** Parts one after another, for a part only some emails have. Each was composed. */
+  static joined(...parts: readonly EmailHtml[]): EmailHtml {
+    return new EmailHtml(parts.map((part) => part.text).join(''))
+  }
+
+  get text(): string {
+    return this.#text
+  }
+
+  static isHtml(value: unknown): value is EmailHtml {
     return typeof value === 'object' && value !== null && #text in value
   }
 }
@@ -288,6 +347,16 @@ export const emailBody = (
   strings: TemplateStringsArray,
   ...fields: readonly EmailField[]
 ): EmailBody => EmailBody.compose(strings, fields)
+
+/**
+ * An email's HTML part, from Discipler's own markup and escaped fields only, where a
+ * field's value is text whichever place it lands in. For an email with an approved
+ * design; every other email has none.
+ */
+export const emailHtml = (
+  strings: TemplateStringsArray,
+  ...fields: readonly EmailField[]
+): EmailHtml => EmailHtml.compose(strings, fields)
 
 /** Thrown for an email that cannot go where it says, or cannot be keyed. */
 export class EmailRefused extends Error {
@@ -342,19 +411,25 @@ export const EMAIL_KINDS = {
   twilioSpendPassed: 'support',
   /** A church on $97 stayed above 200 people for a whole month (ticket 14). */
   over200FollowUp: 'support',
+  /** A church hit a limit on its first weeks (ticket 37). */
+  newChurchLimitHit: 'support',
   /** A Stripe event named a church other than its customer's, or a customer of no church (ticket 03). */
   billingEventRefused: 'support',
   /** The texting gate could not read a church's access, and texts went on unchecked (ticket 05). */
   textingGateUnread: 'support',
+  /** The AI Gateway refused Ask Discipler for spending, once a month (ticket 31). */
+  askDisciplerSpendStopped: 'support',
   /** A church-plant application, with no approve link in it (ticket 19). */
   churchPlantApplication: 'founders',
+  /** A referral credit Discipler will not apply by itself, for James to settle (ticket 32). */
+  referralCreditReview: 'founders',
   /** Sign-up's 6-digit code, and the notice sent instead when the address has an account (ticket 11). */
   emailCode: 'admin',
   signUpAttemptNotice: 'admin',
   /** The one-time reset link (ticket 22). */
   passwordReset: 'admin',
-  /** The next-day reminder to finish Checkout (ticket 18). */
-  checkoutReminder: 'admin',
+  /** The one reminder to finish the payment step (ticket 18). */
+  paymentReminder: 'admin',
   /** Seven days before a trial ends (ticket 33). */
   trialEnding: 'admin',
   /** A church-plant application approved or declined (ticket 19). */
@@ -400,6 +475,8 @@ export type Email<K extends EmailKind = EmailKind> = K extends EmailKind
       readonly kind: K
       readonly subject: EmailSubject
       readonly body: EmailBody
+      /** The approved design, where there is one. `body` still goes with it. */
+      readonly html?: EmailHtml
       readonly once: string
     } & AddressedTo<K>
   : never
@@ -420,6 +497,7 @@ export class EmailEnvelope {
     readonly subject: string,
     readonly text: string,
     readonly idempotencyKey: string,
+    readonly html: string | null,
   ) {}
 
   /** @internal Only `openEnvelope` calls this. */
@@ -434,6 +512,9 @@ export class EmailEnvelope {
     }
     if (!EmailBody.isBody(email.body)) {
       throw new UnescapedEmailField('An email body was not composed with emailBody.')
+    }
+    if (email.html !== undefined && !EmailHtml.isHtml(email.html)) {
+      throw new UnescapedEmailField('An email HTML part was not composed with emailHtml.')
     }
 
     const once = String(email.once)
@@ -451,6 +532,7 @@ export class EmailEnvelope {
       email.subject.text,
       email.body.text,
       idempotencyKey,
+      email.html?.text ?? null,
     )
   }
 

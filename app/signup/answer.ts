@@ -43,7 +43,7 @@ export const refused = (refusal: Answerable, extra: { triesLeft?: number; resend
 export const whileSignUpIsShut = (): NextResponse | null =>
   signUpIsOpen(process.env) ? null : new NextResponse(null, { status: 404 })
 
-/** What "Email me a code" and "Send a new code" both answer. */
+/** What the email page's "Continue" and "Send a new code" both answer. */
 export const answerSending = (outcome: CodeSending) => {
   if ('sent' in outcome) {
     return NextResponse.json({ sent: true, email: outcome.sent, resendInSeconds: outcome.resendInSeconds })

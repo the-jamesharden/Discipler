@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { handleCommand } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
+import { NewChurchRosterLimitReached } from '~/domain/errors'
 import { createSequentialIds, intendedPairingId, ministryId, personId, type PersonId } from '~/domain/ids'
 import { phoneNumber, rosterKey, type PhoneNumber } from '~/domain/roster'
 import type { ImportMode } from '~/domain/roster-csv'
@@ -339,6 +340,51 @@ describe('importing who disciples whom', () => {
     expect(peopleIn(result)).toHaveLength(1)
     expect(plansIn(result)).toEqual([])
     expect(result.rejections).toEqual([{ line: 2, problem: 'pairing_already_planned' }])
+  })
+
+  describe('a new church’s limit on its Roster', () => {
+    const withRoom = (rosterRoom: number | null, csv: string, alreadyOnRoster: { fullName: string; phone: string }[] = []) =>
+      handleCommand(
+        { type: 'person.import', ministryId: ministry, mode: 'people_only', text: csv },
+        {
+          ministryId: ministry,
+          clock: createTestClock(at),
+          ids: createSequentialIds(),
+          openPlans: [],
+          rosterRoom,
+          roster: {
+            people: new Map(
+              alreadyOnRoster.map(({ fullName, phone }, index) => [
+                rosterKey({ fullName, phone: phoneNumber(phone) }),
+                personId(`00000000-0000-4000-9000-${String(index + 1).padStart(12, '0')}`),
+              ]),
+            ),
+            namesByNumber: new Map(
+              alreadyOnRoster.map(({ fullName, phone }) => [phoneNumber(phone), [fullName]]),
+            ),
+            whoCompletedIntake: new Set<PersonId>(),
+            removed: new Set<PersonId>(),
+          },
+        },
+      )
+
+    const two = file('Name,Phone', 'Ada Rowe,7065550101', 'Ben Okafor,7065550102')
+
+    it('refuses the whole of an import with more new people than room', () => {
+      expect(() => withRoom(1, two)).toThrow(NewChurchRosterLimitReached)
+    })
+
+    it('takes an import that exactly fills it', () => {
+      expect(() => withRoom(2, two)).not.toThrow()
+    })
+
+    it('does not count somebody already on the Roster', () => {
+      expect(() => withRoom(1, two, [{ fullName: 'Ada Rowe', phone: '+17065550101' }])).not.toThrow()
+    })
+
+    it('holds a church it does not apply to to nothing', () => {
+      expect(() => withRoom(null, two)).not.toThrow()
+    })
   })
 
   it('refuses to run without the plans, as it refuses to run without the Roster', () => {

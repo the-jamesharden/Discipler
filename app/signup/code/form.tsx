@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { CODE_PAGE, newCodeSent } from '../copy'
 import { countdown, digitsOfCode, signUpHref, stepAfterCodeRefusal, type NextStep } from '../flow'
 import { postToSignUp } from '../post'
@@ -10,17 +10,24 @@ import { postToSignUp } from '../post'
  * form body and nowhere else, never the address. The server is what counts the wait
  * and the tries; this only shows them, and a page that disagrees is told so by the
  * route's answer.
+ *
+ * The "Login code sent" popup opens once, on arrival from the email page's "Continue"
+ * (ticket 20). The address says so, and is put back at once, so a reload does not open it.
+ * "Send a new code" has its own sentence.
  */
 export const CodeForm = ({
   email,
   resendInSeconds,
   refusedOnArrival,
+  justSent,
   carried,
 }: {
   readonly email: string
   readonly resendInSeconds: number
   /** A reload after the code expired or its tries ran out. */
   readonly refusedOnArrival: string | null
+  /** They have just pressed "Continue" on the page before. */
+  readonly justSent: boolean
   readonly carried: string
 }) => {
   const [code, setCode] = useState('')
@@ -29,6 +36,27 @@ export const CodeForm = ({
   const [notice, setNotice] = useState<string | null>(null)
   const [wait, setWait] = useState(resendInSeconds)
   const waitEndsAt = useRef<number | null>(null)
+  const [popupOpen, setPopupOpen] = useState(justSent)
+  const codeBox = useRef<HTMLInputElement>(null)
+  const ok = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!justSent) return
+    ok.current?.focus()
+    window.history.replaceState(null, '', signUpHref('code', carried))
+  }, [justSent, carried])
+
+  const closePopup = () => {
+    setPopupOpen(false)
+    // In the press itself, because a phone only opens its keyboard for one.
+    codeBox.current?.focus()
+  }
+
+  const onPopupKey = (event: KeyboardEvent) => {
+    // Its one button is the only thing to reach, so the keyboard stays on it.
+    if (event.key === 'Tab') event.preventDefault()
+    if (event.key === 'Escape') closePopup()
+  }
 
   const waitFor = (seconds: number) => {
     waitEndsAt.current = Date.now() + seconds * 1000
@@ -103,7 +131,8 @@ export const CodeForm = ({
             className="code-input"
             inputMode="numeric"
             autoComplete="one-time-code"
-            autoFocus
+            ref={codeBox}
+            autoFocus={!justSent}
             value={code}
             onChange={(event) => setCode(digitsOfCode(event.target.value))}
             aria-invalid={refused ? true : undefined}
@@ -136,6 +165,33 @@ export const CodeForm = ({
           </button>
         )}
       </div>
+      {popupOpen ? (
+        <div
+          className="modal-bg open sent-popup"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sent-title"
+          onKeyDown={onPopupKey}
+        >
+          <div className="modal pair">
+            <div className="modal-head">
+              <h2 className="card-title" id="sent-title">
+                {CODE_PAGE.sentTitle}
+              </h2>
+            </div>
+            <p className="sent-popup-line">
+              {CODE_PAGE.sentPopupBefore}
+              <strong>{email}</strong>
+              {CODE_PAGE.sentPopupAfter}
+            </p>
+            <div className="modal-actions">
+              <button ref={ok} type="button" className="sent-ok" onClick={closePopup}>
+                {CODE_PAGE.sentOk}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }

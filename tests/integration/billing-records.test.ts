@@ -107,10 +107,13 @@ describe('Billing records and the Stripe webhook', () => {
       async twilioSpendPassed() {},
       async dailyCapReached() {},
       async over200FollowUp() {},
+      async newChurchLimitHit() {},
       async billingEventRefused(alert) {
         told.push(alert)
       },
       async textingGateUnread() {},
+      async referralCreditForReview() {},
+      async askDisciplerSpendStopped() {},
     }
     work = {
       inbox: billing.inbox,
@@ -120,6 +123,7 @@ describe('Billing records and the Stripe webhook', () => {
       trials: {} as StripeTrials,
       alerts,
       clock,
+      creditOnEvent: async () => undefined,
     }
 
     // A church of its own per test: a customer can be stored once and history can

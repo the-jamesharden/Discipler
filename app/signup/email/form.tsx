@@ -13,9 +13,12 @@ const fieldOf = (refusal: string | null): 'email' | 'phone' | 'form' => {
 }
 
 /**
- * "Email me a code" (Exponential launch, ticket 15). Refusals are the route's own
- * sentences, in place of the browser's validation bubbles, so the page speaks in one
- * voice; a refusal costs nothing and counts against nothing.
+ * "Continue" (Exponential launch, ticket 15; renamed in mock-up 6). Refusals are the
+ * route's own sentences, in place of the browser's validation bubbles, so the page speaks
+ * in one voice; a refusal costs nothing and counts against nothing.
+ *
+ * Going to the code page says `sent`, which is what opens its popup. A code already on
+ * its way from the first of a double click was announced by that click.
  */
 export const EmailAndPhoneForm = ({
   triedEmail,
@@ -38,7 +41,7 @@ export const EmailAndPhoneForm = ({
 
     const answer = await postToSignUp('/signup/send-code', { email, phone })
     if (answer.ok) {
-      window.location.assign(signUpHref('code', carried))
+      window.location.assign(signUpHref('code', carried, { sent: true }))
       return
     }
     const next = stepAfterSendRefusal(answer.refusal)

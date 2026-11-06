@@ -2,6 +2,7 @@ import type { UpcomingOfficeHours } from '~/domain/office-hours'
 import { CONTACT_SUPPORT, CONTACT_SUPPORT_PAGE } from './help/contact/copy'
 import { HELP_CENTER } from './help/copy'
 import { SETUP_VIDEOS } from './help/setup-videos'
+import { RESTART_ONBOARDING } from './overview/onboarding/addresses'
 
 /**
  * What the top nav offers beside the Admin's own menu (`.scratch/exponential-launch/spec.md`,
@@ -51,7 +52,7 @@ export const HELP_MENU: readonly HelpMenuGroup[] = [
     label: 'Help and feedback',
     items: [
       { label: HELP_CENTER, icon: 'book', href: '/help' },
-      { label: 'Restart onboarding', icon: 'restart', href: null }, // Ticket 27.
+      { label: 'Restart onboarding', icon: 'restart', href: RESTART_ONBOARDING },
       // `helpMenuFor` keeps the tag only while this Admin has an undismissed entry.
       { label: WHATS_NEW_LABEL, icon: 'megaphone', href: '/help/whats-new', tag: 'New' },
       // `helpMenuFor` gives it its address while there is a next call to go to.
@@ -95,10 +96,10 @@ export const helpMenuFor = ({
     }),
   }))
 
-/** The header's button with a gift on it. Ticket 32 builds the page it opens. */
+/** The header's button with a gift on it (ticket 32). */
 export const REFER_A_CHURCH: { readonly label: string; readonly href: string | null } = {
   label: 'Refer a church',
-  href: null,
+  href: '/refer',
 }
 
 /** An item that has somewhere to go. */

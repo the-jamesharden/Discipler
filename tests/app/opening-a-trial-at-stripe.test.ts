@@ -263,6 +263,107 @@ describe('the default payment method', () => {
   })
 })
 
+describe('following the customer’s default', () => {
+  const answers = (subscription: Record<string, unknown>, chosen: string | null) =>
+    answering(({ path, method }) => {
+      if (path === '/v1/customers/cus_1') {
+        return { id: 'cus_1', object: 'customer', invoice_settings: { default_payment_method: chosen } }
+      }
+      if (path === '/v1/subscriptions/sub_1') return subscription
+      if (method === 'POST' && path.startsWith('/v1/subscription_schedules/')) return { id: 'sub_sched_1' }
+      return undefined
+    })
+
+  it('moves a Subscription holding the old one, and its schedule', async () => {
+    const { asked, trials } = answers(
+      aSubscription({ default_payment_method: 'pm_old', schedule: 'sub_sched_1' }),
+      'pm_new',
+    )
+
+    expect(await trials.followCustomersDefault('cus_1', 'sub_1')).toBe(true)
+
+    const posted = asked.filter(({ method }) => method === 'POST')
+    expect(posted.map(({ path, body }) => [path, Object.fromEntries(body)])).toEqual([
+      ['/v1/subscriptions/sub_1', { default_payment_method: 'pm_new' }],
+      ['/v1/subscription_schedules/sub_sched_1', { 'default_settings[default_payment_method]': 'pm_new' }],
+    ])
+  })
+
+  it('changes nothing where they already agree, so a retried event does nothing', async () => {
+    const { asked, trials } = answers(aSubscription({ default_payment_method: 'pm_new' }), 'pm_new')
+
+    expect(await trials.followCustomersDefault('cus_1', 'sub_1')).toBe(false)
+    expect(asked.some(({ method }) => method === 'POST')).toBe(false)
+  })
+
+  it('changes nothing where the customer has no default', async () => {
+    const { asked, trials } = answers(aSubscription({ default_payment_method: 'pm_old' }), null)
+
+    expect(await trials.followCustomersDefault('cus_1', 'sub_1')).toBe(false)
+    expect(asked.some(({ method }) => method === 'POST')).toBe(false)
+  })
+})
+
+describe('a first bill setting the customer’s default', () => {
+  const anInvoice = (reason: string, subscription = 'sub_1') => ({
+    id: 'in_1',
+    object: 'invoice',
+    billing_reason: reason,
+    parent: { subscription_details: { subscription } },
+  })
+
+  const answers = (invoice: Record<string, unknown>, onSubscription: string | null, onCustomer: string | null) =>
+    answering(({ path, method }) => {
+      if (path === '/v1/invoices/in_1') return invoice
+      if (path === '/v1/customers/cus_1') {
+        return { id: 'cus_1', object: 'customer', invoice_settings: { default_payment_method: onCustomer } }
+      }
+      if (path === '/v1/subscriptions/sub_1') return aSubscription({ default_payment_method: onSubscription })
+      return method === 'POST' ? { id: 'cus_1', object: 'customer' } : undefined
+    })
+
+  const posts = (asked: readonly { method: string }[]) => asked.filter(({ method }) => method === 'POST')
+
+  it('moves a restart’s new card onto the customer, so its next change has nothing to move back', async () => {
+    const { asked, trials } = answers(anInvoice('subscription_create'), 'pm_restart', 'pm_replaced')
+
+    expect(await trials.firstBillSetsCustomersDefault('cus_1', 'sub_1', 'in_1')).toBe(true)
+
+    const posted = asked.filter(({ method }) => method === 'POST')
+    expect(posted.map(({ path, body }) => [path, Object.fromEntries(body)])).toEqual([
+      ['/v1/customers/cus_1', { 'invoice_settings[default_payment_method]': 'pm_restart' }],
+    ])
+  })
+
+  it('changes nothing where they already agree, so a retried event does nothing', async () => {
+    const { asked, trials } = answers(anInvoice('subscription_create'), 'pm_new', 'pm_new')
+
+    expect(await trials.firstBillSetsCustomersDefault('cus_1', 'sub_1', 'in_1')).toBe(false)
+    expect(posts(asked)).toEqual([])
+  })
+
+  it('leaves a later bill alone, so a card chosen since is never put back', async () => {
+    const { asked, trials } = answers(anInvoice('subscription_cycle'), 'pm_restart', 'pm_portal')
+
+    expect(await trials.firstBillSetsCustomersDefault('cus_1', 'sub_1', 'in_1')).toBe(false)
+    expect(posts(asked)).toEqual([])
+  })
+
+  it('leaves the first bill of an older Subscription alone', async () => {
+    const { asked, trials } = answers(anInvoice('subscription_create', 'sub_ended'), 'pm_restart', 'pm_portal')
+
+    expect(await trials.firstBillSetsCustomersDefault('cus_1', 'sub_1', 'in_1')).toBe(false)
+    expect(posts(asked)).toEqual([])
+  })
+
+  it('changes nothing where a bill covered by credit saved no method', async () => {
+    const { asked, trials } = answers(anInvoice('subscription_create'), null, 'pm_old')
+
+    expect(await trials.firstBillSetsCustomersDefault('cus_1', 'sub_1', 'in_1')).toBe(false)
+    expect(posts(asked)).toEqual([])
+  })
+})
+
 describe('the phases after the free days', () => {
   const aSchedule = {
     id: 'sub_sched_1',
@@ -326,17 +427,200 @@ describe('the phases after the free days', () => {
   })
 })
 
+describe('a church plant approved after its trial', () => {
+  const NEXT_BILL = 1_794_592_000
+  const PAID_FROM = 1_792_000_000
+
+  const paying = (changes: Record<string, unknown> = {}) =>
+    aSubscription({
+      status: 'active',
+      pending_setup_intent: null,
+      // Stripe keeps the trial's end on a Subscription long after it has passed.
+      trial_end: PAID_FROM,
+      items: { object: 'list', data: [{ id: 'si_1', current_period_end: NEXT_BILL, price: { id: 'price_97' } }] },
+      ...changes,
+    })
+
+  const scheduled = (subscription: unknown, schedule: unknown) =>
+    answering(({ path }) => (path.startsWith('/v1/subscription_schedules') ? schedule : subscription))
+
+  const plantYear = paidPhasesOf({ cycle: 'month', offer: 'none', plantYear: true })
+
+  it('keeps the bill it has paid and starts the free year at its next one', async () => {
+    const { asked, trials } = scheduled(paying(), {
+      id: 'sub_sched_1',
+      object: 'subscription_schedule',
+      current_phase: { start_date: PAID_FROM, end_date: NEXT_BILL },
+      phases: [{ start_date: PAID_FROM, end_date: NEXT_BILL, discounts: [] }],
+    })
+
+    await trials.schedulePhases('sub_1', plantYear)
+
+    const update = Object.fromEntries(asked.at(-1)!.body)
+    expect(update).toMatchObject({
+      end_behavior: 'release',
+      proration_behavior: 'none',
+      'phases[0][items][0][price]': 'price_97',
+      'phases[0][start_date]': String(PAID_FROM),
+      'phases[0][end_date]': String(NEXT_BILL),
+      'phases[0][discounts]': '',
+      'phases[0][proration_behavior]': 'none',
+      'phases[1][duration][interval]': 'month',
+      'phases[1][duration][interval_count]': '12',
+      'phases[1][discounts][0][coupon]': STRIPE_COUPONS.plantYear.id,
+      'phases[2][discounts]': '',
+    })
+    // No trial is put back on something that has already billed.
+    expect(update).not.toHaveProperty('phases[0][trial_end]')
+    expect(asked.some(({ method, path }) => method === 'POST' && path === '/v1/subscriptions/sub_1')).toBe(false)
+  })
+
+  it('keeps the discount of the stretch it is in, and leaves past phases out', async () => {
+    const { asked, trials } = scheduled(paying({ schedule: 'sub_sched_1' }), {
+      id: 'sub_sched_1',
+      object: 'subscription_schedule',
+      current_phase: { start_date: PAID_FROM, end_date: PAID_FROM + 31_536_000 },
+      phases: [
+        { start_date: 1_790_000_000, end_date: PAID_FROM, discounts: [] },
+        {
+          start_date: PAID_FROM,
+          end_date: PAID_FROM + 31_536_000,
+          discounts: [{ coupon: STRIPE_COUPONS.exponentialYear.id, discount: null, promotion_code: null }],
+        },
+        { start_date: PAID_FROM + 31_536_000, end_date: PAID_FROM + 34_128_000, discounts: [] },
+      ],
+    })
+
+    await trials.schedulePhases('sub_1', paidPhasesOf({ cycle: 'month', offer: 'exponential', plantYear: true }))
+
+    const update = Object.fromEntries(asked.at(-1)!.body)
+    expect(update).toMatchObject({
+      'phases[0][start_date]': String(PAID_FROM),
+      // The next bill and not the phase's own end, which is a year away.
+      'phases[0][end_date]': String(NEXT_BILL),
+      'phases[0][discounts][0][coupon]': STRIPE_COUPONS.exponentialYear.id,
+      'phases[1][discounts][0][coupon]': STRIPE_COUPONS.plantYear.id,
+      'phases[2][discounts][0][coupon]': STRIPE_COUPONS.exponentialYear.id,
+      'phases[3][discounts]': '',
+    })
+    expect(update).not.toHaveProperty('phases[4][items][0][price]')
+  })
+
+  it('makes a schedule when the Subscription has none by then', async () => {
+    const { asked, trials } = scheduled(paying(), {
+      id: 'sub_sched_1',
+      object: 'subscription_schedule',
+      current_phase: { start_date: PAID_FROM, end_date: NEXT_BILL },
+      phases: [{ start_date: PAID_FROM, end_date: NEXT_BILL, discounts: [] }],
+    })
+
+    await trials.schedulePhases('sub_1', plantYear)
+
+    const made = asked.find(({ method, path }) => method === 'POST' && path === '/v1/subscription_schedules')
+    expect(made?.body.get('from_subscription')).toBe('sub_1')
+  })
+
+  it('counts a Subscription behind on a bill as past its trial too', async () => {
+    const { asked, trials } = scheduled(paying({ status: 'past_due' }), {
+      id: 'sub_sched_1',
+      object: 'subscription_schedule',
+      current_phase: { start_date: PAID_FROM, end_date: NEXT_BILL },
+      phases: [{ start_date: PAID_FROM, end_date: NEXT_BILL, discounts: [] }],
+    })
+
+    await trials.schedulePhases('sub_1', plantYear)
+
+    expect(asked.at(-1)!.body.get('phases[0][end_date]')).toBe(String(NEXT_BILL))
+    expect(asked.at(-1)!.body.has('phases[0][trial_end]')).toBe(false)
+  })
+
+  it('stops rather than guess when Stripe names no current phase', async () => {
+    const { trials } = scheduled(paying(), {
+      id: 'sub_sched_1',
+      object: 'subscription_schedule',
+      current_phase: null,
+      phases: [{ start_date: 1_790_000_000, end_date: PAID_FROM, discounts: [] }],
+    })
+
+    await expect(trials.schedulePhases('sub_1', plantYear)).rejects.toThrow(/no current phase/)
+  })
+})
+
+describe('what an approved plant pays', () => {
+  const MONTHLY_CENTS = 9700
+  const YEARLY_CENTS = 93120
+  const DISCOUNT: Record<string, number> = {
+    [STRIPE_COUPONS.plantYear.id]: 100,
+    [STRIPE_COUPONS.exponentialYear.id]: 20,
+    [STRIPE_COUPONS.firstMonth.id]: 100,
+  }
+
+  /** Every bill the phases Stripe was asked for would raise, in order, in cents. */
+  const billsFrom = (body: URLSearchParams, priceCents: number): number[] => {
+    const bills: number[] = []
+    for (let phase = 1; body.has(`phases[${phase}][items][0][price]`); phase += 1) {
+      const coupon = body.get(`phases[${phase}][discounts][0][coupon]`)
+      const count = Number(body.get(`phases[${phase}][duration][interval_count]`))
+      const off = coupon ? (DISCOUNT[coupon] ?? 0) : 0
+      for (let bill = 0; bill < count; bill += 1) bills.push((priceCents * (100 - off)) / 100)
+    }
+    return bills
+  }
+
+  const aSchedule = {
+    id: 'sub_sched_1',
+    object: 'subscription_schedule',
+    phases: [{ start_date: 1_790_000_000, end_date: 1_792_000_000 }],
+  }
+
+  const phasesAsked = async (phases: ReturnType<typeof paidPhasesOf>) => {
+    const { asked, trials } = answering(({ path }) =>
+      path.startsWith('/v1/subscription_schedules') ? aSchedule : aSubscription(),
+    )
+    await trials.schedulePhases('sub_1', phases)
+    return asked.at(-1)!.body
+  }
+
+  const twelve = <T,>(value: T): T[] => Array.from({ length: 12 }, () => value)
+
+  it('on a 30-day trial: nothing for its 12 paid months, and then $97', async () => {
+    const body = await phasesAsked(paidPhasesOf({ cycle: 'month', offer: 'none', plantYear: true }))
+    expect(billsFrom(body, MONTHLY_CENTS)).toEqual([...twelve(0), 9700])
+  })
+
+  it('with EXPO26: 12 months free, then 12 at $77.60, then $97', async () => {
+    const body = await phasesAsked(paidPhasesOf({ cycle: 'month', offer: 'exponential', plantYear: true }))
+    expect(billsFrom(body, MONTHLY_CENTS)).toEqual([...twelve(0), ...twelve(7760), 9700])
+  })
+
+  it('yearly: nothing at its first yearly bill, and the full price after', async () => {
+    const body = await phasesAsked(paidPhasesOf({ cycle: 'year', offer: 'none', plantYear: true }))
+    expect(billsFrom(body, YEARLY_CENTS)).toEqual([0, YEARLY_CENTS])
+  })
+
+  it('yearly with EXPO26: nothing, then the offer\'s year, then the full price', async () => {
+    const body = await phasesAsked(paidPhasesOf({ cycle: 'year', offer: 'exponential', plantYear: true }))
+    expect(billsFrom(body, YEARLY_CENTS)).toEqual([0, 74496, YEARLY_CENTS])
+  })
+
+  it('with a referral: the plant offer wins, and no first free month is scheduled', async () => {
+    const body = await phasesAsked(paidPhasesOf({ cycle: 'month', offer: 'referral', plantYear: true }))
+    expect(billsFrom(body, MONTHLY_CENTS)).toEqual([...twelve(0), 9700])
+    expect([...body.values()]).not.toContain(STRIPE_COUPONS.firstMonth.id)
+  })
+})
+
 describe('the catalog', () => {
   it('creates everything in an empty account, with the product named as James said', async () => {
     const { asked, client } = answering(({ method, path }) => {
       if (method === 'POST') return { id: 'made', object: path.split('/').at(-1) }
-      if (path === '/v1/prices') return list()
+      if (path === '/v1/prices' || path === '/v1/billing_portal/configurations') return list()
       return undefined
     })
 
     const result = await createCatalog(client)
 
-    expect(result.created).toHaveLength(1 + 4 + 4)
+    expect(result.created).toHaveLength(1 + 4 + 4 + 1)
     expect(result.different).toEqual([])
 
     const product = asked.find(({ method, path }) => method === 'POST' && path === '/v1/products')!
@@ -361,10 +645,63 @@ describe('the catalog', () => {
       '7760',
       '100',
     ])
+
+    // Stripe's billing page as the spec has it: reached only from Billing, and no plan switching.
+    const portal = asked.find(({ method, path }) => method === 'POST' && path === '/v1/billing_portal/configurations')!
+    expect(Object.fromEntries(portal.body)).toMatchObject({
+      'metadata[discipler]': 'billing_portal',
+      'login_page[enabled]': 'false',
+      'features[subscription_update][enabled]': 'false',
+      'features[customer_update][enabled]': 'false',
+      'features[payment_method_update][enabled]': 'true',
+      'features[invoice_history][enabled]': 'true',
+      'features[subscription_cancel][enabled]': 'true',
+      'features[subscription_cancel][mode]': 'at_period_end',
+      'features[subscription_cancel][proration_behavior]': 'none',
+    })
+  })
+
+  it('reports a billing page that lets a church switch its plan', async () => {
+    const { asked, client } = answering(({ method, path }) => {
+      if (method === 'POST') return { id: 'made', object: 'x' }
+      if (path === '/v1/billing_portal/configurations') {
+        return list({
+          id: 'bpc_1',
+          object: 'billing_portal.configuration',
+          metadata: { discipler: 'billing_portal' },
+          login_page: { enabled: false },
+          features: {
+            payment_method_update: { enabled: true },
+            subscription_cancel: { enabled: true, mode: 'at_period_end' },
+            subscription_update: { enabled: true },
+          },
+        })
+      }
+      if (path === '/v1/prices') return list()
+      return undefined
+    })
+
+    const result = await createCatalog(client)
+
+    expect(result.different).toEqual(['billing_portal'])
+    expect(asked.some(({ method, path }) => method === 'POST' && path.includes('billing_portal'))).toBe(false)
   })
 
   it('adds nothing to an account that has it all, and reports what differs', async () => {
     const { asked, client } = answering(({ path, query }) => {
+      if (path === '/v1/billing_portal/configurations') {
+        return list({
+          id: 'bpc_1',
+          object: 'billing_portal.configuration',
+          metadata: { discipler: 'billing_portal' },
+          login_page: { enabled: false },
+          features: {
+            payment_method_update: { enabled: true },
+            subscription_cancel: { enabled: true, mode: 'at_period_end' },
+            subscription_update: { enabled: false },
+          },
+        })
+      }
       if (path === '/v1/prices') {
         const key = query.get('lookup_keys[0]')!
         const cents = { discipler_up_to_the_limit_monthly: 9_700, discipler_up_to_the_limit_yearly: 93_120, discipler_above_the_limit_monthly: 14_700, discipler_above_the_limit_yearly: 1 }[key]
@@ -392,7 +729,7 @@ describe('the catalog', () => {
     const result = await createCatalog(client)
 
     expect(result.created).toEqual([])
-    expect(result.alreadyThere).toHaveLength(9)
+    expect(result.alreadyThere).toHaveLength(10)
     expect(result.different).toEqual(['discipler_above_the_limit_yearly'])
     expect(asked.every(({ method }) => method === 'GET')).toBe(true)
   })

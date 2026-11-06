@@ -17,6 +17,9 @@ The over-HTTP suites drive a real server at `APP_URL`, which defaults to `http:/
 
 So `scripts/locked-tests.sh` holds one lock around the whole of: reset the database if this checkout's migrations are not the ones applied, build this checkout, serve it on this checkout's own port, run the tests against that port, stop the server.
 The port is 3100 unless `LOCKED_TESTS_PORT` says otherwise, and never 3000.
+That server runs with sign-up shut, as production does.
+The same build also serves on the next port up with sign-up open, at `SIGN_UP_OPEN_URL`, for what only exists then, such as the Refer page.
+It forces `MESSAGE_TRANSPORT=record`, and empties `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY` and `STRIPE_SECRET_KEY`, so nothing a run sends leaves this machine.
 The reset, build and server logs are in `.git/locked-tests/logs/`.
 An agent does not run `npm test`, `npm start`, `supabase db reset` or anything on port 3000 to find out whether a change is green.
 
@@ -38,10 +41,18 @@ Start it in the background and read its log; a shell call that blocks on it will
 - **`AuthRetryableFetchError` in every `beforeAll`, and a whole suite that is over in under eighty seconds, is Auth not being back yet.**
   A reset restarts Auth, and Kong cannot reach it for about fifty seconds afterwards; two checkouts with different migrations reset on every handover of the lock.
   `locked-tests.sh` waits up to two minutes for `/auth/v1/health` to answer through Kong before it runs anything, and says so if it never does.
+- **`database error, code: 42P10` from every upload is a checkout that was linked, not a bug in Materials.**
+  `supabase link` pins production's service versions in `supabase/.temp`, and a reset obeys them, so production's Storage migrates the shared database past the Storage that is running.
+  `locked-tests.sh` removes those pins before it resets.
+  A plain `supabase db reset` from a linked checkout does not, and leaves the database broken for every checkout until the next reset.
   A run from a checkout that does not have that wait yet shows about 82 failed files and 692 skipped tests, and none of it is the code.
 - **`fetch failed` or `EADDRNOTAVAIL` across many suites is the host, not the code.**
   Past about fifty days of uptime macOS stops expiring sockets in TIME_WAIT and the ephemeral ports run out.
   `netstat -an -p tcp | awk 'NR>2{print $6}' | sort | uniq -c | sort -rn | head`; if the counts are in the tens of thousands, stop running tests and tell the person. Only a reboot fixes it.
+- **A browser on `127.0.0.1` whose plain form stops with a `form-action` error is the address, not the policy.**
+  `next start` builds `request.url` on `localhost`, so a form's redirect names `http://localhost:<port>`, another origin to a page on `127.0.0.1`, and the Content-Security-Policy stops it.
+  Chrome names the address the form posted to, not the redirect it refused.
+  Open a local build in a browser at `http://localhost:<port>`.
 - **`relationship_member_ends_after_it_starts` in a fixture is two clocks, not the code.**
   The fixtures stamp `started_at` with this process's clock, and SQL `now()` is the database container's.
   After a heavy build the container can sit a few milliseconds behind, so a membership ended with `now()` a moment after it was added ends before it started, and a whole `beforeAll` goes with it.
@@ -119,6 +130,8 @@ Staging's Stripe is a Stripe sandbox (test mode), whose webhook endpoint is stag
 - A late or out-of-order event: resend an older `customer.subscription.updated` after a newer one; the webhook re-reads the subscription, so the church's state must not move.
 - Time passing (a trial ending, a renewal, a failed payment): create the customer on a Stripe test clock in the sandbox and advance the clock; the events it produces arrive at staging like any other.
 - `stripe trigger <event>` makes objects that belong to no church on staging, so the webhook should refuse them; it is a test of the refusal, not of a sign-up.
+- Once its Firewall rule is on, only Stripe's published addresses reach the webhook route (`docs/stripe-webhook-addresses.md`), so a request sent by hand is stopped before the route.
+  Without the rule the signature check refuses it.
 - `stripe listen --forward-to` is for a server on this machine only: it signs with a secret of its own that staging does not hold, so its events are refused there.
 
 ## Other facts

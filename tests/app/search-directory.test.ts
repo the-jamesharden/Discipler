@@ -53,7 +53,9 @@ describe('with nothing typed', () => {
     ])
     expect(directory[1]!.rows.map((each) => each.label)).toEqual([
       'Settings',
+      'Billing',
       'Intake forms',
+      'Refer a church',
       'Change your password',
     ])
     expect(directory[2]!.rows.map((each) => each.label)).toContain('Help center')
@@ -107,7 +109,7 @@ describe('a page that does not exist yet', () => {
 
     for (const page of directoryPages(UPCOMING)) {
       if (page.href === null || page.newTab) continue
-      expect(served(page.href.split('#')[0]!), page.href).toBe(true)
+      expect(served(page.href.split(/[?#]/)[0]!), page.href).toBe(true)
     }
   })
 })

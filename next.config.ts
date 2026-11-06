@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import { assertDeploymentIsSafe } from './src/platform/deployment'
+import { SECURITY_HEADERS } from './src/platform/security-headers'
 
 // Refused at build, before anything is compiled, so a staging deployment given a
 // production value never goes live and the one before it goes on serving
@@ -7,6 +8,11 @@ import { assertDeploymentIsSafe } from './src/platform/deployment'
 assertDeploymentIsSafe(process.env)
 
 const nextConfig: NextConfig = {
+  /**
+   * On every response, redirects and files included (Exponential launch, ticket 37). The
+   * Content-Security-Policy is in `middleware.ts`, because it holds a nonce.
+   */
+  headers: async () => [{ source: '/(.*)', headers: [...SECURITY_HEADERS] }],
   /**
    * `import text from './page.md?raw'` gives the file's text, as it does under
    * Vite, which the tests and scripts run on. The help docs are Markdown files read

@@ -16,6 +16,7 @@ import {
   ReinvitationRefused,
   MaterialAssignmentRefused,
   PauseRefused,
+  TestCheckInRefused,
 } from '~/domain/errors'
 import type { FollowUpItemId, IdSource, ImportRowId, PersonId, RelationshipId } from '~/domain/ids'
 import { answersNoGroupInMind, INTAKE_PATHS, isOneOf } from '~/domain/intake'
@@ -23,7 +24,9 @@ import { isQuestionKey, removalDeletesAnswers, type IntakeForm } from '~/domain/
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import { REMOVED_FROM_THE_ROSTER, type PairingToLetGo } from '~/domain/removal'
 import type { InvitationToken } from '~/domain/invitations'
+import type { MinistryVoice } from '~/domain/ministry-settings'
 import { settleRatesLine, whoseRatesLineIsAsked } from '~/domain/rates-line'
+import type { TestCheckInStanding } from '~/domain/test-check-in'
 import type { EffectStore, UnitOfWork } from './ports'
 
 export interface CommandServiceDependencies {
@@ -61,6 +64,16 @@ export interface CommandService {
   openConcern(
     command: Extract<Command, { readonly type: 'concern.view' }>,
   ): Promise<string | null>
+
+  /**
+   * One Admin's standing for a test check-in and how their church speaks, for the card
+   * to draw and to decide before a code is spent on a test that would be refused
+   * (Exponential launch, ticket 28). `test_check_in.send` decides again from a fresh read.
+   */
+  testCheckInStanding(
+    ministryId: MinistryId,
+    sentBy: string,
+  ): Promise<{ readonly standing: TestCheckInStanding; readonly voice: MinistryVoice }>
 
   /**
    * Settles every plan an import made that is still standing: forms the ones both
@@ -543,6 +556,19 @@ export const applyEffects = async (
   const recorded = [...history, ...recordedWithAnItem]
   if (recorded.length > 0) await unit.appendHistory(recorded)
 
+  // A test's record before its texts, which name it, and an ending before an opening,
+  // since a phone holds one open test. Before the opt-out for the reason the texts are.
+  for (const effect of effects) {
+    if (effect.kind === 'testCheckIn.agree') await unit.recordTestCheckInAgreement(effect.agreement)
+    if (effect.kind === 'testCheckIn.sweep') await unit.sweepTestCheckIns(effect.sweep)
+    if (effect.kind === 'testCheckIn.end') await unit.endTestCheckIn(effect.ending)
+  }
+  for (const effect of effects) {
+    if (effect.kind === 'testCheckIn.open') await unit.openTestCheckIn(effect.test)
+    if (effect.kind === 'testCheckIn.answer') await unit.answerTestCheckIn(effect.answer)
+    if (effect.kind === 'testCheckIn.clarify') await unit.clarifyTestCheckIn(effect.id)
+  }
+
   // Every text the command queues is settled against the rates line together,
   // once they are all known: a Person has the line at most once a month, and only
   // the whole list can say which of their texts is the first (Text wording,
@@ -606,6 +632,7 @@ const REFUSED_WITHOUT_ACCESS: Partial<Readonly<Record<Command['type'], () => Err
   'relationship.resume': () => new PauseRefused('pause.church_has_no_access'),
   'invitation.reissue': () => new ReinvitationRefused('reinvite.church_has_no_access'),
   'invitation.withdraw': () => new InvitationRefused('invitation.church_has_no_access'),
+  'test_check_in.send': () => new TestCheckInRefused('test_check_in.church_has_no_access'),
 }
 
 /**
@@ -810,6 +837,7 @@ const isTokenDriven = (
  * already asks for.
  */
 const namesARole = (command: Command): boolean =>
+  command.type === 'test_check_in.send' ||
   command.type === 'relationship.create' ||
   command.type === 'group.add_leader' ||
   command.type === 'intended_pairing.fulfil'
@@ -880,6 +908,23 @@ const whatTheSenderHolds = async (unit: UnitOfWork, id: PersonId) => {
   const snapshot = await unit.inboundFor(id)
   if (!snapshot) throw new CheckInRefused('checkin.person_not_found')
   return snapshot
+}
+
+/**
+ * One Admin's standing for a test check-in (Exponential launch, ticket 28). A real
+ * question is open if their conversation is waiting on one, which only the check-in read
+ * can say, or if anything on that phone is, which the store's read says.
+ */
+const standingForATest = async (
+  unit: UnitOfWork,
+  sentBy: string,
+  how: { readonly locked: boolean },
+): Promise<TestCheckInStanding> => {
+  const read = await unit.testCheckInStanding(sentBy, how)
+  const standing = { ...read, hasAccess: await unit.churchHasAccess() }
+  if (!standing.personId || standing.realQuestionOpen) return standing
+  const conversation = await unit.checkInFor(standing.personId)
+  return { ...standing, realQuestionOpen: Boolean(conversation?.openSequence?.awaiting) }
 }
 
 /**
@@ -1100,6 +1145,9 @@ export const createCommandService = ({
               openPlans: await unit.openIntendedPairings(),
             }
           : {}),
+        ...(command.type === 'person.import'
+          ? { rosterRoom: await unit.newChurchRosterRoom(clock.now()) }
+          : {}),
         // An import plans against the plans still standing, read inside the
         // transaction like the Roster, so two imports naming the same Disciple
         // cannot both plan them.
@@ -1261,7 +1309,13 @@ export const createCommandService = ({
         // reads no keyword, so paying for this there would buy a snapshot nothing
         // consults.
         ...(command.type === 'sms.inbound'
-          ? { inbound: await whatTheSenderHolds(unit, command.personId) }
+          ? {
+              inbound: await whatTheSenderHolds(unit, command.personId),
+              openTestCheckIn: await unit.openTestCheckInOf(command.personId),
+            }
+          : {}),
+        ...(command.type === 'test_check_in.send' || command.type === 'test_check_in.agree'
+          ? { testCheckInStanding: await standingForATest(unit, command.sentBy, { locked: true }) }
           : {}),
       })
 
@@ -1330,6 +1384,13 @@ export const createCommandService = ({
 
       return unit.concernDetailFor(command.concernId)
     })
+  },
+
+  async testCheckInStanding(ministryId, sentBy) {
+    return store.transact(ministryId, async (unit) => ({
+      standing: await standingForATest(unit, sentBy, { locked: false }),
+      voice: await unit.ministryVoice(),
+    }))
   },
 
   async removePerson({ ministryId, personId, removedBy, pairings }) {

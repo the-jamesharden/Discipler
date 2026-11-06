@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { RosterFileUnreadable, RosterImportRefused } from '~/domain/errors'
+import { NewChurchRosterLimitReached, RosterFileUnreadable, RosterImportRefused } from '~/domain/errors'
 import { isImportMode } from '~/domain/roster-csv'
 import { currentAdmin } from '~/platform/supabase/current-admin'
-import { getCommandService, settlePlannedPairings } from '~/service/container'
+import { getCommandService, noteTheNewChurchRosterLimit, settlePlannedPairings } from '~/service/container'
 import { encodeImportReport, type ImportFailure } from '../report'
 
 /**
@@ -61,6 +61,11 @@ export async function POST(request: NextRequest) {
     // half-read, and so is an import overtaken by another write.
     if (error instanceof RosterFileUnreadable) return failed(error.problem)
     if (error instanceof RosterImportRefused) return failed('roster_changed')
+    // Nothing was added, so nothing on the Roster would show the tick that this happened.
+    if (error instanceof NewChurchRosterLimitReached) {
+      await noteTheNewChurchRosterLimit(admin.ministryId)
+      return failed('new_church_limit')
+    }
     throw error
   }
 }

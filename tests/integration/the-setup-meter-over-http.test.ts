@@ -160,22 +160,25 @@ describe.skipIf(skipUnlessAppIsRunning)('the setup meter', () => {
       expect((await getPage('/settings', cookie)).html).toContain('id="check-in"')
     })
 
-    /**
-     * Tickets 27 and 28 are not built. Both steps are listed so the count is honest,
-     * with no button to press, and "Next:" passes over them.
-     */
-    it('lists the tour and the test check-in with no button, and passes over them', async () => {
+    it('sends Send test, as what is next, to the card in the onboarding modal', async () => {
       await pressSave(ministry, cookie)
+      await record(tourFinished({ ministryId: ministry.id, finishedBy: ministry.adminUserId, at: new Date() }))
 
       const { html } = await getPage('/overview', cookie)
       const bar = barOf(html)!
 
-      expect(bar).toContain('Take the 2-minute tour')
-      expect(bar).toContain('Send yourself a test check-in')
-      expect(bar).not.toContain('Start the tour')
-      expect(bar).not.toContain('Send test')
-      expect(nextIn(html)).toBe('Add people to your Roster')
-      expect(bar).toContain('href="/roster#import"')
+      expect(nextIn(html)).toBe('Send yourself a test check-in')
+      expect(bar).toContain('Send test')
+      expect(bar).toContain('href="/overview?onboarding=cards#test-check-in"')
+    })
+
+    it('sends Start the tour to the tour, as what is next', async () => {
+      await pressSave(ministry, cookie)
+
+      const { html } = await getPage('/overview', cookie)
+
+      expect(nextIn(html)).toBe('Take the 2-minute tour')
+      expect(barOf(html)).toContain('href="/overview/tour"')
     })
 
     it('ticks step 1 when Save is pressed with nothing changed', async () => {
@@ -227,6 +230,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the setup meter', () => {
       const { html } = await getPage('/overview', cookie)
       expect(tickedIn(html)).toEqual(['tour', 'test_check_in'])
       expect(countIn(html)).toBe('29% complete · 2 of 7')
+    })
+
+    it('ticks the test step for an Admin whose phone cannot receive a Verify code, and only for them', async () => {
+      expect(tickedIn((await getPage('/overview', cookie)).html)).toEqual([])
+
+      await pool.query(`update person set phone = '+14165550142' where id = $1`, [ministry.adminPersonId])
+
+      expect(tickedIn((await getPage('/overview', cookie)).html)).toEqual(['test_check_in'])
     })
 
     it('shows "43% complete · 3 of 7" for a church with three steps done', async () => {
@@ -446,20 +457,24 @@ describe.skipIf(skipUnlessAppIsRunning)('the setup meter', () => {
       expect(countIn(html)).toBe('71% complete · 5 of 7')
     })
 
-    it('offers no Next while only the unbuilt steps are left, and no dead button', async () => {
-      const bar = barOf((await getPage('/overview', cookie)).html)!
-
-      expect(bar).not.toContain('next-line')
-      expect(bar).not.toContain('class="step done next"')
-      expect(bar).not.toContain('class="go"')
-    })
-
     it('holds none of the new events, so the count came from the old history', async () => {
       const { rows } = await pool.query(
         `select 1 from ministry_event where ministry_id = $1 and type = any($2)`,
         [ministry.id, Object.values(SETUP_HISTORY)],
       )
       expect(rows).toEqual([])
+    })
+
+    it('offers the tour next, and then the test check-in, as what is left', async () => {
+      expect(nextIn((await getPage('/overview', cookie)).html)).toBe('Take the 2-minute tour')
+
+      await record(tourFinished({ ministryId: ministry.id, finishedBy: ministry.adminUserId, at: new Date() }))
+
+      const { html } = await getPage('/overview', cookie)
+      const bar = barOf(html)!
+
+      expect(nextIn(html)).toBe('Send yourself a test check-in')
+      expect(bar).toContain('href="/overview?onboarding=cards#test-check-in"')
     })
 
     it('plays everything for its Admin once, because nothing has been seen yet', async () => {
@@ -524,7 +539,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the setup meter', () => {
       const signedIn = await signInAs(ministry)
       const doc = await readPageDocument(signedIn, 'signed_in_admin')
 
-      expect(doc.setup).toEqual({ finished: true })
+      // Only what Restart onboarding still draws, and nothing from the history.
+      expect(doc.setup).toEqual({
+        finished: true,
+        onboarding: expect.objectContaining({ opened: false }),
+      })
     })
 
     it('closes with no script: Thank you! posts and lands on the Overview', async () => {

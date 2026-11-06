@@ -22,6 +22,7 @@ It shows on Check-Ins with a Test tag, and it never changes your Overview, your 
 
 ## A few limits
 
+- Test check-ins can only text US numbers for now. If the phone on your account is outside the US, this step is done for you.
 - You can send up to {{testCheckInsPerDay}} test check-ins a day.
 - A test you leave unanswered ends after {{testCheckInOpen}}.
 - If a real check-in is waiting on your phone, answer that first and then try the test again.

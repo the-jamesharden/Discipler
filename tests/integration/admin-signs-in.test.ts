@@ -1,11 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { createClient } from '@supabase/supabase-js'
 import {
   addPerson,
   createMinistryWithAdmin,
-  localSupabase,
   type MinistryFixture,
-  serviceRoleClient,
 } from '../support/local-supabase'
 import {
   aNetwork,
@@ -25,10 +22,10 @@ const getRoster = (cookie: string) => getPage('/roster', cookie)
  * The walking skeleton's surface: an Admin signs in and reaches a Roster scoped to
  * their own Ministry, and only their own Ministry.
  *
- * They sign in with a phone number and a password, which is the credential for
- * every user -- the Admin included, and the account holds no email at all, because
- * provisioning mints none. See
- * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
+ * These Admins sign in with a phone number and a password, and their accounts hold no
+ * email at all, because nothing proved one: the same as an Admin from a Setup Link. See
+ * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`. An Admin who signed up
+ * with an email is `signing-in-with-email-or-phone-over-http.test.ts`.
  */
 
 describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
@@ -110,7 +107,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
       redirect: 'manual',
       headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': aNetwork() },
       body: new URLSearchParams({
-        phone: riverside.adminPhone,
+        login: riverside.adminPhone,
         password: 'not the password',
       }),
     })
@@ -123,71 +120,22 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
     expect(roster.status).toBe(307)
   })
 
-  it('is turned away with an email address, which is no longer a credential', async () => {
-    // Ticket 01's login page shipped and is superseded rather than extended. Email
-    // is optional at Intake, so a Person may lead a relationship without Discipler
-    // ever learning one -- which is why the identifier moved to the phone.
-    //
-    // A literal, because there is no address to reach for: provisioning creates a
-    // phone identity and no email, so the account this Admin holds has none.
+  it('is turned away with an email address when their account holds none', async () => {
+    // Ticket 01's login page shipped and was superseded, and ADR-0030 opened the door
+    // again for an Admin who signed up with an email. This one came from a fixture, as
+    // from a Setup Link, so their account holds no address and none can sign them in:
+    // the address goes to Supabase Auth, and comes back as any wrong entry does.
     const response = await fetch(`${baseUrl}/auth/sign-in`, {
       method: 'POST',
       redirect: 'manual',
       headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': aNetwork() },
       body: new URLSearchParams({
-        phone: 'admin@riverside.example',
+        login: 'admin@riverside.example',
         password: riverside.adminPassword,
       }),
     })
 
-    expect(response.headers.get('location')).toContain('/login?error=unreadable-phone')
-  })
-
-  it('is turned away with an address that really would sign them in underneath', async () => {
-    // The test above proves an email-shaped string is unreadable as a number. It
-    // cannot prove the stronger thing, because the address it posts belongs to
-    // nobody: an account holding one is a state provisioning no longer produces.
-    //
-    // So one is made by hand -- the shape a pilot account minted before ticket 24
-    // would have -- and it is shown to be a working credential at Supabase before
-    // the front door is asked about it. What is asserted is that the door does not
-    // open: not that the address is unknown, but that it is never carried to
-    // somewhere that knows it.
-    const email = `pilot-${Date.now()}@riverside.example`
-    const password = 'a-long-enough-password'
-
-    const admin = serviceRoleClient()
-    const { data: created, error: mintError } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    })
-    if (mintError) throw new Error(`Could not mint the email account: ${mintError.message}`)
-
-    try {
-      const { apiUrl, anonKey } = localSupabase()
-      const supabase = createClient(apiUrl, anonKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      })
-      const { error: underneath } = await supabase.auth.signInWithPassword({ email, password })
-      expect(underneath).toBeNull()
-
-      const response = await fetch(`${baseUrl}/auth/sign-in`, {
-        method: 'POST',
-        redirect: 'manual',
-        headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': aNetwork() },
-        body: new URLSearchParams({ phone: email, password }),
-      })
-
-      expect(response.headers.get('location')).toContain('/login?error=unreadable-phone')
-
-      // And no session came back with the refusal, which is the part that would
-      // matter if the reading above ever stopped happening.
-      const { response: roster } = await getRoster(cookiesFrom(response))
-      expect(roster.status).toBe(307)
-    } finally {
-      await admin.auth.admin.deleteUser(created.user.id)
-    }
+    expect(response.headers.get('location')).toContain('/login?error=no-such-account')
   })
 
   it('reads a number typed the way somebody would type it', async () => {

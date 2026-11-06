@@ -29,7 +29,7 @@ The sign-up page asks for their email address and their own mobile phone number,
 > By continuing, you agree to receive texts from Discipler at this number, including sign-in codes and test check-ins. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.
 
 [SCREENSHOT: the sign-up page's "Your email" step, as it looks on a phone.
-It shows the Discipler wordmark, "Create an account", "Step 1 of 3, Your email", the Email field, the Mobile phone field with the wording above directly under it, and the "Email me a code" button.
+It shows the Discipler wordmark, "Create an account", "Step 1 of 3, Your email", the Email field, the Mobile phone field with the wording above directly under it, and the "Continue" button.
 Use an example email and number, never a real person's.
 Take it from the live page once sign-up (ticket 15) is built, not from the Lavish mock-up, which carries a "Mock-up, not built" label.
 Alt text: "Discipler's sign-up page, with the text-message consent wording directly under the mobile phone field."]

@@ -62,9 +62,12 @@ describe('every ministry-owned table', () => {
 
   it('is actually discovered by this test', () => {
     expect(tables.map((t) => t.table_name)).toEqual([
+      'ask_discipler_question',
       'billing_event',
       'checkin_prompt',
       'checkin_sequence',
+      'church_plant_application',
+      'church_signup',
       'concern',
       'concern_viewing',
       'consent_record',
@@ -93,10 +96,12 @@ describe('every ministry-owned table', () => {
       'person',
       'person_opt_out',
       'person_removal',
+      'referral_code',
       'relationship',
       'relationship_member',
       'sending_number_assignment',
       'support_submission',
+      'test_check_in',
       'trial_opening',
       'whats_new_dismissal',
     ])

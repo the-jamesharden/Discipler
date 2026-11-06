@@ -6,6 +6,7 @@ import type {
 } from '~/domain/intended-pairing'
 import type { IntendedPairingId } from '~/domain/ids'
 import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
+import type { OpenTestCheckIn, TestCheckInId, TestCheckInStanding } from '~/domain/test-check-in'
 import type { PairingRefusal } from '~/domain/errors'
 import type { SupportFormFields, SupportSubmission } from '~/domain/support-form'
 import type {
@@ -49,7 +50,16 @@ import type {
   StripeInboxEntry,
   StripeSubscriptionFacts,
 } from '~/domain/billing'
+import type { PlantApplication, PlantDecision } from '~/domain/church-plant'
+import type { BillingPicture, PastBill } from '~/domain/billing-picture'
+import type { NewChurchLimit } from '~/domain/new-church-limits'
 import type { BillingCycle, FingerprintGrant, PaidPhase, TrialOffer } from '~/domain/offers'
+import type {
+  ChargeFacts,
+  PaidInvoiceFacts,
+  ReferralCreditCancelled,
+  ReferralCreditReview,
+} from '~/domain/referral-credit'
 import type { GrowthChoice, GrowthHistory, GrowthSeries } from '~/domain/growth'
 import type { ChurchPriceRecord } from '~/domain/over-200'
 import type { CalendarMonth, IsoWeek } from '~/domain/week'
@@ -91,8 +101,13 @@ import type {
   PersonRenaming,
   RelationshipCancellation,
   RelationshipEnding,
+  NewTestCheckIn,
   SetupSeen,
   ShortNameChange,
+  TestCheckInAgreement,
+  TestCheckInAnswer,
+  TestCheckInClosure,
+  TestCheckInSweep,
   IntakeAnswersRemoval,
   IntakeFormSaving,
 } from '~/domain/effects'
@@ -108,6 +123,7 @@ import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
 import type { MaterialItem, MaterialOnOffer } from '~/domain/materials'
 import type { MaterialRecipient } from '~/domain/material-notices'
 import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
+import type { Onboarding } from '~/domain/onboarding'
 import type { SetupMeter } from '~/domain/setup-meter'
 import type { ShortName } from '~/domain/short-name'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
@@ -145,6 +161,7 @@ import type { SuggestionQuestion, Suggestions } from '~/domain/suggestions'
 import type { CardShape, NewRelationship } from '~/domain/relationships'
 import type { DailyCapHold, NewDailyCapHold } from '~/domain/daily-cap'
 import type { Email, EmailAddress, EmailEnvelope } from '~/domain/email'
+import type { PasswordResetToken } from '~/domain/password-reset'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
@@ -193,6 +210,12 @@ export interface UnitOfWork {
    */
   peopleOnRoster(): Promise<RosterReadback>
   /**
+   * How many more people this Ministry's Roster may take while it is a new church
+   * (Exponential launch, ticket 37), never below nothing, or null when it is not held to
+   * that limit.
+   */
+  newChurchRosterRoom(at: Date): Promise<number | null>
+  /**
    * Everyone in this Ministry with at least one Intake submission already on file.
    * Read inside the unit of work like the Roster, and for the same reason: two
    * submissions racing each other must not both read "never submitted" and both
@@ -211,6 +234,30 @@ export interface UnitOfWork {
    * and two answers that could, briefly, disagree about which Ministry is speaking.
    */
   ministryVoice(): Promise<MinistryVoice>
+  /**
+   * One Admin as a test check-in sees them (Exponential launch, ticket 28). To decide a
+   * send it is `locked`: their Person's lock and then the lock the tick takes, so a real
+   * check-in opening and a test being sent cannot each miss the other. To draw the card it
+   * is not, so that no page waits on a tick. All but `hasAccess`, which is
+   * `churchHasAccess`, and all but what their own conversation is waiting on, which is
+   * `checkInFor`.
+   */
+  testCheckInStanding(
+    sentBy: string,
+    how: { readonly locked: boolean },
+  ): Promise<Omit<TestCheckInStanding, 'hasAccess'>>
+  /**
+   * The test open on this Person's phone, whether or not its hour is up. Not one left on
+   * a phone they have since changed from, or their reply on the new one would land on it.
+   */
+  openTestCheckInOf(person: PersonId): Promise<OpenTestCheckIn | null>
+  /** Their agreement on the test's card, kept as their consent. */
+  recordTestCheckInAgreement(agreement: TestCheckInAgreement): Promise<void>
+  openTestCheckIn(test: NewTestCheckIn): Promise<void>
+  answerTestCheckIn(answer: TestCheckInAnswer): Promise<void>
+  clarifyTestCheckIn(id: TestCheckInId): Promise<void>
+  endTestCheckIn(ending: TestCheckInClosure): Promise<void>
+  sweepTestCheckIns(sweep: TestCheckInSweep): Promise<void>
   /**
    * Whether this church may text (Exponential launch, ticket 05), as the one answer
    * in `app.billing_state_of` gives it. True where the read failed, which is logged:
@@ -808,10 +855,17 @@ export interface UnitOfWork {
 
 /**
  * Whose account a sign-in is trying, as far as the guessing limit is concerned.
- * The number typed at the sign-in form, or the account of the session whose
- * current password is being checked at a change of password.
+ * The number or the email typed at the sign-in form, or the account of the session
+ * whose current password is being checked at a change of password.
+ *
+ * An email counts under the phone of the account that holds it, so the two ways in
+ * to one account share one count (Exponential launch, ticket 21). The port looks that
+ * up, so no caller can count the two apart by accident.
  */
-export type SignInAccount = { readonly phone: string } | { readonly userId: string }
+export type SignInAccount =
+  | { readonly phone: string }
+  | { readonly email: string }
+  | { readonly userId: string }
 
 /**
  * One try at a password, reserved before Supabase Auth is asked. It stays counted
@@ -835,6 +889,45 @@ export interface SignInAttempt {
  */
 export interface SignInLimit {
   attempt(account: SignInAccount, network: string | null): Promise<SignInAttempt | null>
+  /**
+   * Everything counted against this account, however it was tried, is forgotten: its
+   * owner has just proven who they are by another way (Exponential launch, ticket 22).
+   */
+  forgive(userId: string): Promise<void>
+}
+
+/** A link just made, for the one email it goes in. The token is here and nowhere else. */
+export interface NewPasswordResetLink {
+  /** The row's ID, new with each link, which is safe to log and to key an email on. */
+  readonly id: string
+  /** The address as the account holds it, not as it was typed. */
+  readonly to: EmailAddress
+  readonly token: PasswordResetToken
+}
+
+/**
+ * Where the links behind "Forgot your password?" are kept (Exponential launch, ticket
+ * 22), on the trusted connection, because somebody asking has no session.
+ */
+export interface PasswordResetLinks {
+  /**
+   * Counts the request and, if the address belongs to an Admin, replaces that account's
+   * live link with a new one. Null is everything else alike: nobody holds it, somebody
+   * who is not an Admin does, or the caps were reached.
+   */
+  ask(request: {
+    readonly email: EmailAddress
+    readonly network: string | null
+    readonly at: Date
+  }): Promise<NewPasswordResetLink | null>
+  isLive(token: PasswordResetToken, at: Date): Promise<boolean>
+  /**
+   * Runs `work` with the account of a live link, and spends the link if it succeeds.
+   * False when the link was not live, and `work` did not run. If `work` throws, the
+   * link stays live and the throw comes back. One method, so a link cannot be spent on
+   * a password that was not set, nor two presses both set one.
+   */
+  spending(token: PasswordResetToken, at: Date, work: (userId: string) => Promise<void>): Promise<boolean>
 }
 
 /**
@@ -844,18 +937,23 @@ export interface SignInLimit {
  * it happens before the transaction and it cannot be rolled back with it.
  *
  * Not a Leader's alone. An Admin comes into existence through the same mint, so
- * "a phone identity with a password and no email" is decided in one place -- see
- * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`, which says the
- * credential is the same for every user.
+ * "a phone identity with a password, and an email only where sign-up proved one" is
+ * decided in one place -- see
+ * `docs/adr/0030-an-admin-signs-in-with-email-or-phone.md`, and ADR-0008 for everybody
+ * without one.
  */
 export interface Accounts {
   /**
    * The number is the one on file, never one that was typed -- a forwarded link
    * must not be able to re-point an account at somebody else's phone.
+   *
+   * `email` is for a church's Admin at sign-up, whose address has been proven by a
+   * code. Everybody else's account has none.
    */
   create(
     phone: string | null,
     password: string,
+    email?: EmailAddress,
   ): Promise<{ readonly userId: string } | { readonly refusal: AccountCreationRefusal }>
   /**
    * Undoes a `create` whose acceptance did not land.
@@ -943,9 +1041,10 @@ export interface InboundReader {
   /**
    * `toNumber` is the shared number the text was sent to, Twilio's `To`. A phone in
    * one church resolves without it; a phone in two is placed with the church that
-   * texts it from that number, and with nobody when there is none.
+   * texts it from that number, and with nobody when there is none. `now` is what says
+   * whether a test open on that phone can still take a reply.
    */
-  resolveSender(fromPhone: string, toNumber: string | null): Promise<InboundSender | null>
+  resolveSender(fromPhone: string, toNumber: string | null, now: Date): Promise<InboundSender | null>
 }
 
 export interface EffectStore {
@@ -1534,6 +1633,11 @@ export type WithholdingReason =
    * others: a restart does not reopen the row, so nothing from before it goes.
    */
   | 'church_has_no_access'
+  /**
+   * The test check-in this text belonged to has ended (Exponential launch, ticket 28), so
+   * nothing more of it goes.
+   */
+  | 'test_check_in_ended'
 
 export interface QueuedMessage {
   readonly id: OutboundMessageId
@@ -1578,6 +1682,12 @@ export interface DueMessages {
    * A failed read never closes a row and never stops a church: see `due`.
    */
   readonly accessUnread: boolean
+  /**
+   * How many more texts may go on this drain while this is a new church (Exponential
+   * launch, ticket 37), or null when it is not held to that limit. Null too when the read
+   * failed, for the reason `accessUnread` gives: a limit nobody could read silences nobody.
+   */
+  readonly textRoom: number | null
 }
 
 export interface OutboundQueue {
@@ -1729,20 +1839,126 @@ export interface SharedNumbersNearCapacity {
   readonly day: string
 }
 
+/** What the model said to one question. */
+export type GuideModelAnswer =
+  | {
+      readonly outcome: 'answered'
+      readonly text: string
+      readonly usage: {
+        readonly inputTokens: number
+        readonly cachedInputTokens: number
+        readonly outputTokens: number
+      }
+    }
+  /** The gateway refused it for spending: past the monthly cap, or out of credits. */
+  | { readonly outcome: 'spent' }
+  /**
+   * No whole answer to show, and the model was paid for, or nothing can prove it was not: a
+   * timeout, or a connection lost after sending. It costs a question.
+   */
+  | { readonly outcome: 'billed_with_no_answer' }
+  /** Nothing was paid for: the gateway answered with a clear refusal, or the credential was missing or refused. */
+  | { readonly outcome: 'failed' }
+
+/**
+ * The model behind Ask Discipler (Exponential launch, ticket 31). It never throws: every
+ * way of not answering is one the Admin is told sorry for. It takes no tools and no ID,
+ * so nothing but these words can reach it.
+ */
+export interface GuideModel {
+  answer(request: {
+    readonly instructions: string
+    readonly history: readonly { readonly question: string; readonly answer: string }[]
+    readonly question: string
+  }): Promise<GuideModelAnswer>
+}
+
+/** Where Ask Discipler's chats are written (`~/service/ask-discipler`). */
+export interface AskDisciplerStore {
+  /**
+   * Counts the Admin's day under a lock and, with room, adds the question. Null at the
+   * limit. `history` is this sign-in's last answered exchanges, oldest first.
+   */
+  holdAPlace(request: {
+    readonly ministryId: string
+    readonly userId: string
+    readonly sessionId: string
+    readonly question: string
+    readonly at: Date
+    readonly most: number
+    readonly remembering: number
+  }): Promise<{
+    readonly id: string
+    readonly askedToday: number
+    readonly history: readonly { readonly question: string; readonly answer: string }[]
+  } | null>
+  keepAnswer(request: {
+    readonly ministryId: string
+    readonly userId: string
+    readonly id: string
+    readonly answer: string
+    readonly at: Date
+  }): Promise<void>
+  giveUpThePlace(request: { readonly ministryId: string; readonly userId: string; readonly id: string }): Promise<void>
+  setTucked(request: { readonly ministryId: string; readonly userId: string; readonly tucked: boolean }): Promise<void>
+  /** How many were deleted. */
+  deleteAskedBefore(before: Date): Promise<number>
+  /** True for the first to record this month, which is the one that tells support@. */
+  recordSpendStop(month: string, at: Date): Promise<boolean>
+  forgetSpendStop(month: string): Promise<void>
+}
+
 /**
  * What support@ is told about. One method per alert, so a message is never assembled
  * by a caller who does not know what it says.
  */
+/** A limit a church hit in its first weeks, as it was recorded (Exponential launch, ticket 37). */
+export interface NewChurchLimitHit {
+  readonly church: MinistryId
+  readonly churchName: string
+  readonly limit: NewChurchLimit
+}
+
+/** A church still in its first weeks, and what it stands at right now. */
+export interface NewChurchStanding {
+  readonly church: MinistryId
+  readonly name: string
+  readonly openedAt: Date
+  readonly people: number
+  readonly textsThisWeek: number
+}
+
+/**
+ * What the limits on a new church's first weeks keep, on the trusted connection, because
+ * the watch looks across every new church (Exponential launch, ticket 37).
+ */
+export interface NewChurchLimits {
+  /** Every church in its first weeks whose limits have not been lifted. */
+  standings(now: Date): Promise<readonly NewChurchStanding[]>
+  /** Once per church per limit; a second hit changes nothing. */
+  recordHit(church: MinistryId, limit: NewChurchLimit, at: Date): Promise<void>
+  untold(): Promise<readonly NewChurchLimitHit[]>
+  recordTold(church: MinistryId, limit: NewChurchLimit, at: Date): Promise<void>
+  /** An operator's act, kept in the church's history. Answers false for no such church. */
+  lift(church: MinistryId, at: Date): Promise<boolean>
+}
+
 export interface SupportAlerts {
   sharedNumbersNearCapacity(alert: SharedNumbersNearCapacity): Promise<void>
   /** Words only from the fall as it was recorded, so a retry is the same message. */
   twilioBalanceLow(fall: TwilioBalanceFall): Promise<void>
   /** Words only from what was recorded, so a retry is the same message. */
   over200FollowUp(followUp: Over200FollowUp): Promise<void>
+  /** Words only from what was recorded, so a retry is the same message. */
+  newChurchLimitHit(hit: NewChurchLimitHit): Promise<void>
   twilioSpendPassed(alert: TwilioSpendPassed): Promise<void>
   /** `day` is the Pacific day it was reached in, and what makes the email once a day. */
   dailyCapReached(alert: { readonly day: string }): Promise<void>
   billingEventRefused(alert: BillingEventRefused): Promise<void>
+  /** Words only from what was recorded, so a retry is the same message. */
+  referralCreditForReview(review: ReferralCreditForReview): Promise<void>
+  /** The gateway refused Ask Discipler for spending. `month` is what makes it once. */
+  askDisciplerSpendStopped(alert: { readonly month: string }): Promise<void>
   /**
    * The texting gate could not read a church's access, so texts went unchecked
    * (Exponential launch, ticket 05). `day` is what makes the email once a day.
@@ -1828,6 +2044,50 @@ export interface Over200Church {
   readonly followedUp: readonly CalendarMonth[]
 }
 
+/** What a self-signed-up church chose on "Set up your account" (ticket 17), and where it stands. */
+export interface ChurchSignup {
+  readonly cycle: BillingCycle
+  /** As the address carried it. The payment step checks it again when it is used. */
+  readonly carriedCode: string | null
+  readonly timeZone: string
+  /** A Subscription of its own has been confirmed at some time, so it is past this step for good. */
+  readonly began: boolean
+  readonly remindersOff: boolean
+}
+
+/** A church that may be owed its one reminder: opened lately, not begun, not told, not opted out. */
+export interface PaymentReminderCandidate {
+  readonly church: MinistryId
+  readonly churchName: string
+  readonly timeZone: string
+  readonly carriedCode: string | null
+  readonly openedAt: Date
+  /** The address on the Admin's account. */
+  readonly to: EmailAddress
+  readonly fullName: string
+}
+
+/**
+ * The row a church that signed itself up has, and no other church does (Exponential
+ * launch, tickets 17 and 18). It decides who the payment step is for and who gets its
+ * reminder, from what is stored and never from what a browser said.
+ */
+/** Whether a referral code is one a church holds today (Exponential launch, ticket 20). */
+export interface ReferralCodes {
+  /** False for a retired code, an unknown one and something that could not be one. */
+  isLive(code: string): Promise<boolean>
+}
+
+export interface ChurchSignups {
+  /** The church's row, or null: it did not sign itself up. */
+  of(church: MinistryId): Promise<ChurchSignup | null>
+  /** Who to consider for the reminder, across every church, among those opened since then. */
+  remindersToConsider(openedSince: Date): Promise<readonly PaymentReminderCandidate[]>
+  recordReminderSent(church: MinistryId, at: Date): Promise<void>
+  /** Keeps the first time, so pressing it twice says what was already so. */
+  turnRemindersOff(church: MinistryId, at: Date): Promise<void>
+}
+
 /**
  * What the over-200 watch reads and remembers. A tick has no memory of its own, so the
  * row per church per month is what makes the email go once; everything the question
@@ -1869,6 +2129,113 @@ export interface StripeBilling {
   subscriptionsOf(customerId: string): Promise<readonly StripeSubscriptionFacts[]>
   /** The customer a charge was made to, for a dispute, which names only its charge. */
   customerOfCharge(chargeId: string): Promise<string | null>
+}
+
+/**
+ * Stripe as the referral credit needs it (Exponential launch, ticket 32): what is true now
+ * about a payment and the two churches, and the one thing written. Throws when Stripe
+ * cannot answer, which leaves the event or the credit for the next pass.
+ */
+export interface StripeCredits {
+  /** An invoice as it is now, or null where Stripe has no such invoice. */
+  invoice(invoiceId: string): Promise<PaidInvoiceFacts | null>
+  charge(chargeId: string): Promise<ChargeFacts>
+  /** The customer's email and the fingerprint of every payment method it holds. */
+  customer(customerId: string): Promise<{
+    readonly email: string | null
+    readonly fingerprints: readonly string[]
+  }>
+  /** What a price is called in the catalog, in whichever Stripe account this is. */
+  lookupKeyOfPrice(priceId: string): Promise<string | null>
+  /**
+   * The balance transaction already made for this credit, or null. Asked before every
+   * write, because a retry may come after Stripe's idempotency key has gone.
+   */
+  appliedCredit(customerId: string, creditId: string): Promise<string | null>
+  /** A negative balance transaction naming the credit, and answers its ID. */
+  applyCredit(credit: {
+    readonly customerId: string
+    readonly creditId: string
+    readonly cents: number
+  }): Promise<string>
+}
+
+/** A referral credit that has come due, as a pass of the sweep works on it. */
+export interface DueReferralCredit {
+  readonly id: string
+  readonly referralId: string
+  readonly state: 'held' | 'applying'
+  /** Null where that church has since been deleted. */
+  readonly invitingChurch: MinistryId | null
+  readonly invitingChurchName: string | null
+  readonly invitedChurch: MinistryId
+  readonly invitedChurchName: string
+  readonly chargeId: string | null
+  readonly paidAt: Date
+  readonly amountCents: number | null
+}
+
+/**
+ * The record of referral credits, on the trusted connection, because a credit spans two
+ * churches and neither may read it.
+ */
+export interface ReferralCreditRecords {
+  /** The referral of a church that was invited and has not earned its inviter a credit. */
+  referralYetToEarn(invitedChurch: MinistryId): Promise<string | null>
+  /** Written once per referral, with the "Paying" event. Answers whether this was the one. */
+  earn(credit: {
+    readonly referralId: string
+    readonly invoiceId: string
+    readonly chargeId: string | null
+    readonly paidAt: Date
+    readonly heldUntil: Date
+    readonly at: Date
+  }): Promise<boolean>
+  /** The credit still held that this charge paid for, or null. */
+  heldForCharge(chargeId: string): Promise<string | null>
+  /** Those whose hold is over and nobody is working on, oldest first. */
+  due(at: Date, limit: number): Promise<readonly DueReferralCredit[]>
+  /** Takes the credit for this attempt. False where another pass has it. */
+  lease(creditId: string, at: Date, heldFor: number): Promise<boolean>
+  cancel(creditId: string, because: ReferralCreditCancelled, at: Date): Promise<void>
+  sendToReview(creditId: string, because: ReferralCreditReview, at: Date): Promise<void>
+  /**
+   * Commits the decision and its amount, before Stripe is called. False where the credit
+   * is no longer held, because a refund cancelled it since it was read.
+   */
+  decideToApply(creditId: string, cents: number): Promise<boolean>
+  /** Written with the "Credit applied" event, once. */
+  markApplied(creditId: string, balanceTransactionId: string, at: Date): Promise<void>
+  /** Every email address on the accounts of a church's Admins. */
+  adminEmails(church: MinistryId): Promise<readonly string[]>
+}
+
+/** Replaces a church's referral code, for the Refer page's "Get a new link". */
+export interface ReferralLinks {
+  /** Retires the church's live code and answers the new one. */
+  getANewCode(church: MinistryId, at: Date): Promise<string>
+}
+
+/** The Refer page, which holds the code and nothing the code ever brought. */
+export interface ReferPage {
+  readonly code: string
+  readonly followUpCount: number
+}
+
+export interface ReferReader {
+  readReferPage(): Promise<AdminPage<ReferPage>>
+}
+
+/** A credit James settles by hand (Exponential launch, ticket 32). */
+export interface ReferralCreditForReview {
+  readonly creditId: string
+  readonly referralId: string
+  readonly because: ReferralCreditReview
+  readonly invitingChurchName: string
+  readonly invitedChurchName: string
+  readonly invitingCustomerId: string | null
+  readonly invitedCustomerId: string | null
+  readonly paidAt: Date
 }
 
 /** A trial just opened, and the secret the Payment Element confirms its setup intent with. */
@@ -1914,10 +2281,137 @@ export interface StripeTrials {
     customerId: string,
   ): Promise<{ readonly fingerprint: string | null } | null>
   /**
-   * Replaces what a Subscription bills after its free days with these phases, through
-   * its schedule, made if it has none. Doing it twice is doing it once.
+   * Replaces what a Subscription bills next with these phases, through its schedule,
+   * made if it has none. They follow what is running now, kept as it is: the free days
+   * while it is trialing, and otherwise the current paid stretch until its next bill,
+   * which is where a church plant approved after its trial starts its free year (ticket
+   * 19). Doing it twice is doing it once.
    */
   schedulePhases(subscriptionId: string, phases: readonly PaidPhase[]): Promise<void>
+  /**
+   * Moves a Subscription holding a default of its own to the customer's, which is what
+   * Stripe's billing page changes (ticket 33). Answers whether anything had to move.
+   */
+  followCustomersDefault(customerId: string, subscriptionId: string): Promise<boolean>
+  /**
+   * Makes the method a Subscription's first bill saved the customer's default too, where
+   * this invoice is that bill (ticket 33). A restart saves its card on the Subscription
+   * only, and `followCustomersDefault` would otherwise move it back to the card the
+   * customer held before, at the customer's next change of any kind. Answers whether
+   * anything had to move.
+   */
+  firstBillSetsCustomersDefault(customerId: string, subscriptionId: string, invoiceId: string): Promise<boolean>
+}
+
+/** The prices a restarting church is shown, and its credit (ticket 33). */
+export interface RestartPrices {
+  readonly monthCents: number
+  readonly yearCents: number
+  readonly creditCents: number
+}
+
+/** A step of Stripe's billing page that Discipler's Billing page opens at. */
+export type BillingPortalStep = 'update_method' | 'cancel'
+
+/**
+ * Stripe's API as Discipler's Billing page uses it (Exponential launch, ticket 33):
+ * reading a church's plan and bills, opening Stripe's billing page, and what that page
+ * cannot do. Throws when Stripe cannot answer, and the page says so.
+ */
+export interface StripeAccount {
+  /** The plan as Stripe says it now, or null where the customer holds no Subscription that began. */
+  pictureOf(customerId: string, at: Date): Promise<BillingPicture | null>
+  /** Past bills, the newest first. */
+  billsOf(customerId: string): Promise<readonly PastBill[]>
+  /** The one-time address of Stripe's billing page at that step, which comes back to `returnTo`. */
+  portalAddress(request: {
+    readonly customerId: string
+    readonly step: BillingPortalStep
+    readonly subscriptionId: string
+    readonly returnTo: string
+  }): Promise<string>
+  /**
+   * Ends a Subscription on a schedule at the end of what is paid for, and remembers on the
+   * schedule what it would have billed, so Keep my subscription can put it back.
+   */
+  cancelOnItsSchedule(subscriptionId: string): Promise<void>
+  /** Undoes a cancellation at the end of the period, by whichever way it was asked for. */
+  keep(subscriptionId: string): Promise<void>
+  /** What lets Stripe's Payment Element offer the card or bank account on file. */
+  customerSessionSecret(customerId: string): Promise<string>
+  /**
+   * A Subscription billed today at the normal price of `cycle`, with no trial and no
+   * offer, and the secret its first payment is confirmed with. Null in place of a secret
+   * where there is nothing to pay, because credit covered it. A first payment still
+   * waiting at the same price is handed back rather than made twice.
+   */
+  openRestart(restart: {
+    readonly customerId: string
+    readonly church: MinistryId
+    readonly cycle: BillingCycle
+    readonly waiting: readonly StripeSubscriptionFacts[]
+  }): Promise<{ readonly clientSecret: string | null }>
+  /** What the restart page charges for each cycle today, after any credit, from Stripe's prices. */
+  restartPrices(customerId: string): Promise<RestartPrices>
+  /** Ends one that cannot be paid again and would otherwise go on making bills. */
+  end(subscriptionId: string): Promise<void>
+}
+
+/** What Discipler itself knows for the Billing page (ticket 33). */
+export interface BillingPage {
+  readonly timeZone: string
+  readonly cadence: { readonly day: number; readonly hour: number }
+  readonly followUpCount: number
+  /** What the church chose when it signed itself up, or null: it did not. */
+  readonly signup: ChurchSignup | null
+}
+
+/** What `/` and the payment step need to know about the payment step. */
+export interface PaymentStepPage {
+  readonly signup: ChurchSignup | null
+}
+
+export interface BillingReader {
+  readBillingPage(): Promise<AdminPage<BillingPage>>
+  readRestartPage(): Promise<AdminPage<BillingPage>>
+  readHomePage(): Promise<AdminPage<PaymentStepPage>>
+  readPaymentStepPage(): Promise<AdminPage<PaymentStepPage>>
+}
+
+/** A church whose trial is about to end, as the seven-day watch reads it (ticket 33). */
+export interface TrialEndingCandidate {
+  readonly church: MinistryId
+  readonly churchName: string
+  readonly timeZone: string
+  readonly customerId: string
+  readonly subscriptionId: string
+  readonly trialEndsAt: Date
+  readonly admins: readonly {
+    readonly userId: string
+    readonly to: EmailAddress
+    readonly fullName: string
+  }[]
+}
+
+/**
+ * What the seven-day watch reads and remembers. Spans every church, on the trusted
+ * connection, as the other watches do. A church whose plant application was approved is
+ * never among them: it is not about to be charged (ticket 19).
+ */
+export interface TrialEndingNotices {
+  /**
+   * Confirmed trials ending between now and `before`, not canceling and not billed outside
+   * Stripe, with the Admins who have not yet been emailed. A church with none left is not
+   * among them.
+   */
+  toConsider(now: Date, before: Date): Promise<readonly TrialEndingCandidate[]>
+  /** Says it went to this Admin, for this Subscription. Saying so twice changes nothing. */
+  recordSent(notice: {
+    readonly church: MinistryId
+    readonly subscriptionId: string
+    readonly userId: string
+    readonly at: Date
+  }): Promise<void>
 }
 
 /**
@@ -1988,6 +2482,25 @@ export interface BillingUnit {
    * time and every time after for the church that has it, no for every other church.
    */
   claimFingerprint(fingerprint: string, grant: FingerprintGrant, at: Date): Promise<boolean>
+  /**
+   * The decision on this church's application as it stands under the lock, or null where
+   * none has been made or it is not this church's (ticket 19).
+   */
+  plantDecisionOf(applicationId: string): Promise<PlantDecision | null>
+  /** Records the decision, once: an application with one keeps it. */
+  recordPlantDecision(applicationId: string, decision: PlantDecision, at: Date): Promise<void>
+}
+
+/**
+ * Church-plant applications as the operator's command reads them, across churches, on
+ * the trusted connection (ticket 19). A decision is written through `BillingUnit`, so it
+ * commits with the claim on the card.
+ */
+export interface ChurchPlantApplications {
+  /** One application by its ID, or null where there is none, decided or not. */
+  find(applicationId: string): Promise<PlantApplication | null>
+  /** Every application with no decision yet, the oldest first. */
+  undecided(): Promise<readonly PlantApplication[]>
 }
 
 /**
@@ -2199,6 +2712,12 @@ export interface PendingSignups {
   trying<T>(attempt: SignUpAttemptToken, work: (unit: PendingSignupTrying) => Promise<T>): Promise<T>
   /** The email did not go: no live code and no wait is left behind. */
   codeNotSent(attempt: SignUpAttemptToken): Promise<void>
+  /**
+   * Runs `work` while nothing else is opening a church on this attempt, so the second
+   * of a double click waits for the first and then finds the attempt spent. Holds no
+   * lock on the attempt's row, which the opening itself has to spend.
+   */
+  opening<T>(attempt: SignUpAttemptToken, work: () => Promise<T>): Promise<T>
 }
 
 export interface PendingSignupSending {
@@ -2755,11 +3274,23 @@ export interface SignedInAdmin {
   readonly whatsNewDismissed: readonly string[]
 
   /**
+   * Whether they have tucked Ask Discipler into its tab (Exponential launch, ticket 31),
+   * from that same one read, so the bubble draws in its place on every page.
+   */
+  readonly askDisciplerTucked: boolean
+
+  /**
    * Where they stand with their church's setup meter, which every page's document
    * carries so the bar under the tabs needs no read of its own (Exponential launch,
    * ticket 26).
    */
   readonly setup: SetupMeter
+
+  /**
+   * What the onboarding modal needs (Exponential launch, ticket 27), from that same
+   * read, so an Overview that opens it costs no second request.
+   */
+  readonly onboarding: Onboarding
 }
 
 /**
@@ -3133,6 +3664,16 @@ export interface ThisWeeksCheckIns {
   readonly checkIns: readonly CheckInThisWeek[]
 }
 
+export interface TestCheckInThisWeek {
+  readonly id: string
+  readonly adminName: string
+  readonly openedAt: Date
+  readonly met: boolean | null
+  readonly satisfaction: Satisfaction | null
+  /** Whether it is still waiting on the Admin, as against ended or past its hour. */
+  readonly waiting: boolean
+}
+
 /**
  * This week's answer for the relationship whose card is open on Check-Ins, which
  * the card opens with in its band (Pastor feedback, ticket 09). Never the words
@@ -3160,6 +3701,11 @@ export interface CheckInsPage {
   readonly card: PairCard | null
   /** This week's answer for the card's relationship, or null where none came this week. */
   readonly cardThisWeek: ThisWeeksAnswer | null
+  /**
+   * This week's test check-ins, Admins trying the product (Exponential launch, ticket
+   * 28). Beside the week and not in it, so that no count can reach them.
+   */
+  readonly tests: readonly TestCheckInThisWeek[]
 }
 
 export interface CheckInsReader {

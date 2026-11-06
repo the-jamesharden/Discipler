@@ -28,6 +28,7 @@ export const createInMemoryPendingSignups = () => {
         humanPassedAt: at,
         email: null,
         phone: null,
+        agreedAt: null,
         codeDigest: null,
         codeSentAt: null,
         codeTries: 0,
@@ -61,8 +62,17 @@ export const createInMemoryPendingSignups = () => {
         },
         async issue({ phone, codeDigest, at }) {
           calls.push('issue')
-          const sendNumber = rows.get(attempt)!.sends + 1
-          change(attempt, { email, phone, codeDigest, codeSentAt: at, codeTries: 0, sends: sendNumber })
+          const row = rows.get(attempt)!
+          const sendNumber = row.sends + 1
+          change(attempt, {
+            email,
+            phone,
+            agreedAt: row.phone === phone ? row.agreedAt : at,
+            codeDigest,
+            codeSentAt: at,
+            codeTries: 0,
+            sends: sendNumber,
+          })
           sends.push({ email: emailKey, network, at })
           return sendNumber
         },
@@ -86,6 +96,11 @@ export const createInMemoryPendingSignups = () => {
       calls.push('codeNotSent')
       change(attempt, { codeDigest: null, codeSentAt: null })
     },
+
+    async opening(_attempt, work) {
+      calls.push('opening')
+      return work()
+    },
   }
 
   return {
@@ -94,5 +109,7 @@ export const createInMemoryPendingSignups = () => {
     giveAccount: async (email: string) => {
       accounts.add(email.toLowerCase())
     },
+    /** What opening the church does to the attempt, in a transaction this fake has no part in. */
+    spend: (attempt: SignUpAttemptToken, at: Date) => change(attempt, { spentAt: at }),
   }
 }

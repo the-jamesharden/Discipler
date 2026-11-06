@@ -48,6 +48,7 @@ describe('the signed-in Admin answers in one read', () => {
         person_id: riverside.adminPersonId,
         full_name: riverside.adminName,
         whats_new_dismissed: [],
+        ask_discipler_tucked: false,
       },
       billing: OUTSIDE_STRIPE,
       // The setup meter's own document (ticket 26), proved in `the-setup-meter-over-http`.
@@ -72,6 +73,7 @@ describe('the signed-in Admin answers in one read', () => {
       person_id: null,
       full_name: null,
       whats_new_dismissed: [],
+      ask_discipler_tucked: false,
     })
     const resolution = resolutionOf(doc)
     expect(resolution.status === 'admin' && resolution.admin.fullName).toBeNull()
@@ -145,6 +147,7 @@ describe('the signed-in Admin answers in one read', () => {
       person_id: northgate.adminPersonId,
       full_name: northgate.adminName,
       whats_new_dismissed: [],
+      ask_discipler_tucked: false,
     })
     expect(JSON.stringify(doc)).not.toContain(riverside.id)
   })

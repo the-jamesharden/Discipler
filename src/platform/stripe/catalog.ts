@@ -1,5 +1,6 @@
 import type Stripe from 'stripe'
 import { STRIPE_COUPONS, STRIPE_PRICES, STRIPE_PRODUCT, type CatalogCoupon } from '~/domain/offers'
+import { BILLING_PORTAL_CONFIGURATION_MARK } from './account'
 
 /**
  * Creates what Discipler sells in one Stripe account (Exponential launch, ticket 04),
@@ -27,6 +28,33 @@ const orNull = async <T>(read: Promise<T>): Promise<T | null> => {
     throw error
   }
 }
+
+const BILLING_PORTAL_NAME = 'billing_portal'
+
+/**
+ * Stripe's billing page as the spec has it (ticket 33): no login page and no plan
+ * switching, so it is reached only from Billing, and nothing moves a Subscription between
+ * prices. A cancellation takes effect at the end of what is paid for.
+ */
+const BILLING_PORTAL: Stripe.BillingPortal.ConfigurationCreateParams = {
+  name: 'Discipler',
+  metadata: BILLING_PORTAL_CONFIGURATION_MARK,
+  login_page: { enabled: false },
+  features: {
+    payment_method_update: { enabled: true },
+    subscription_cancel: { enabled: true, mode: 'at_period_end', proration_behavior: 'none' },
+    subscription_update: { enabled: false },
+    customer_update: { enabled: false },
+    invoice_history: { enabled: true },
+  },
+}
+
+const billingPortalDiffers = (there: Stripe.BillingPortal.Configuration): boolean =>
+  there.login_page.enabled ||
+  there.features.subscription_update.enabled ||
+  !there.features.payment_method_update.enabled ||
+  !there.features.subscription_cancel.enabled ||
+  there.features.subscription_cancel.mode !== 'at_period_end'
 
 const couponDiffers = (coupon: CatalogCoupon, there: Stripe.Coupon): boolean =>
   there.duration !== 'forever' ||
@@ -89,6 +117,18 @@ export const createCatalog = async (client: Stripe): Promise<CatalogResult> => {
         : { amount_off: coupon.centsOff, currency: 'usd' }),
     })
     created.push(coupon.id)
+  }
+
+  const { data: configurations } = await client.billingPortal.configurations.list({ active: true, limit: 100 })
+  const portal = configurations.find(
+    ({ metadata }) => metadata?.discipler === BILLING_PORTAL_CONFIGURATION_MARK.discipler,
+  )
+  if (portal) {
+    alreadyThere.push(BILLING_PORTAL_NAME)
+    if (billingPortalDiffers(portal)) different.push(BILLING_PORTAL_NAME)
+  } else {
+    await client.billingPortal.configurations.create(BILLING_PORTAL)
+    created.push(BILLING_PORTAL_NAME)
   }
 
   return { created, alreadyThere, different }

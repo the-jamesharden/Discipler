@@ -193,6 +193,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
       twilioBalance: string
       stripeEvents: { failed: number } | 'failed'
       over200: string
+      paymentReminders: { sent: number; failed: number } | 'shut' | 'failed'
       supportSubmissions: { deleted: number } | 'failed'
       errors: { ministryId: string; error: string }[]
     }
@@ -202,16 +203,18 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     expect(Number.isInteger(outcome.awaitingANumber)).toBe(true)
     // The capacity watch ran once on the pass, whatever it found.
     expect(outcome.capacity).not.toBe('failed')
-    // A local server has no Twilio account to read, so this is the balance read
-    // failing: reported, and everything above went on regardless. It proves too that
-    // the read never reached the real Twilio from here.
-    expect(outcome.twilioBalance).toBe('failed')
+    // This server records its texts, so it has no Twilio account to read. Reported and
+    // not `failed`, and it proves too that the read never reached the real Twilio from here.
+    expect(outcome.twilioBalance).toBe('no_account')
     // So did the sweep of the Stripe events (Exponential launch, ticket 03).
     expect(outcome.stripeEvents).not.toBe('failed')
     // A local server has no Stripe to ask which price is the first, so the over-200
     // watch reads nothing (Exponential launch, ticket 14). Reported and not `failed`,
     // and it proves too that the question never reached the real Stripe from here.
     expect(outcome.over200).toBe('no_prices')
+    // Sign-up is shut on this server, and a church that cannot reach the payment step
+    // is not reminded of it (Exponential launch, ticket 18).
+    expect(outcome.paymentReminders).toBe('shut')
     // And the support form's submissions: the old one is gone and the young one is not.
     expect(outcome.supportSubmissions).not.toBe('failed')
     const { rows: kept } = await pool.query<{ id: string }>(

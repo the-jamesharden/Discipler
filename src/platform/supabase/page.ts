@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { billingStateOf } from '~/domain/billing'
 import { ministryId, personId, type MinistryId } from '~/domain/ids'
+import { onboardingOf } from '~/domain/onboarding'
 import { setupMeterOf } from '~/domain/setup-meter'
 import type { AdminPage, AdminResolution } from '~/service/ports'
 import { text } from './rows'
@@ -72,6 +73,13 @@ const dismissedEntries = (admin: Readonly<Record<string, unknown>>): readonly st
   return entries.flatMap((entry) => text(entry) ?? [])
 }
 
+/** Raised when missing, for the same reason: a dropped key must not untuck everybody's bubble. */
+const askDisciplerTucked = (admin: Readonly<Record<string, unknown>>): boolean => {
+  const tucked = admin.ask_discipler_tucked
+  if (typeof tucked !== 'boolean') throw new Error('The page document has no ask_discipler_tucked')
+  return tucked
+}
+
 /**
  * The three answers a page can get about the session, off the top of its
  * document. `signed-out` is a token that verifies but names no held session
@@ -109,7 +117,9 @@ export const resolutionOf = (doc: PageDocument): AdminResolution => {
       personId: own ? personId(own) : null,
       fullName: text(admin.full_name),
       whatsNewDismissed: dismissedEntries(admin),
+      askDisciplerTucked: askDisciplerTucked(admin),
       setup: setupMeterOf(section(doc, 'setup')),
+      onboarding: onboardingOf(section(doc, 'setup')),
     },
   }
 }

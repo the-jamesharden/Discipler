@@ -98,7 +98,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
 
   it('serves a Ministry that never edited exactly today’s mentor and mentee form', async () => {
     expect(screenOf(await wizard({}))).toEqual({
-      sub: 'Welcome — let’s get you connected.',
+      sub: 'Welcome - let’s get you connected.',
       progress: 'Step 1 of 6',
       percent: '17%',
       legends: ['I’m joining as…'],
@@ -136,11 +136,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
     expect(screenOf(await wizard({ step: '5', ...MENTEE }))).toMatchObject({
       sub: 'When are you generally available to meet?',
       legends: ['When could you meet?'],
-      hints: ['Select every hour that could work — not just your best one.'],
+      hints: ['Select every hour that could work - not just your best one.'],
     })
     // The last step, which used to read 80%.
     expect(screenOf(await wizard({ step: '6', ...MENTEE, availability: 'monday:12' }))).toEqual({
-      sub: 'Nearly there — how we reach you, and what you are hoping for.',
+      sub: 'Nearly there - how we reach you, and what you are hoping for.',
       progress: 'Step 6 of 6',
       percent: '100%',
       legends: ['What are you hoping for?', 'Agreements'],
@@ -167,7 +167,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
         await wizard({ step: '4', ageBand: '25-34', gender: 'female', availability: 'monday:12', groupId: 'none' }, ''),
       ),
     ).toEqual({
-      sub: 'Nearly there — how we reach you.',
+      sub: 'Nearly there - how we reach you.',
       progress: 'Step 4 of 4',
       percent: '100%',
       legends: ['Agreements'],
@@ -180,9 +180,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
     const { html } = await getPage('/intake-forms', cookie)
     expect(html).toContain('Mentor and mentee form')
     expect(html).toContain(`/join/${ministry.shortName}?preview=1`)
-    expect(html).toContain('Page 1 · Welcome — let’s get you connected.')
+    expect(html).toContain('Page 1 · Welcome - let’s get you connected.')
     expect(html).toContain('Page 5 · When are you generally available to meet?')
-    expect(html).toContain('Page 6 · Nearly there — how we reach you, and what you are hoping for.')
+    expect(html).toContain('Page 6 · Nearly there - how we reach you, and what you are hoping for.')
     // The one-to-two question's row: both its wordings, and no mark of a use,
     // since nothing that pairs people reads it (Suggestions beyond the one-to-one,
     // ticket 01).
@@ -383,7 +383,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
     const { html } = await getPage('/intake-forms?form=group', cookie)
     expect(html).toContain('Page 1 · About you')
     expect(html).toContain('Page 4 · A little more')
-    expect(html).toContain('Page 5 · Nearly there — how we reach you.')
+    expect(html).toContain('Page 5 · Nearly there - how we reach you.')
 
     // The empty page is skipped, and the renamed one says its new name.
     expect(screenOf(await wizard({}, ''))).toMatchObject({ sub: 'About you', progress: 'Step 1 of 4' })

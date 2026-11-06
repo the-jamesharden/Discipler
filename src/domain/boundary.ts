@@ -68,6 +68,12 @@ import {
   type Effect,
   type KeywordExchangeOutcome,
   type NewCheckInPrompt,
+  answerTestCheckIn,
+  clarifyTestCheckIn,
+  endTestCheckIn,
+  openTestCheckIn,
+  recordTestCheckInAgreement,
+  sweepTestCheckIns,
 } from './effects'
 import {
   fulfilmentDecision,
@@ -94,6 +100,7 @@ import {
   MaterialRefused,
   MinistrySettingsRefused,
   ShortNameRefused,
+  TestCheckInRefused,
   IntakeFormRefused,
   PairingRefused,
   PasswordResetRefused,
@@ -101,6 +108,7 @@ import {
   ReinvitationRefused,
   RemovalRefused,
   type PairingRefusal,
+  NewChurchRosterLimitReached,
 } from './errors'
 import type { PersonToRemove } from './removal'
 import { DISCIPLERS_CHECK_IN_WORDS, type CheckInWords } from './check-in-words'
@@ -226,6 +234,9 @@ import {
   invitationLink,
   meetingQuestion,
   satisfactionQuestion,
+  testCheckInQuestion,
+  testCheckInSubject,
+  testCheckInThanks,
   helpMessage,
   invitationMessage,
   keywordClarification,
@@ -302,7 +313,17 @@ import {
   type RowRejection,
 } from './roster'
 import { readRosterFile } from './roster-csv'
-import { SETUP_HISTORY } from './setup-meter'
+import { SETUP_HISTORY, testCheckInSent, tourFinished } from './setup-meter'
+import {
+  needsTheAgreement,
+  testCheckInId,
+  testCheckInIsLive,
+  testCheckInRefusal,
+  testCheckInsLapsedBy,
+  testCheckInTurn,
+  type OpenTestCheckIn,
+  type TestCheckInStanding,
+} from './test-check-in'
 import { readShortName, type ShortName } from './short-name'
 import { classifyImport, type SideRef } from './roster-import'
 
@@ -326,6 +347,12 @@ export interface CommandContext {
    * The two readings differ by a whole congregation being imported a second time.
    */
   readonly roster?: RosterSnapshot
+  /**
+   * How many more people a new church's Roster may take (Exponential launch, ticket 37),
+   * loaded on `person.import`'s behalf, or null when the church is not held to it. Read
+   * in the transaction that holds the Roster, so two imports cannot both fit.
+   */
+  readonly rosterRoom?: number | null
   /**
    * The held row an answer is about, as the database found it, loaded on
    * `import_row.resolve`'s behalf. It carries `resolvedAt` rather than a *still
@@ -360,6 +387,13 @@ export interface CommandContext {
    * what the command service's every read of a church with nothing saved says too.
    */
   readonly checkInWords?: CheckInWords
+  /** The Admin a test check-in is for, loaded on `test_check_in.send` and `.agree`'s behalf. */
+  readonly testCheckInStanding?: TestCheckInStanding
+  /**
+   * The test open on this sender's phone, loaded on `sms.inbound`'s behalf. It is what
+   * the router asks first: absent and null both read as no test.
+   */
+  readonly openTestCheckIn?: OpenTestCheckIn | null
   /**
    * This Ministry's settings as they stand, loaded on `settings.update`'s behalf
    * so that history can record what each field used to be. Absent on everything
@@ -1848,6 +1882,16 @@ const openConversationWith = (
     }),
   )
 
+  // A real question is about to be texted to this phone, so a test open on it ends now,
+  // with nothing said, and whatever comes back is an answer to the real one (James,
+  // triage 2026-10-31). In this transaction, so no reply can fall between the two. By the
+  // phone and not the Person, since a phone holds one conversation.
+  if (checkIn.phone) {
+    effects.push(
+      endTestCheckIn({ ministryId, on: { phone: checkIn.phone }, how: 'gave_way', at: now }),
+    )
+  }
+
   const sequenceId = checkInSequenceId(ids.next())
   const asking: Asking = {
     ministryId,
@@ -3219,6 +3263,75 @@ const withdrawalOf = (
   return effects
 }
 
+/**
+ * One reply to an open test: the same ladder as a real conversation, with its own record
+ * and nothing about any relationship. Its texts are composed by the same composers, in
+ * the sentences the test opened with, and its last is James's.
+ */
+const replyToTestCheckIn = (
+  test: OpenTestCheckIn,
+  body: string,
+  keywording: Keywording,
+): readonly Effect[] => {
+  const { ministryId, ministryName, personId, phone, now } = keywording
+  const turn = testCheckInTurn(test, body)
+
+  const say = (text: string): Effect =>
+    enqueueMessage({
+      ministryId,
+      personId,
+      toPhone: phone,
+      body: text,
+      enqueuedAt: now,
+      scheduledFor: null,
+      disclosesPersonId: null,
+      kind: 'no_reply',
+      ratesLine: 'never',
+      testCheckInId: test.id,
+    })
+
+  if (turn.kind === 'unreadable') {
+    // As on a real check-in: two clarifications, and then Discipler stops talking, not
+    // listening.
+    return turn.clarify
+      ? [
+          clarifyTestCheckIn(test.id),
+          say(checkInClarification({ ministryName, question: test.question, wording: CHECK_IN_WORDING })),
+        ]
+      : []
+  }
+
+  if (turn.kind === 'finish') {
+    return [
+      answerTestCheckIn({
+        id: test.id,
+        nextQuestion: null,
+        askedAt: now,
+        met: turn.met,
+        satisfaction: turn.satisfaction,
+      }),
+      endTestCheckIn({ ministryId, on: { id: test.id }, how: 'completed', at: now }),
+      say(testCheckInThanks({ ministryName })),
+    ]
+  }
+
+  const { subject, words } = test
+  return [
+    answerTestCheckIn({
+      id: test.id,
+      nextQuestion: turn.question,
+      askedAt: now,
+      met: turn.met,
+      satisfaction: turn.satisfaction,
+    }),
+    say(
+      turn.question === 'satisfaction'
+        ? satisfactionQuestion({ ministryName, subject, words, wording: CHECK_IN_WORDING })
+        : concernDetailRequest({ ministryName, subject, words }),
+    ),
+  ]
+}
+
 export const handleCommand = (command: Command, context: CommandContext): CommandResult => {
   switch (command.type) {
     case 'scheduled.tick': {
@@ -3251,6 +3364,13 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         sweepOutstandingReplies({
           ministryId: command.ministryId,
           cutoffs: outstandingReplyCutoffs(now),
+        }),
+        // A test nobody answered for an hour, whether or not the church can still text:
+        // nothing is said, so nothing here depends on it.
+        sweepTestCheckIns({
+          ministryId: command.ministryId,
+          askedNoLaterThan: testCheckInsLapsedBy(now),
+          at: now,
         }),
       )
 
@@ -3574,6 +3694,26 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       const now = context.clock.now()
 
+      // A test whose hour is up owns nothing: it is closed, and this text is handled
+      // exactly as it would be with no test. Before anything else reads it, so there is
+      // one way of being past the hour.
+      const standingTest = context.openTestCheckIn ?? null
+      if (standingTest && !testCheckInIsLive(standingTest, now)) {
+        const withNoTest = handleCommand(command, { ...context, openTestCheckIn: null })
+        return {
+          ...withNoTest,
+          effects: [
+            endTestCheckIn({
+              ministryId: command.ministryId,
+              on: { id: standingTest.id },
+              how: 'timed_out',
+              at: now,
+            }),
+            ...withNoTest.effects,
+          ],
+        }
+      }
+
       const keywording: Keywording = {
         ministryId: command.ministryId,
         ministryName,
@@ -3620,6 +3760,16 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             payload: { keyword: 'STOP' },
           }),
           ...closeStandingExchange(keywording, inbound.exchange, 'replaced'),
+          ...(standingTest
+            ? [
+                endTestCheckIn({
+                  ministryId: command.ministryId,
+                  on: { id: standingTest.id },
+                  how: 'opted_out',
+                  at: now,
+                }),
+              ]
+            : []),
         ]
 
         if (checkIn.openSequence) {
@@ -3687,6 +3837,21 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // receive, a confirmation that could never be confirmed, an acknowledgement to
       // somebody who asked not to be acknowledged.
       if (!inbound.mayBeTexted) return { effects: [], rejections: [] }
+
+      // **The router asks about a test before anything else that could touch a real
+      // relationship.** STOP and START above are about the phone and stand whatever is
+      // open. Past here a test takes everything: PAUSE or SWAP would act on real
+      // relationships, so while a test is open they are replies to it. HELP is answered,
+      // as on a real check-in, and goes no further, since a test raises nothing.
+      if (standingTest) {
+        return {
+          rejections: [],
+          effects:
+            keyword === 'HELP'
+              ? [sayToSender(keywording, helpMessage({ ministryName }), 'no_reply', 'always')]
+              : replyToTestCheckIn(standingTest, command.body, keywording),
+        }
+      }
 
       // `HELP` answers itself and changes nothing, so it replaces no exchange and
       // withdraws no question -- a Leader who asks what the words are in the middle
@@ -4755,6 +4920,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       })
       const now = context.clock.now()
 
+      // Absent on every church that is past its first weeks, which is nearly all of them.
+      if (context.rosterRoom !== undefined && context.rosterRoom !== null) {
+        const adding = classified.rows.filter((row) => row.outcome === 'new').length
+        if (adding > context.rosterRoom) throw new NewChurchRosterLimitReached()
+      }
+
       const effects: Effect[] = []
       /** The Person each row became, where it became one; a row already on the Roster is that Person. */
       const personOfRow: (PersonId | null)[] = []
@@ -5789,7 +5960,104 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             userId: command.seenBy,
             steps: command.steps,
             badgeSeenAt: command.badge ? context.clock.now() : null,
+            onboardingOpenedAt: command.onboarding ? context.clock.now() : null,
           }),
+        ],
+        rejections: [],
+      }
+
+    case 'test_check_in.agree': {
+      const { testCheckInStanding: standing } = context
+      if (!standing) throw new Error('test_check_in.agree was handed no Admin')
+      if (!standing.personId) throw new TestCheckInRefused('test_check_in.no_phone')
+
+      // Agreed already, so there is nothing new to keep.
+      if (standing.agreed) return { effects: [], rejections: [] }
+      return {
+        effects: [
+          recordTestCheckInAgreement({
+            ministryId: command.ministryId,
+            personId: standing.personId,
+            decidedAt: context.clock.now(),
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'test_check_in.send': {
+      const { testCheckInStanding: standing, ministryName, language, checkInWords } = context
+      if (!standing) throw new Error('test_check_in.send was handed no Admin')
+      if (!ministryName || !language) {
+        throw new Error('test_check_in.send was handed no Ministry to speak for')
+      }
+
+      const now = context.clock.now()
+      const refusal =
+        testCheckInRefusal(standing, now) ??
+        (needsTheAgreement(standing) ? ('test_check_in.agreement_needed' as const) : null)
+      if (refusal) throw new TestCheckInRefused(refusal)
+
+      // Both of these, or the refusal above has gone.
+      const { personId: admin, phone } = standing
+      if (!admin || !phone) throw new TestCheckInRefused('test_check_in.no_phone')
+
+      const id = testCheckInId(context.ids.next())
+      const words = checkInWords ?? DISCIPLERS_CHECK_IN_WORDS
+      const subject = testCheckInSubject(language.participantNoun)
+
+      return {
+        rejections: [],
+        effects: [
+          // Send another, with the last one still open. One test on a phone at a time.
+          endTestCheckIn({ ministryId: command.ministryId, on: { phone }, how: 'replaced', at: now }),
+          openTestCheckIn({
+            id,
+            ministryId: command.ministryId,
+            personId: admin,
+            sentBy: command.sentBy,
+            phone,
+            openedAt: now,
+            subject,
+            words,
+          }),
+          appendHistory(
+            testCheckInSent({ ministryId: command.ministryId, sentBy: command.sentBy, at: now }),
+          ),
+          enqueueMessage({
+            ministryId: command.ministryId,
+            personId: admin,
+            toPhone: phone,
+            body: testCheckInQuestion({
+              ministryName,
+              leaderNoun: language.leaderNoun,
+              subject,
+              words,
+              discloseOptOut: true,
+            }),
+            enqueuedAt: now,
+            scheduledFor: null,
+            disclosesPersonId: null,
+            // Its state is on its own table, so it never holds or waits for the number,
+            // and a real question is never queued behind it.
+            kind: 'no_reply',
+            ratesLine: 'once_a_month',
+            testCheckInId: id,
+          }),
+        ],
+      }
+    }
+
+    case 'setup.finish_tour':
+      return {
+        effects: [
+          appendHistory(
+            tourFinished({
+              ministryId: command.ministryId,
+              finishedBy: command.finishedBy,
+              at: context.clock.now(),
+            }),
+          ),
         ],
         rejections: [],
       }

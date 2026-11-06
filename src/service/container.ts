@@ -47,11 +47,14 @@ import { createTwilioBalanceReader } from '~/platform/twilio/account-balance'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { createResendTransport } from '~/platform/resend/email-transport'
 import { createTurnstile } from '~/platform/cloudflare/turnstile'
+import { remindersOffToken } from '~/platform/reminder-link'
+import { signUpIsOpen } from '~/platform/sign-up-switch'
 import { createSignUpCodeKeeper } from '~/platform/sign-up-code-keeper'
 import {
   createPostgresPendingSignups,
   type PostgresPendingSignups,
 } from '~/platform/supabase/pending-signups'
+import { openSignedUpChurch } from '~/platform/supabase/provisioning'
 import { createTwilioVerifier } from '~/platform/twilio/phone-verifier'
 import {
   createPostgresPhoneChecks,
@@ -59,6 +62,7 @@ import {
 } from '~/platform/supabase/phone-checks'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
 import { createPostgresSignInLimit, type PostgresSignInLimit } from '~/platform/supabase/sign-in-limit'
+import { createPostgresPasswordResetLinks, type PostgresPasswordResetLinks } from '~/platform/supabase/password-reset-links'
 import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
 import {
@@ -69,6 +73,17 @@ import {
   createPostgresSharedNumbers,
   type PostgresSharedNumbers,
 } from '~/platform/supabase/shared-numbers'
+import { createPostgresChurchSignups, type PostgresChurchSignups } from '~/platform/supabase/church-signups'
+import { supabaseReferReader } from '~/platform/supabase/refer-reader'
+import {
+  createPostgresReferralCredits,
+  type PostgresReferralCredits,
+} from '~/platform/supabase/referral-credits'
+import { createPostgresReferrals, type PostgresReferrals } from '~/platform/supabase/referrals'
+import {
+  createPostgresNewChurchLimits,
+  type PostgresNewChurchLimits,
+} from '~/platform/supabase/new-church-limits'
 import {
   createPostgresOver200FollowUps,
   type PostgresOver200FollowUps,
@@ -82,14 +97,25 @@ import {
   type PostgresSupportSubmissions,
 } from '~/platform/supabase/support-submissions'
 import type { CapacityConcern } from '~/domain/shared-numbers'
+import { createStripeAccount } from '~/platform/stripe/account'
 import { createStripeBilling, stripeClient } from '~/platform/stripe/billing'
+import { createStripeCredits } from '~/platform/stripe/credits'
+import {
+  createPostgresTrialEndingNotices,
+  type PostgresTrialEndingNotices,
+} from '~/platform/supabase/trial-ending-notices'
+import { supabaseBillingReader } from '~/platform/supabase/billing-reader'
 import { createStripeTrials } from '~/platform/stripe/trials'
 import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
 import { createCommandService, type CommandService } from './command-service'
 import { createDailyCap, type DailyCap } from './daily-cap'
+import { watchNewChurchLimits, type NewChurchLimitsOutcome } from './new-church-limits-watch'
 import { createEmailSender } from './email-sender'
 import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
+import { createTestCheckIn, type TestCheckIn } from './test-check-in'
 import { createPhoneCheck, type PhoneCheck } from './phone-check'
+import { createOpeningAChurch, type OpeningAChurch } from './opening-a-church'
+import { watchPaymentReminders, type PaymentReminderOutcome } from './payment-reminder-watch'
 import { createSignUp, type SignUp } from './sign-up'
 import { watchSharedNumberCapacity } from './shared-number-capacity'
 import {
@@ -99,11 +125,32 @@ import {
   type StripeEventWork,
 } from './stripe-events'
 import type { Invitations, TrialWork } from './open-trial'
+import {
+  creditOnStripeEvent,
+  sweepReferralCredits,
+  type ReferralCreditSweep,
+  type ReferralCreditWork,
+} from './referral-credits'
 import { watchOver200Churches, type Over200WatchOutcome } from './over-200-watch'
+import { restartSubscription, type RestartOpened } from './restart-subscription'
+import { watchTrialEndings, type TrialEndingOutcome } from './trial-ending-watch'
 import { createEmailSupportAlerts } from './support-alerts'
+import { createForgotPassword, type ForgotPassword } from './forgot-password'
 import { createSupportForm, type SupportForm, type SupportSweep } from './support-form'
+import { createAskDiscipler, type AskDiscipler } from './ask-discipler'
+import { createGatewayGuideModel } from '~/platform/ai-gateway/guide-model'
+import {
+  createPostgresAskDisciplerStore,
+  type PostgresAskDisciplerStore,
+} from '~/platform/supabase/ask-discipler-store'
 import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
+import type { BillingCycle } from '~/domain/offers'
 import type {
+  ChurchSignups,
+  StripeAccount,
+  ReferralCodes,
+  ReferralLinks,
+  ReferReader,
   Accounts,
   BillingRecords,
   CareNeededReader,
@@ -178,21 +225,30 @@ let intakeReader: PostgresIntakeReader | undefined
 let invitationReader: PostgresInvitationReader | undefined
 let ministrySetup: SupabaseMinistrySetup | undefined
 let signInLimit: PostgresSignInLimit | undefined
+let passwordResetLinks: PostgresPasswordResetLinks | undefined
+let forgotPassword: ForgotPassword | undefined
 let inboundReader: PostgresInboundReader | undefined
 let outboundQueue: PostgresOutboundQueue | undefined
 let ministryDirectory: PostgresMinistryDirectory | undefined
 let messageTransport: MessageTransport | undefined
 let emailSender: EmailSender | undefined
 let supportSubmissions: PostgresSupportSubmissions | undefined
+let askDisciplerStore: PostgresAskDisciplerStore | undefined
+let askDiscipler: AskDiscipler | undefined
 let supportForm: SupportForm | undefined
+let testCheckIn: TestCheckIn | undefined
 let phoneChecks: PostgresPhoneChecks | undefined
 let phoneCheck: PhoneCheck | undefined
 let sharedNumbers: PostgresSharedNumbers | undefined
 let twilioBalanceFalls: PostgresTwilioBalanceFalls | undefined
 let over200FollowUps: PostgresOver200FollowUps | undefined
+let trialEndingNotices: PostgresTrialEndingNotices | undefined
+let newChurchLimits: PostgresNewChurchLimits | undefined
+let churchSignups: PostgresChurchSignups | undefined
 let dailyCapHolds: PostgresDailyCapHolds | undefined
 let pendingSignups: PostgresPendingSignups | undefined
 let signUp: SignUp | undefined
+let openingAChurch: OpeningAChurch | undefined
 let postgresBilling: PostgresBilling | undefined
 
 export const getCommandService = (): CommandService => {
@@ -335,6 +391,30 @@ export const getSignInLimit = (): SignInLimit => {
 }
 
 /**
+ * "Forgot your password?" (Exponential launch, ticket 22). On the trusted connection,
+ * because somebody who lost their password has no session. Turnstile's secret and
+ * Resend's key are read per use, so a deployment with neither runs every other page.
+ */
+export const getForgotPassword = (): ForgotPassword => {
+  if (!forgotPassword) {
+    passwordResetLinks = createPostgresPasswordResetLinks(commandDatabaseUrl())
+    forgotPassword = createForgotPassword({
+      links: passwordResetLinks,
+      humanCheck: createTurnstile(),
+      sender: getEmailSender(),
+      accounts: supabaseAccounts,
+      signIns: getSignInLimit(),
+      addresses: {
+        link: (token) => new URL(`/login/forgot/${token}`, appBaseUrl()),
+        logo: () => new URL('/discipler-logo.png', appBaseUrl()),
+      },
+      clock: systemClock,
+    })
+  }
+  return forgotPassword
+}
+
+/**
  * An inbound text carries a phone number and no session, so the webhook reads on
  * the same trusted connection the Intake form and the Invitation Link do -- and
  * for the same reason: it is answering which Ministry the connection should scope
@@ -416,6 +496,22 @@ export const getPhoneCheck = (): PhoneCheck => {
 }
 
 /**
+ * The test check-in's button (Exponential launch, ticket 28): the same commands, the
+ * same queue and the same phone check as everything else, so wherever texts are recorded
+ * rather than sent, so are its texts and its code.
+ */
+export const getTestCheckIn = (): TestCheckIn => {
+  if (!testCheckIn) {
+    testCheckIn = createTestCheckIn({
+      commands: getCommandService(),
+      phoneCheck: getPhoneCheck(),
+      clock: systemClock,
+    })
+  }
+  return testCheckIn
+}
+
+/**
  * Sign-up's human check and email code (Exponential launch, ticket 11). On the
  * trusted connection, because somebody signing up has no session and no Ministry.
  * Turnstile's secret and the code's HMAC secret are read per use, so a deployment
@@ -433,6 +529,55 @@ export const getSignUp = (): SignUp => {
     })
   }
   return signUp
+}
+
+/** **Start free trial** on "Set up your account" (Exponential launch, ticket 17). */
+export const getOpeningAChurch = (): OpeningAChurch => {
+  if (!openingAChurch) {
+    const signingUp = getSignUp()
+    openingAChurch = createOpeningAChurch({
+      signUp: signingUp,
+      signUps: pendingSignups!,
+      openChurch: openSignedUpChurch,
+      sender: getEmailSender(),
+      clock: systemClock,
+    })
+  }
+  return openingAChurch
+}
+
+/**
+ * What a self-signed-up church chose (Exponential launch, tickets 17 and 18), on the
+ * trusted connection, because the reminder's read spans churches and somebody pressing
+ * "Don't send me reminders" has no session. A church's own row is written as that church.
+ */
+export const getChurchSignups = (): ChurchSignups => {
+  if (!churchSignups) churchSignups = createPostgresChurchSignups(commandDatabaseUrl())
+  return churchSignups
+}
+
+/**
+ * One pass of the payment reminder (Exponential launch, ticket 18). While sign-up is
+ * shut, "Start" would open a page that sends nobody to the payment step, so nothing is
+ * read and the tick's response says so. Throws when the churches could not be read, and
+ * the tick catches it.
+ */
+export const watchThePaymentReminders = async (): Promise<PaymentReminderOutcome | 'shut'> => {
+  if (!signUpIsOpen(process.env)) return 'shut'
+  return watchPaymentReminders({
+    signups: getChurchSignups(),
+    sender: getEmailSender(),
+    clock: systemClock,
+    links: {
+      start: () => new URL('/', appBaseUrl()),
+      logo: () => new URL('/discipler-logo.png', appBaseUrl()),
+      stop: (church) => {
+        const stop = new URL('/signup/reminders-off', appBaseUrl())
+        stop.searchParams.set('t', remindersOffToken(church))
+        return stop
+      },
+    },
+  })
 }
 
 /**
@@ -453,8 +598,49 @@ export const getSupportForm = (): SupportForm => {
   return supportForm
 }
 
+/**
+ * Ask Discipler (Exponential launch, ticket 31). Writes on the trusted connection, into
+ * `discipler_command` for one church at a time; the gateway's credential is its own.
+ */
+export const getAskDiscipler = (): AskDiscipler => {
+  if (!askDiscipler) {
+    askDisciplerStore = createPostgresAskDisciplerStore(commandDatabaseUrl())
+    askDiscipler = createAskDiscipler({
+      store: askDisciplerStore,
+      model: createGatewayGuideModel(),
+      alerts: getSupportAlerts(),
+      clock: systemClock,
+    })
+  }
+  return askDiscipler
+}
+
+/** The tick's deleting of chats kept long enough. It throws when the database does, and the tick catches it. */
+export const sweepAskDiscipler = (): Promise<number> => getAskDiscipler().sweep()
+
 /** The tick's pass over the form's two tables. It throws when the database does, and the tick catches it. */
 export const sweepTheSupportSubmissions = (): Promise<SupportSweep> => getSupportForm().sweep()
+
+const getNewChurchLimits = (): PostgresNewChurchLimits => {
+  if (!newChurchLimits) newChurchLimits = createPostgresNewChurchLimits(commandDatabaseUrl())
+  return newChurchLimits
+}
+
+/** The tick's pass over the limits on a new church's first weeks (Exponential launch, ticket 37). */
+export const watchTheNewChurchLimits = (): Promise<NewChurchLimitsOutcome> =>
+  watchNewChurchLimits({ limits: getNewChurchLimits(), alerts: getSupportAlerts(), clock: systemClock })
+
+/**
+ * An import was refused for the limit, so nothing the tick reads shows it happened. Never
+ * throws: the Admin is owed the sentence whether or not this was written down.
+ */
+export const noteTheNewChurchRosterLimit = async (ministryId: MinistryId): Promise<void> => {
+  try {
+    await getNewChurchLimits().recordHit(ministryId, 'roster', systemClock.now())
+  } catch (error) {
+    console.error(`Recording the new church limit failed for ministry ${ministryId}`, error)
+  }
+}
 
 /**
  * One drain of one Ministry's queue, assembled from the parts above so that its
@@ -517,6 +703,43 @@ const billing = (): PostgresBilling => {
 /** Billing's church-scoped records (Exponential launch, ticket 03), for the server only. */
 export const getBillingRecords = (): BillingRecords => billing().records
 
+/** What Discipler itself knows for the Billing page (ticket 33), read as the Admin. */
+export const getBillingReader = () => supabaseBillingReader
+
+/** Stripe's API as the Billing page uses it (ticket 33). Throws per call where there is no key. */
+export const getStripeAccount = (): StripeAccount => createStripeAccount()
+
+/** Whether this deployment has Stripe at all. Preview and a developer's machine do not. */
+export const stripeIsConfigured = (): boolean => Boolean(process.env.STRIPE_SECRET_KEY)
+
+/** Restarting a church whose subscription ended (ticket 33). */
+export const restartTheSubscription = (church: MinistryId, cycle: BillingCycle): Promise<RestartOpened> =>
+  restartSubscription(
+    { records: billing().records, stripe: createStripeBilling(), account: createStripeAccount() },
+    church,
+    cycle,
+  )
+
+/**
+ * One pass of the trial-ending watch (Exponential launch, ticket 33). Where there is no
+ * Stripe nothing can be said about a charge, so nothing is read. Throws when the churches
+ * could not be read, and the tick catches it.
+ */
+export const watchTheTrialEndings = async (): Promise<TrialEndingOutcome | 'no_stripe'> => {
+  if (!process.env.STRIPE_SECRET_KEY) return 'no_stripe'
+  if (!trialEndingNotices) trialEndingNotices = createPostgresTrialEndingNotices(commandDatabaseUrl())
+  return watchTrialEndings({
+    notices: trialEndingNotices,
+    account: createStripeAccount(),
+    sender: getEmailSender(),
+    clock: systemClock,
+    links: {
+      billing: () => new URL('/settings/billing', appBaseUrl()),
+      logo: () => new URL('/discipler-logo.png', appBaseUrl()),
+    },
+  })
+}
+
 /** The Stripe webhook's inbox, which only the webhook and its processing touch. */
 export const getStripeEventInbox = (): StripeEventInbox => billing().inbox
 
@@ -527,14 +750,43 @@ const stripeEventWork = (): StripeEventWork => ({
   trials: createStripeTrials(),
   alerts: getSupportAlerts(),
   clock: systemClock,
+  creditOnEvent: (entry, church, customerId) =>
+    creditOnStripeEvent(referralCreditWork(), entry, church, customerId),
 })
 
+let referralCredits: PostgresReferralCredits | undefined
+const referralCreditWork = (): ReferralCreditWork => {
+  if (!referralCredits) referralCredits = createPostgresReferralCredits(commandDatabaseUrl())
+  return {
+    credits: referralCredits,
+    billing: billing().records,
+    stripe: createStripeCredits(),
+    alerts: getSupportAlerts(),
+    clock: systemClock,
+  }
+}
+
+/** One pass over the referral credits whose hold is over (ticket 32). */
+export const sweepTheReferralCredits = (): Promise<ReferralCreditSweep> =>
+  sweepReferralCredits(referralCreditWork())
+
+let referrals: PostgresReferrals | undefined
+const theReferrals = (): PostgresReferrals => {
+  if (!referrals) referrals = createPostgresReferrals(commandDatabaseUrl())
+  return referrals
+}
+
+/** "Get a new link" on the Refer page (ticket 32). */
+export const getReferralLinks = (): ReferralLinks => theReferrals()
+
+/** Whether a code in a referral link is live, for the page that shows the banner (ticket 20). */
+export const getReferralCodes = (): ReferralCodes => theReferrals()
+
 /**
- * Who invited a church. Nobody, until ticket 32's `referral` table holds the answer:
- * that table is written when a church opens (ticket 17) and not taken from the browser,
- * so this is the one line for it to change.
+ * Who invited a church, from the `referral` row written in the transaction that opened it
+ * (ticket 20), and never from a browser.
  */
-export const getInvitations = (): Invitations => ({ wasInvited: async () => false })
+export const getInvitations = (): Invitations => theReferrals()
 
 /** Opening a church's trial, on the server's word about everything but the choice. */
 export const getTrialWork = (): TrialWork => ({
@@ -645,11 +897,18 @@ export const closeCommandService = async (): Promise<void> => {
   const shared = sharedNumbers
   const balanceFalls = twilioBalanceFalls
   const followUps = over200FollowUps
+  const referralCreditRows = referralCredits
+  const endingNotices = trialEndingNotices
+  const signupRows = churchSignups
   const capHolds = dailyCapHolds
   const limit = signInLimit
+  const resetLinks = passwordResetLinks
   const signUps = pendingSignups
   const billed = postgresBilling
   const submissions = supportSubmissions
+  const askedQuestions = askDisciplerStore
+  askDisciplerStore = undefined
+  askDiscipler = undefined
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -662,10 +921,16 @@ export const closeCommandService = async (): Promise<void> => {
   sharedNumbers = undefined
   twilioBalanceFalls = undefined
   over200FollowUps = undefined
+  referralCredits = undefined
+  trialEndingNotices = undefined
+  churchSignups = undefined
   dailyCapHolds = undefined
   signInLimit = undefined
+  passwordResetLinks = undefined
+  forgotPassword = undefined
   pendingSignups = undefined
   signUp = undefined
+  openingAChurch = undefined
   postgresBilling = undefined
   supportSubmissions = undefined
   supportForm = undefined
@@ -673,6 +938,8 @@ export const closeCommandService = async (): Promise<void> => {
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
   emailSender = undefined
+  await referralCreditRows?.close()
+  await signupRows?.close()
   await store?.close()
   await reader?.close()
   await invitations?.close()
@@ -683,11 +950,14 @@ export const closeCommandService = async (): Promise<void> => {
   await shared?.close()
   await balanceFalls?.close()
   await followUps?.close()
+  await endingNotices?.close()
   await capHolds?.close()
   await limit?.close()
+  await resetLinks?.close()
   await signUps?.close()
   await billed?.close()
   await submissions?.close()
+  await askedQuestions?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)
@@ -699,6 +969,9 @@ export const getRosterReader = (): RosterReader => createSupabaseRosterReader(sy
  * list it is, and the page never has to.
  */
 export const getIntakeFormsReader = (): IntakeFormsReader => supabaseIntakeFormsReader
+
+/** The Refer page reads through the signed-in Admin's session (ticket 32). */
+export const getReferReader = (): ReferReader => supabaseReferReader
 
 /**
  * The settings surface reads through the signed-in Admin's session, so

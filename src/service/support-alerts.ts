@@ -1,7 +1,14 @@
 import type { StripeEventRefusal } from '~/domain/billing'
 import { EmailField, emailBody, emailSubject } from '~/domain/email'
+import { REFERRAL_CREDIT_DESCRIPTION, type ReferralCreditReview } from '~/domain/referral-credit'
 import type { CapacityConcern } from '~/domain/shared-numbers'
-import { MONTHLY_PRICE_CENTS, PEOPLE_ON_THE_FIRST_PRICE } from '~/domain/launch-terms'
+import {
+  MONTHLY_PRICE_CENTS,
+  NEW_CHURCH_LIMITS,
+  PEOPLE_ON_THE_FIRST_PRICE,
+  REFERRAL_CREDIT_HELD_DAYS,
+} from '~/domain/launch-terms'
+import type { NewChurchLimit } from '~/domain/new-church-limits'
 import { TWILIO_BALANCE_FLOOR_CENTS, dollars } from '~/domain/twilio-balance'
 import type { CalendarMonth } from '~/domain/week'
 import type { EmailSender, SupportAlerts } from './ports'
@@ -25,6 +32,29 @@ const wholeDollars = (cents: number): string => `$${cents / 100}`
 const CONCERN_SAYS: Readonly<Record<CapacityConcern, string>> = {
   recipients: 'The shared numbers carry close to as many people as they safely can.',
   one_phone: 'The person in the most churches has at most one shared number left.',
+}
+
+const REVIEW_SAYS: Readonly<Record<ReferralCreditReview, string>> = {
+  billed_outside_stripe: 'The inviting church is billed outside Stripe, so this is yours to settle by hand.',
+  no_live_subscription: 'The inviting church has no running subscription, so it has no next bill to take this off.',
+  unknown_price: "The inviting church is on a price that isn't in Discipler's catalog, so Discipler can't say what one month of it is.",
+  no_charge: 'The payment has no charge at Stripe, so Discipler could not check whether it was refunded or disputed.',
+  same_customer: 'Both churches are the same Stripe customer.',
+  shared_payment: 'Both churches pay with the same card or bank account.',
+  shared_email_domain: 'The two churches share an email domain.',
+  unfinished_inviter_gone:
+    "Discipler started applying this and the inviting church or its Stripe customer went before it finished.",
+}
+
+/** Only an unfinished credit can already be at Stripe, so only that one says to look first. */
+const whereItStands = (because: ReferralCreditReview): string =>
+  because === 'unfinished_inviter_gone'
+    ? "Discipler may have applied it: its earlier call to Stripe may have landed. Check the customer's balance at Stripe for a credit naming this one before you settle it."
+    : 'Discipler has not applied it.'
+
+const NEW_CHURCH_LIMIT_SAYS: Readonly<Record<NewChurchLimit, string>> = {
+  roster: `reached ${NEW_CHURCH_LIMITS.peopleOnTheRoster} people on its Roster. An import that would go past that is refused, with a sentence asking them to email support@. Someone filling in its Intake form is still added.`,
+  texts: `reached ${NEW_CHURCH_LIMITS.textsPerWeek.toLocaleString('en-US')} texts in seven days. Anything further stays on the queue until the week has room or the limit is lifted, and nothing is lost.`,
 }
 
 const REFUSAL_SAYS: Readonly<Record<StripeEventRefusal, string>> = {
@@ -131,6 +161,39 @@ This email is sent once for each month a church stays above the limit.`,
     })
   },
 
+  // The church and which limit: nobody in the congregation. Its ID, because the command
+  // that lifts the limit takes it.
+  async newChurchLimitHit({ church, churchName, limit }) {
+    const name = EmailField.line(churchName)
+    const days = EmailField.line(String(NEW_CHURCH_LIMITS.firstDays))
+    await sender.send({
+      kind: 'newChurchLimitHit',
+      subject: emailSubject`${name} hit a limit on a new church`,
+      body: emailBody`${name} (${EmailField.line(church)}) is in its first ${days} days and ${EmailField.line(NEW_CHURCH_LIMIT_SAYS[limit])}
+
+If this looks like a real church that is simply large, lift its limits with npm run new-church-limit -- lift followed by the ID above, against production. If it does not, look at who signed up before doing anything else.
+
+This email is sent once for each limit.`,
+      once: `new-church-limit:${church}:${limit}`,
+    })
+  },
+
+  // Nothing in it but the month, so a retry is the same email.
+  async askDisciplerSpendStopped({ month }) {
+    await sender.send({
+      kind: 'askDisciplerSpendStopped',
+      subject: emailSubject`Ask Discipler has stopped answering`,
+      body: emailBody`Vercel's AI Gateway refused a question from Ask Discipler for spending in ${EmailField.line(month)} (UTC): the project's monthly budget has been reached, or the team's AI Gateway credits have run out.
+
+Until that changes, every Admin who asks is told "Sorry, I couldn't answer just now. Please try again in a minute." and the question does not count toward their day. Nothing else in Discipler is affected.
+
+A budget resets on the first of the month, UTC. To start sooner, look at the budget and the credits under AI Gateway in Vercel.
+
+This email is sent once a month.`,
+      once: `ask-discipler-spend-stopped:${month}`,
+    })
+  },
+
   // The event's ID is all anybody needs: it opens in the Stripe Dashboard, and it
   // keeps a church's details out of an inbox.
   async billingEventRefused({ eventId, eventType, refusal }) {
@@ -143,6 +206,29 @@ ${EmailField.line(REFUSAL_SAYS[refusal])}
 
 Open the event in the Stripe Dashboard to see whose it is. Nothing further happens on its own.`,
       once: `billing-event-refused:${eventId}`,
+    })
+  },
+
+  // The names and the Stripe customers, so that James can look at both and settle it:
+  // this goes to the founders and nobody else, and no church ever hears the other's name.
+  async referralCreditForReview(review) {
+    const none = 'None'
+    await sender.send({
+      kind: 'referralCreditReview',
+      subject: emailSubject`A referral credit is waiting for you`,
+      body: emailBody`${EmailField.line(review.invitingChurchName)} earned a referral credit: ${EmailField.line(review.invitedChurchName)}, which it invited, paid its first real bill on ${EmailField.line(atTheMinute(review.paidAt))}, and ${EmailField.line(String(REFERRAL_CREDIT_HELD_DAYS))} days have passed with no refund or dispute.
+
+${EmailField.line(whereItStands(review.because))} ${EmailField.line(REVIEW_SAYS[review.because])}
+
+Inviting church's Stripe customer: ${EmailField.line(review.invitingCustomerId ?? none)}
+Invited church's Stripe customer: ${EmailField.line(review.invitedCustomerId ?? none)}
+Referral: ${EmailField.line(review.referralId)}
+Credit: ${EmailField.line(review.creditId)}
+
+If it should stand, take one month of the inviting church's price off its bill by hand: in Stripe, as a credit on the customer's balance described as "${EmailField.line(REFERRAL_CREDIT_DESCRIPTION)}", or on its invoice if it is billed outside Stripe. Nothing further happens on its own.
+
+When it is settled, mark it done: npm run referral-review -- settle ${EmailField.line(review.creditId)} credited, or not-credited.`,
+      once: `referral-credit-review:${review.creditId}`,
     })
   },
 })
