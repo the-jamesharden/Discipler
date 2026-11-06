@@ -19,8 +19,8 @@ names an identifier at all. Nothing reconciled them, and each was written as tho
 were the only one.
 
 The deciding fact is that **email is optional at Intake**. It is a user story in its
-own right — *I want my email address to be optional, so that a missing email does not
-block me from participating* — and the CSV importer treats a missing address as normal.
+own right - *I want my email address to be optional, so that a missing email does not
+block me from participating* - and the CSV importer treats a missing address as normal.
 A Person may therefore complete Intake, be marked eligible to lead, be paired, receive
 an Invitation Link, and hold a relationship without Discipler ever learning an email
 address for them.
@@ -45,7 +45,7 @@ password requires an Admin reset until they ship.
 
 **Email for Admins, phone for Leaders.** Rejected. Two sign-in forms means a person
 arriving at Discipler has to know which kind of user they are before they can type
-anything, and an Admin who also leads — a supported and expected state — is both. The
+anything, and an Admin who also leads - a supported and expected state - is both. The
 product has exactly two access tiers and must not grow a third distinction here.
 
 **Accept either identifier on one form.** Rejected. A Person holding both has two doors,
@@ -54,7 +54,7 @@ answers are worse than having one door.
 
 **Keep email and make it required at Intake.** Rejected outright. It reverses a settled
 user story to serve a login screen, and it would exclude from participation the people
-least likely to have an email address they check — which is the opposite of what a
+least likely to have an email address they check - which is the opposite of what a
 ministry wants from an intake form.
 
 **Phone with a one-time code instead of a password.** Deferred, not rejected. It is the
@@ -73,7 +73,7 @@ why it is settled before the pilot rather than after it.
 Supabase Auth supports a phone identity with a password, so the platform choice in
 `docs/adr/0002-supabase-as-the-platform.md` is unaffected.
 
-A phone number is now load-bearing in three separate ways — it identifies a Person, it
+A phone number is now load-bearing in three separate ways - it identifies a Person, it
 carries every message, and it authenticates a session. `docs/adr/0005-a-person-is-a-name-and-a-number.md` already establishes the first. Any future feature that lets a phone
 number be edited must account for all three, and "not my number" on the invitation flow
 deliberately does not edit one.

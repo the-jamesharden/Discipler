@@ -102,7 +102,7 @@ describe('the rates line, once a month', () => {
     const [sent] = aQueue().send(welcome(emily, new Date('2026-10-02T15:00:00Z')))
     expect(sent!.carriesRatesLine).toBe(true)
     expect(sent!.body).toBe(
-      'ABC Church via Discipler: Thanks, Emily — you’re all set. We’ll text you once '
+      'ABC Church via Discipler: Thanks, Emily - you’re all set. We’ll text you once '
         + `you’ve been paired with someone to meet with. ${LINE}`,
     )
   })

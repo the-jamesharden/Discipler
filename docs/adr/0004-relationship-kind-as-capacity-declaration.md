@@ -34,7 +34,7 @@ the time it surfaces they have two leaders who each believe they are the only on
 
 A partial unique index is the natural expression of a cap of one. It cannot be
 written here, because both caps are conditioned on whether a relationship is a
-one-to-one or a group, and that fact is a *count of sibling rows* — not a value any
+one-to-one or a group, and that fact is a *count of sibling rows* - not a value any
 index on `relationship_member` can see.
 
 So the discriminator has to be stored, and the product rule says a stored
@@ -58,7 +58,7 @@ is legal depends on the order the rows arrive in. Concurrent inserts see each ot
 uncommitted absence and both pass. Making that correct means table-level locking on
 a path taken every time anybody is paired.
 
-**Store `kind` and read it everywhere.** Rejected — this is the regression the
+**Store `kind` and read it everywhere.** Rejected - this is the regression the
 product rule names. Copy branching on `kind` produces the specific bug the rule was
 written against: a group that drops to one participant keeps addressing its last
 remaining member by the relationship's name rather than by their own, because the
@@ -72,11 +72,11 @@ test-enforced set of readers.
 
 **A group with one remaining participant is a distinguishable state.** `kind =
 'group'` with N=1 is not the same row as `kind = 'one_to_one'` with N=1, and the
-participation caps treat them differently — the group's last participant may still
+participation caps treat them differently - the group's last participant may still
 join a one-to-one, and the one-to-one's may not. This is the price of the decision
 and it is the right way round: capacity was declared when the relationship was
 formed, and one person leaving does not retroactively change what everyone signed up
-for. Ticket 13's guarantee is preserved where it matters — the departure changes no
+for. Ticket 13's guarantee is preserved where it matters - the departure changes no
 structure, rewrites no history, and switches the copy to the person's name on its
 own, because copy reads the count.
 
@@ -109,7 +109,7 @@ one-to-ones. This is the one place outside the constraints where `kind` is read,
 it is read about the relationship being *proposed*, not about a relationship that
 exists.
 
-## Amendment — the Gender Rule reads `kind`
+## Amendment - the Gender Rule reads `kind`
 
 *2026-08-28, with ticket 05.*
 
@@ -121,15 +121,15 @@ two people of the same gender, and a group may be mixed.** `app.reject_gender_mi
 is therefore conditioned on `kind`, and so is the one-open-leader index, which now
 applies to one-to-ones only because a group may be led by several people.
 
-The letter of this ADR already permitted that — "its only readers are database
-constraints and the pairing scorer" — but the Context above frames the column entirely
+The letter of this ADR already permitted that - "its only readers are database
+constraints and the pairing scorer" - but the Context above frames the column entirely
 around the two participation caps, and a reader reasoning from that framing would
 conclude the gender rule had no business here. It does, for the same reason the caps
 do, and the reason is worth stating in the place it will be looked for.
 
 **Why the count would not have served.** The rejected option above, *a trigger that
 counts participants*, fails harder for gender than it does for the caps. A group is
-assembled row by row, so its first two members read as N=1 — a one-to-one — and the
+assembled row by row, so its first two members read as N=1 - a one-to-one - and the
 gender rule would refuse a mixed group depending on the order the rows arrived in.
 `kind` is frozen at formation and is therefore the same answer before the first member
 is written as after the last. That is precisely the property this ADR bought.
@@ -142,16 +142,16 @@ now has a second reason to exist.
 
 **The consequence, restated for gender.** A group that drops to one participant keeps
 `kind = 'group'` and stays unbound by the rule, while a relationship formed as a
-one-to-one is bound. That is the same trade the caps already took — capacity was
-declared when the relationship was formed — and it is the right way round: a group
+one-to-one is bound. That is the same trade the caps already took - capacity was
+declared when the relationship was formed - and it is the right way round: a group
 losing a member is not a decision to place two people alone together.
 
 **The fence does not cover SQL.** `tests/domain/relationship-kind-fence.test.ts` walks
-`src/` and `app/` only, so a migration reading `kind` trips nothing. That is correct —
-constraints are exactly who may read it — but it means the honest record of which
+`src/` and `app/` only, so a migration reading `kind` trips nothing. That is correct -
+constraints are exactly who may read it - but it means the honest record of which
 constraints do is this document, not a test.
 
-## Amendment — a group declares its gender, and `kind` is not what binds it
+## Amendment - a group declares its gender, and `kind` is not what binds it
 
 *2026-09-01, with ticket 25.*
 
@@ -163,12 +163,12 @@ answered the wrong question.
 A men's small group with three Leaders is not "a shape with no pair to match". It is the
 ordinary case in a ministry, and it is where a safeguarding rule earns its keep. The
 question a constraint on a group has to ask is not how many Leaders the relationship
-holds but **whether it declared itself single-gender** — and `kind` cannot answer that,
+holds but **whether it declared itself single-gender** - and `kind` cannot answer that,
 because it is a statement about capacity and says nothing about who may be in it.
 
 **So the rule is now carried by a second column and not by this one.**
 `relationship.declared_gender` is a `gender`, nullable, where null means the relationship
-declares none. Where it holds a gender, every member is of it — Leader and Participant
+declares none. Where it holds a gender, every member is of it - Leader and Participant
 alike, whatever the kind. It is immutable after creation, for the reason `kind` is: a
 constraint that can be switched off after the fact is not a constraint, and here the
 switch would unbind people already inside the relationship.
@@ -181,7 +181,7 @@ order the rows arrived in. That one condition is the whole of `kind`'s involveme
 safeguarding. The new constraint reads no kind at all.
 
 **What this changes about the consequence.** The previous amendment closed by restating
-the trade — *a group that drops to one Participant keeps `kind = 'group'` and stays
+the trade - *a group that drops to one Participant keeps `kind = 'group'` and stays
 unbound by the rule*. That sentence is now only true of a group that declared itself
 mixed, which is a group that said so. A group that declared a gender goes on holding
 only people of it however many members it has, which is the case the sentence was
@@ -189,15 +189,15 @@ quietly excluding.
 
 **The declaration is asked, not derived.** Deriving it from who happens to be selected
 cannot express *this is a women's group that currently has one member*, and a derivation
-that is silent binds people to something nobody chose. So the Pair form asks — three
-answers, nothing preselected — and the domain refuses a group that declared nothing.
+that is silent binds people to something nobody chose. So the Pair form asks - three
+answers, nothing preselected - and the domain refuses a group that declared nothing.
 `needsAGenderDeclaration` sits beside `kindFor` in `src/domain/relationships.ts` so that
 the one branch on the shape stays in the one file this ADR permits to know what a kind
 is. The refusal reaches the Admin as wording on the form they submitted, with their
 selection and their answer still on it.
 
 **It is not gated on `ministry.suggest_gender_match`.** That setting is the deliberate
-disable for the rule Discipler applies on a Ministry's behalf — the automatic match
+disable for the rule Discipler applies on a Ministry's behalf - the automatic match
 between two people who never declared anything. A declaration is a statement an Admin
 made about one relationship on purpose. A Ministry that permitted mixed one-to-ones has
 not asked for its own women's group to quietly admit a man.

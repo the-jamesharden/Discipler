@@ -6,8 +6,8 @@ accepted
 
 ## Decision
 
-The queue worker takes a recipient's number — writes `prompt_state = 'open'` on the row
-it is about to send — **inside the same transaction as the row lock, before Twilio is
+The queue worker takes a recipient's number - writes `prompt_state = 'open'` on the row
+it is about to send - **inside the same transaction as the row lock, before Twilio is
 called**, not after delivery succeeds.
 
 When the vendor then refuses the message, the worker gives the number back. The row is
@@ -22,12 +22,12 @@ Two workers draining one Ministry at once lock two different rows. Row locks alo
 therefore serialise nothing here: what the two workers contend for is the **number**,
 which is on neither row lock's path. The thing that actually serialises them is the
 partial unique index on `outbound_message (ministry_id, prompt_key) where prompt_state
-= 'open'` — and an index only serialises writes that have happened.
+= 'open'` - and an index only serialises writes that have happened.
 
 That is what forces the ordering. There are two places the write can go:
 
-- **After delivery.** Then `open` means what the glossary says — sent, awaiting a reply
-  — and nothing false is ever recorded. But both workers read a free number, both call
+- **After delivery.** Then `open` means what the glossary says - sent, awaiting a reply -
+  and nothing false is ever recorded. But both workers read a free number, both call
   Twilio, and the loser of the race discovers it *after* a text has landed on somebody's
   phone. The rule is enforced one message too late.
 - **Before delivery.** Then the loser is refused by the index before it calls anybody,
@@ -40,7 +40,7 @@ for a few hundred milliseconds is.
 ## Consequences
 
 `prompt_state = 'open'` reads, precisely, as *the queue has taken this number*. For
-every row that reaches a phone — which is all of them, on the ordinary path — that is
+every row that reaches a phone - which is all of them, on the ordinary path - that is
 the same instant as the send, and `sent_at` says which.
 
 A vendor refusal releases the number immediately, so a Twilio outage does not silently
@@ -60,7 +60,7 @@ conversation is ticket 26's question, and it is not answered here by making a te
 wait on a row it may not read.
 
 A worker killed between the claim and the vendor call leaves a number taken by a message
-that never went out. It is bounded rather than permanent — but only because the sweep is
+that never went out. It is bounded rather than permanent - but only because the sweep is
 measured from `reply_opened_at`, written by the claim, and not from `sent_at`, which that
 row will never have. A sweep reading `sent_at` would step over precisely the hold nobody
 else can release, which is why the column exists.

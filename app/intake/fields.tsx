@@ -798,7 +798,7 @@ export const Agreements = ({
     */}
     <p>
       May we share your name and phone number with {ministryName} and with the
-      people in the discipleship relationship you are placed in — the leader, and
+      people in the discipleship relationship you are placed in - the leader, and
       anyone else being discipled alongside you?
     </p>
     <label className="check">

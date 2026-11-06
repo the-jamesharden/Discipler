@@ -55,7 +55,7 @@ export const resetWarning = (fullName: string): string =>
  */
 export const NOTHING_IS_SENT =
   'Discipler will show you the new password once, on the next screen. It is not '
-  + 'texted or emailed to anybody — you read it out or write it down, and you will '
+  + 'texted or emailed to anybody - you read it out or write it down, and you will '
   + 'not be able to see it again.'
 
 export const RESET_ACTION = 'Reset the password'
@@ -88,5 +88,5 @@ export const SIGNED_OUT_EVERYWHERE =
  */
 export const RECORD_FAILED =
   'The password above is set and works. Discipler could not add this reset to the '
-  + 'ministry’s history, so there is no record of who did it — tell whoever looks '
+  + 'ministry’s history, so there is no record of who did it - tell whoever looks '
   + 'after this ministry’s Discipler account.'

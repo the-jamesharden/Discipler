@@ -50,7 +50,7 @@ settled and had reached implementation.
 
 ## Consequences
 
-Ticket 11a, which built the ceilings, is reversed in full — the rule module, the
+Ticket 11a, which built the ceilings, is reversed in full - the rule module, the
 `outbound_message.kind` discriminator, the per-Person send counting, and the two test
 files. Its subject no longer exists, so the work is withdrawn rather than left dormant.
 
@@ -62,7 +62,7 @@ nudges. What is gone is only the per-recipient rate limiting stacked on top of i
 
 The Ministry timezone loses one of its listed responsibilities. It still anchors
 availability blocks, the check-in cadence, the ISO week boundary behind the care
-counters, and the monthly opt-out rule — but no longer a nudge day or week window,
+counters, and the monthly opt-out rule - but no longer a nudge day or week window,
 because there is none.
 
 Ticket 20's criterion that *a held message consumes no nudge budget* is withdrawn for the

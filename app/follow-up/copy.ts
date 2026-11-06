@@ -476,12 +476,12 @@ export const ENDING_EXPLANATION =
   + 'unless they have opted out, and you pair them from the Roster as usual.'
 
 export const outcomeLabel: Record<RelationshipOutcome, string> = {
-  completed: 'Completed — it finished well',
-  discontinued: 'Discontinued — it did not run its course',
+  completed: 'Completed - it finished well',
+  discontinued: 'Discontinued - it did not run its course',
 }
 
 export const REASON_PLACEHOLDER =
-  'Required. In your own words — the outcome above is what gets counted later.'
+  'Required. In your own words - the outcome above is what gets counted later.'
 
 /** What the redirect back to the page says happened. Codes, never prose. */
 export type CareOutcome =

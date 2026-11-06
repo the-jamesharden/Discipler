@@ -61,7 +61,7 @@ describe('The Welcome Message', () => {
     })
 
     expect(text).toBe(
-      'Riverside Chapel via Discipler: Thanks, Emily — you’re all set. ' +
+      'Riverside Chapel via Discipler: Thanks, Emily - you’re all set. ' +
         'We’ll text you once you’ve been paired with someone to meet with. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     )
@@ -80,7 +80,7 @@ describe('The Welcome Message', () => {
     })
 
     expect(text).toBe(
-      'Riverside Chapel via Discipler: Thanks, Emily — you’re all set. ' +
+      'Riverside Chapel via Discipler: Thanks, Emily - you’re all set. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     )
     expect(text).not.toContain('matched')
@@ -90,7 +90,7 @@ describe('The Welcome Message', () => {
   it('greets a one-word name without mangling it', () => {
     expect(
       welcomeMessage({ ministryName: 'Riverside Chapel', fullName: 'Emily', promises: 'a_match' }),
-    ).toContain('Thanks, Emily —')
+    ).toContain('Thanks, Emily -')
   })
 
   it('names nobody it cannot name rather than greeting an empty string', () => {

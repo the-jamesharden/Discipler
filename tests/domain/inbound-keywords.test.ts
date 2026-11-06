@@ -307,7 +307,7 @@ describe('PAUSE', () => {
 
     expect(recipients(effects)).toEqual([james])
     expect(bodies(effects)).toEqual([
-      'ABC Church via Discipler: Done — your check-ins about Emily Johnson are paused for 2 ' +
+      'ABC Church via Discipler: Done - your check-ins about Emily Johnson are paused for 2 ' +
         'weeks. Reply RESUME any time to start them again sooner.',
     ])
   })
@@ -759,7 +759,7 @@ describe('a Person who leads nothing', () => {
       },
     ])
     expect(bodies(effects)).toEqual([
-      "ABC Church via Discipler: Thanks — we've passed this on to ABC Church and someone will be " +
+      "ABC Church via Discipler: Thanks - we've passed this on to ABC Church and someone will be " +
         'in touch. Nothing changes in the meantime.',
     ])
     // And nothing at all has happened to the relationship.
@@ -787,7 +787,7 @@ describe('free text nothing can be made of', () => {
     })
 
     expect(bodies(effects)).toEqual([
-      "ABC Church via Discipler: Thanks for your message. We can't reply to texts here — please " +
+      "ABC Church via Discipler: Thanks for your message. We can't reply to texts here - please " +
         'contact ABC Church directly and someone will get back to you.',
     ])
     expect(items(effects)).toEqual([])
@@ -1035,7 +1035,7 @@ describe('a named group, in a keyword text', () => {
     })
 
     expect(bodies(effects)).toEqual([
-      "Riverside Chapel via Discipler: Done — your check-ins about Tuesday Women's are paused for 2 " +
+      "Riverside Chapel via Discipler: Done - your check-ins about Tuesday Women's are paused for 2 " +
         'weeks. Reply RESUME any time to start them again sooner.',
     ])
   })

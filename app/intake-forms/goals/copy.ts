@@ -42,8 +42,8 @@ export const removalWarning = (label: string, chosenBy: number): string =>
   chosenBy === 0
     ? `Nobody has chosen “${label}”. Removing it changes nothing about anyone’s intake.`
     : chosenBy === 1
-      ? `1 person has chosen “${label}”. Removing it loses their answer for good — they keep their intake and their availability and stay pairable, but they will be ranked on availability alone until they answer again.`
-      : `${chosenBy} people have chosen “${label}”. Removing it loses their answers for good — they keep their intake and their availability and stay pairable, but they will be ranked on availability alone until they answer again.`
+      ? `1 person has chosen “${label}”. Removing it loses their answer for good - they keep their intake and their availability and stay pairable, but they will be ranked on availability alone until they answer again.`
+      : `${chosenBy} people have chosen “${label}”. Removing it loses their answers for good - they keep their intake and their availability and stay pairable, but they will be ranked on availability alone until they answer again.`
 
 /** How many people currently hold this option as their answer, said on the row. */
 export const chosenByLabel = (chosenBy: number): string =>

@@ -93,7 +93,7 @@ export const GoalsCard = ({
           ) : (
             <span
               className="goal-x last"
-              title="The only option left — Intake could not be served without it"
+              title="The only option left - Intake could not be served without it"
               aria-hidden="true"
             >
               ×

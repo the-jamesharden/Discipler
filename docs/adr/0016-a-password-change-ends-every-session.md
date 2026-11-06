@@ -7,7 +7,7 @@ accepted
 ## Decision
 
 **Setting a password on an account ends every session that account holds.** There is one
-port method — `Accounts.setPassword` — and ending the sessions is part of what it does,
+port method - `Accounts.setPassword` - and ending the sessions is part of what it does,
 not a second call beside it.
 
 This binds every path that will ever set a password: an Admin's reset (ticket 28), a
@@ -26,7 +26,7 @@ Ticket 24 moved the credential to a phone number and a password and shipped no w
 change one. Ticket 28 adds the first: an Admin resets a Leader who is locked out.
 
 Two things are asked for when somebody asks for a reset, and only one of them is *I have
-forgotten it*. The other is *somebody else has it* — a shared handset, a borrowed
+forgotten it*. The other is *somebody else has it* - a shared handset, a borrowed
 laptop, a password read out in a room and remembered. A reset that leaves existing
 sessions alive answers the first and does nothing at all about the second.
 
@@ -39,7 +39,7 @@ The reason this is a decision and not simply a behaviour is that the platform do
 do it for you and does not obviously offer it. supabase-js exposes no admin call that
 takes a user id and ends that user's sessions: `auth.admin.signOut(jwt)` posts to
 `/logout` carrying *the user's own* access token, which an Admin performing a reset does
-not have. So whichever way it is implemented, it is work somebody has to choose to do —
+not have. So whichever way it is implemented, it is work somebody has to choose to do -
 and therefore work somebody can quietly decide to skip, or drop during a refactor,
 unless the rule is written down.
 
@@ -52,7 +52,7 @@ through *because* they think somebody else has their password.
 **Keep the current session on a self-change and end the others.** Rejected, though it is
 the more polite behaviour and is what most products do. It requires digging the
 `session_id` claim out of the caller's JWT and excluding it, which makes "ends every
-session" conditional — and a conditional rule is one somebody has to reason about at
+session" conditional - and a conditional rule is one somebody has to reason about at
 each call site. Signing yourself out immediately after choosing a new password, and
 signing back in with it, is a defensible thing for a product to do. Leaving a stolen
 session alive is not.
@@ -75,7 +75,7 @@ before they submit rather than after.
 revoke sessions on an admin password update; if it does, the rule is satisfied by the
 update itself. If it does not, the sessions are deleted on the command connection. What
 this ADR fixes is the outcome, and an integration test that holds a session, changes the
-password, and finds the session refused is what holds it — not any particular call.
+password, and finds the session refused is what holds it - not any particular call.
 
 **Amended 2026-09-10.** The app no longer asks the Auth server who holds a session on
 every request: the token is verified locally against the server's published signing key,
@@ -83,8 +83,8 @@ and the Auth server is called only to refresh a token about to expire. A token t
 verifies says nothing about whether its session still exists, and GoTrue's revocation
 deletes the session on the server, so on its own local verification would leave a
 revoked token opening pages until it expired. The outcome is held by a second question
-the page asks the database on the connection it already holds — `session_is_live`,
-which reads the one `auth.sessions` row the token names — and the same integration tests
+the page asks the database on the connection it already holds - `session_is_live`,
+which reads the one `auth.sessions` row the token names - and the same integration tests
 still hold it. The mechanism is now settled by what the tests observe: the row is gone.
 
 This does not touch the Invitation Link, which authenticates by possession of a phone

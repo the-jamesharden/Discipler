@@ -1,4 +1,4 @@
-# Discipler — Non-Goals
+# Discipler - Non-Goals
 
 This document defines what Discipler is deliberately not trying to become.
 

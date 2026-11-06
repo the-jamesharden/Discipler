@@ -1,4 +1,4 @@
-# Discipler — Consent Language
+# Discipler - Consent Language
 
 The exact wording a person agrees to at intake. Discipler records each consent independently, with its own timestamp, alongside the version identifier below.
 
@@ -20,8 +20,8 @@ The wording of each earlier version is under [Earlier versions](#earlier-version
 Consent to take part is obtained through the intake form and through nothing else.
 There are two routes to it, recorded on each consent record as `source`:
 
-- `pastor_link` — a pastor sends the person the link directly. The primary path.
-- `qr_code` — a QR code opening the same link, for a leaders' meeting where a room can complete it together.
+- `pastor_link` - a pastor sends the person the link directly. The primary path.
+- `qr_code` - a QR code opening the same link, for a leaders' meeting where a room can complete it together.
 
 Both put the same wording in front of the same person, so both produce the same record. The route is kept because *how did this congregant come to agree* is a question a compliance review asks, and a column added afterwards cannot answer it retrospectively.
 
@@ -50,7 +50,7 @@ This is different wording from Statement 1, so it is recorded with a version ide
 Its time is when "Continue" was pressed on the email and phone page for that phone: a resend keeps it, and pressing it again with a different phone moves it, since the consent is for that number.
 The public description of this opt-in, for the carrier registration, is drafted for trydiscipler.com/sms-opt-in in `docs/legal/sms-opt-in-sign-up-section.md`.
 
-## Statement 1 — SMS consent
+## Statement 1 - SMS consent
 
 Presented as a required checkbox.
 Discipler sends nothing to anyone whose record lacks it, except the texts an Admin's own consent above names.
@@ -59,9 +59,9 @@ Discipler sends nothing to anyone whose record lacks it, except the texts an Adm
 
 The two links open in a new tab, so reading one does not cost a person a half-filled form, and pressing one does not tick the box.
 
-## Statement 2 — Contact sharing consent
+## Statement 2 - Contact sharing consent
 
-Presented as a separate required **decision** — two answers, yes and no, rather than a checkbox that records only agreement. A person must answer it to submit the form, and *no* is one of the two answers: unanswered and declined are different facts, and a checkbox cannot tell them apart.
+Presented as a separate required **decision** - two answers, yes and no, rather than a checkbox that records only agreement. A person must answer it to submit the form, and *no* is one of the two answers: unanswered and declined are different facts, and a checkbox cannot tell them apart.
 
 Declining does not block intake. A person who agrees to be texted and refuses contact sharing completes intake, reaches `Ready to Pair`, and can be paired; what changes is that their number is never included in a message or shown on a dashboard.
 
@@ -69,7 +69,7 @@ It is checked at send time, not assumed from enrollment: Discipler includes a pe
 
 The wording covers relationships of any size, because a relationship is one leader and N participants and the same statement has to hold for both.
 
-> I agree that my name and phone number may be shared with **{{ministry_name}}** and with the people in the discipleship relationship I am placed in — the leader, and anyone else being discipled alongside me.
+> I agree that my name and phone number may be shared with **{{ministry_name}}** and with the people in the discipleship relationship I am placed in - the leader, and anyone else being discipled alongside me.
 
 ## Why the two are separate
 

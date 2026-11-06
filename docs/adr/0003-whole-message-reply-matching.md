@@ -22,7 +22,7 @@ The failure is not merely a wrong record. A misread negation converts a relation
 
 ## Considered options
 
-**Keep substring matching and add negation detection.** Rejected. Negation in English is not a word list — scope, distance, and idiom all matter, and `not bad` is a positive. Every rule added here is a rule that has to be right on someone's hardest week.
+**Keep substring matching and add negation detection.** Rejected. Negation in English is not a word list - scope, distance, and idiom all matter, and `not bad` is a positive. Every rule added here is a rule that has to be right on someone's hardest week.
 
 **Whole-message match with nothing stripped.** Rejected as too strict. It breaks the explicit promise the rhythm doc makes about `Yes we did!`, and a clarification for every naturally-worded reply spends a leader's patience on Discipler's rigidity.
 
@@ -32,7 +32,7 @@ The failure is not merely a wrong record. A misread negation converts a relation
 
 Some replies a human would read correctly are refused. This is the trade being made deliberately: a clarification costs one message, and a misread negation costs a relationship nobody knows is failing. **The failure mode is now visible rather than silent**, which is the property being bought.
 
-The closed strippable list is load-bearing and must never contain a fragment that inverts meaning when removed. `we didn't` is part of a token, never a wrapper — stripping it from `yes we didn't` would produce the opposite of what was said. Any addition to that list needs the same scrutiny.
+The closed strippable list is load-bearing and must never contain a fragment that inverts meaning when removed. `we didn't` is part of a token, never a wrapper - stripping it from `yes we didn't` would produce the opposite of what was said. Any addition to that list needs the same scrutiny.
 
 A reply carrying two answers is unreadable rather than helpful. Accepting `1 and it was great` would advance two steps on one message, letting a leader skip the meeting question and recording a satisfaction rating for a meeting nobody confirmed happened.
 

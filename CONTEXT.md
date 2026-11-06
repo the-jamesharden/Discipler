@@ -13,7 +13,7 @@ The rule that data belonging to one Ministry is never accessible to another. The
 _Avoid_: Tenant isolation
 
 **Admin**:
-The authorized ministry staff member who oversees people, relationships, care needs, materials, and ministry-level insight. Named for the role rather than the office, because not every ministry using Discipler is led by a pastor. An Admin is a Person in their own Ministry, on its roster and holding one login like anybody else; Admin is an access tier they hold, not a second kind of human — see `docs/adr/0009-one-account-per-human.md`.
+The authorized ministry staff member who oversees people, relationships, care needs, materials, and ministry-level insight. Named for the role rather than the office, because not every ministry using Discipler is led by a pastor. An Admin is a Person in their own Ministry, on its roster and holding one login like anybody else; Admin is an access tier they hold, not a second kind of human - see `docs/adr/0009-one-account-per-human.md`.
 _Avoid_: Pastor (as a model term; it remains correct prose), Super-admin, Coordinator
 
 **Person**:
@@ -28,7 +28,7 @@ A person being discipled within a discipleship relationship.
 Leader and Participant are roles held on a relationship, not kinds of person: the same person may lead one relationship and be a participant in another at the same time.
 
 **Mentor** / **Mentee**:
-Participant-facing words for the Leader and Participant of a relationship with one participant. They belong in message copy, and in the one place the model has adopted them: they are the two values of a Declared Side, which is what a person said they were offering before any relationship existed. They are never roles held on a relationship — those are Leader and Participant.
+Participant-facing words for the Leader and Participant of a relationship with one participant. They belong in message copy, and in the one place the model has adopted them: they are the two values of a Declared Side, which is what a person said they were offering before any relationship existed. They are never roles held on a relationship - those are Leader and Participant.
 _Avoid_: Using these as names for relationship roles, or introducing Group Leader / Group Participant as separate roles
 
 **Discipleship Relationship**:
@@ -45,7 +45,7 @@ One of the eighty-four selectable windows on the intake grid: each day of the we
 The single outcome a participant selects at intake to describe what they are seeking from discipleship. The options offered are the ministry's own. An option is a row and answers point at it, so rewording one is not asking a new question; removing one blanks the answers that pointed at it, taking a stated goal off every live surface. ADR-0014 records why that is allowed and how the record survives it: the blanked answers are written into the removal event before the delete runs. The question ends with **Other**, which is not one of the ministry's options: choosing it means typing the goal in the person's own words, and that typed goal is the answer in place of an option. Two typed goals are the same goal for suggestion only when they match exactly in the sense ADR-0001's second amendment records; no edit to the ministry's options touches one.
 
 **Chosen By**:
-How many people's *current* intake answer points at a particular Discipleship Goal option. People and not submissions: intake is append-only and re-submittable, so somebody who has since changed their answer counts only against the option they now hold. It is what an admin is warned with before removing an option, and the number the removal writes into history — where it becomes the only surviving record of what was lost. One definition, in `public.discipleship_goal_options`, is read by both the goals card on Intake forms that warns and the command boundary that records, so the two cannot disagree.
+How many people's *current* intake answer points at a particular Discipleship Goal option. People and not submissions: intake is append-only and re-submittable, so somebody who has since changed their answer counts only against the option they now hold. It is what an admin is warned with before removing an option, and the number the removal writes into history - where it becomes the only surviving record of what was lost. One definition, in `public.discipleship_goal_options`, is read by both the goals card on Intake forms that warns and the command boundary that records, so the two cannot disagree.
 _Avoid_: Answer count, submission count, usage, popularity
 
 **Roster**:
@@ -73,18 +73,18 @@ _Avoid_: Eligible to lead, leader pool (there is no flag: pairing somebody is th
 
 **Age Band Gap**:
 The number of age bands a participant may be *above* their leader in a suggestion. A ministry setting with a direction: there is no limit below, because an older person discipling a younger one is the ordinary case.
-_Avoid_: Age gap, age difference — both read as symmetric
+_Avoid_: Age gap, age difference - both read as symmetric
 
 **Pairing Constraint**:
-A hard eligibility rule that removes a combination from suggestion entirely. Constraints govern suggestion only and a ministry may always pair manually across them — with one exception, the Gender Rule, which also binds pairing.
+A hard eligibility rule that removes a combination from suggestion entirely. Constraints govern suggestion only and a ministry may always pair manually across them - with one exception, the Gender Rule, which also binds pairing.
 
 **Gender Rule**:
 A one-to-one relationship is between two people of the same gender, and a relationship that declared a gender holds only people of that gender. A relationship that declared none is unconstrained by the second half. A safeguarding rule rather than a suggestion preference: it is enforced in the database and manual pairing cannot cross it.
-_Avoid_: "gender does not apply to groups" — it applies to any relationship that declared a gender
+_Avoid_: "gender does not apply to groups" - it applies to any relationship that declared a gender
 
 **Declared Gender**:
-What a relationship says it is for — men, women, or nobody in particular — stated by an Admin when it is created and immutable afterwards. It is what the Gender Rule binds a group by, and it is asked rather than derived: the people currently in a group cannot say *this is a women's group that has one member so far*. A one-to-one is not asked, because its two people already answer it.
-_Avoid_: Reading an undeclared relationship as "not yet decided" — it declares nothing, which is a settled answer
+What a relationship says it is for - men, women, or nobody in particular - stated by an Admin when it is created and immutable afterwards. It is what the Gender Rule binds a group by, and it is asked rather than derived: the people currently in a group cannot say *this is a women's group that has one member so far*. A one-to-one is not asked, because its two people already answer it.
+_Avoid_: Reading an undeclared relationship as "not yet decided" - it declares nothing, which is a settled answer
 
 **Group Name**:
 What a Ministry calls a group, typed by an Admin when forming it and editable from Intake forms afterwards. A label, not a ministry event: renaming overwrites no history. It is what the group Intake link offers, and what the weekly check-in, the keyword menus and their answers, and the Resume Message call the group, from either side of it; an unnamed group is on no link and is called by listing its people. A one-to-one has none, and nor does a 1:2 pair, which is called by its people as an unnamed group is.
@@ -160,7 +160,7 @@ The message sent to everyone in a relationship when it is resumed from a Pause, 
 _Avoid_: Starter Message (its words are true on the day a match is made, not after a fortnight away)
 
 **Password Reset**:
-An Admin setting a new password on somebody else's account, for a person who has lost theirs. Discipler chooses the password, shows it once on screen and sends it nowhere: the Admin reads it out, which is why a reset only works when the two of them can talk. Setting it ends every session on that account — `docs/adr/0016-a-password-change-ends-every-session.md` records why that is a rule and not a behaviour. It is always somebody else's: an Admin holds a session already, so their own is not a recovery.
+An Admin setting a new password on somebody else's account, for a person who has lost theirs. Discipler chooses the password, shows it once on screen and sends it nowhere: the Admin reads it out, which is why a reset only works when the two of them can talk. Setting it ends every session on that account - `docs/adr/0016-a-password-change-ends-every-session.md` records why that is a rule and not a behaviour. It is always somebody else's: an Admin holds a session already, so their own is not a recovery.
 _Avoid_: Forgotten password and password recovery (that is Forgot Password, below, and only for an Admin with a verified email; for everybody else recovery is not self-serve, and a person who still holds a session makes a Password Change instead), and Temporary password (nothing expires it or forces a change)
 
 **Forgot Password**:
@@ -219,11 +219,11 @@ The Offer of a free year for a church plant, after its Free Trial, once James or
 _Avoid_: Plant discount, grant
 
 **Intake Link**:
-The link an Admin hands one Person so they can reopen their own intake form, prefilled, and correct what it says. It is the only route by which a Participant's availability changes: there is no participant dashboard and no SMS path for it. The Admin is shown the link and passes it on themselves — Discipler never texts it, because the commonest reason to reopen somebody's intake is that the number on file is wrong. Possession of it is the authentication, as with an Invitation Link, and it expires after a fixed window. One live link per person: asking for it again gives back the one they hold, and a new one is minted only once that has run out. It is never consumed — correcting a number today and availability next week is the thing it exists for.
+The link an Admin hands one Person so they can reopen their own intake form, prefilled, and correct what it says. It is the only route by which a Participant's availability changes: there is no participant dashboard and no SMS path for it. The Admin is shown the link and passes it on themselves - Discipler never texts it, because the commonest reason to reopen somebody's intake is that the number on file is wrong. Possession of it is the authentication, as with an Invitation Link, and it expires after a fixed window. One live link per person: asking for it again gives back the one they hold, and a new one is minted only once that has run out. It is never consumed - correcting a number today and availability next week is the thing it exists for.
 _Avoid_: an account (nothing about it gives anyone one), and the Intake form as a withdrawal route (that is `STOP`)
 
 **Ministry Intake Link**:
-An intake link a whole ministry hands out. It names the ministry, carries no token, and is both the link a pastor sends and the link its QR code opens — so it is printable in a way the Intake Link above is not. It does not know who opened it, which is why the form asks. The two routes to it are the same link and differ only in whether it was scanned; which route somebody came by is kept on their consent record, because that is the question a compliance review asks. A ministry has more than one: the original link, and the Discipleship Intake Wizard below, each with its own QR code.
+An intake link a whole ministry hands out. It names the ministry, carries no token, and is both the link a pastor sends and the link its QR code opens - so it is printable in a way the Intake Link above is not. It does not know who opened it, which is why the form asks. The two routes to it are the same link and differ only in whether it was scanned; which route somebody came by is kept on their consent record, because that is the question a compliance review asks. A ministry has more than one: the original link, and the Discipleship Intake Wizard below, each with its own QR code.
 _Avoid_: calling it the Intake Link (that one is a single person's, prefilled, and expires), and treating a QR code as a second form (each one opens its own link, saying it was scanned)
 
 **Short Name**:
@@ -239,7 +239,7 @@ Mentor or Mentee, as a Person answered it on the Discipleship Intake Wizard. It 
 _Avoid_: a role (that is Leader or Participant, decided at pairing), a mark an Admin set (there is none), and treating an unanswered side as a refusal to offer
 
 **First-Time Answer**:
-Whether a person said this is their first time — being discipled, or mentoring, whichever Declared Side they offered. The question is worded from the side, and the answer is carried as two words rather than as yes and no, because the form words them as statements and a `yes` meaning *first time* reads backwards. It is read on the pairing screen, per candidate, and nowhere else: it ranks nobody and refuses nobody.
+Whether a person said this is their first time - being discipled, or mentoring, whichever Declared Side they offered. The question is worded from the side, and the answer is carried as two words rather than as yes and no, because the form words them as statements and a `yes` meaning *first time* reads backwards. It is read on the pairing screen, per candidate, and nowhere else: it ranks nobody and refuses nobody.
 _Avoid_: a suggestion input (ADR-0001 fixes those, and this is not one of them), a filter on the candidate list, and reading an unanswered one as *no*
 
 **One-to-Two Answer**:
@@ -269,7 +269,7 @@ _Avoid_: prompt. The database columns predate this entry and spell it `prompt_ke
 A recorded answer to a meeting-related question in the Check-In Rhythm, held against the question it answers and the person who sent it. Only leaders are asked today, so only leaders answer; a response is never keyed to the relationship alone, because a ministry may later ask participants too and a relationship is not assumed to have one respondent.
 
 **Satisfaction**:
-How a leader reported a meeting that happened: outstanding, good, okay, or concern, offered as A to D. Only concern is a Concern; okay raises nothing. The stored value is the word, never the letter the message offered — the letters were renumbered once, when C went from concern to okay, and no stored answer changed meaning. A reply is read against the answers its question offered when it was sent; `docs/product-rules.md`, *What the Satisfaction Tokens Store*, holds the rule and why there are four.
+How a leader reported a meeting that happened: outstanding, good, okay, or concern, offered as A to D. Only concern is a Concern; okay raises nothing. The stored value is the word, never the letter the message offered - the letters were renumbered once, when C went from concern to okay, and no stored answer changed meaning. A reply is read against the answers its question offered when it was sent; `docs/product-rules.md`, *What the Satisfaction Tokens Store*, holds the rule and why there are four.
 
 **Relationship State**:
 Discipler's current interpretation of how a discipleship relationship is doing based on its recorded ministry history. One of: Awaiting Leader Acceptance, Healthy, Stalled, Needs Care, Paused, Ended. A relationship holds exactly one state at a time.
@@ -294,7 +294,7 @@ One leader's act of taking responsibility for a relationship, performed on their
 The state of a relationship that its leader has paused for a selected period. Check-ins for that relationship are suppressed for the duration, membership is unchanged, and nobody returns to the roster as available. The relationship stays visible and visibly marked as paused on both the leader's list of relationships and the admin dashboard. Paused masks the relationship's underlying derived state rather than replacing the history behind it; on resume, that derived state resurfaces.
 
 **Ended**:
-The terminal state of a relationship that has finished. It records an outcome — completed or discontinued — alongside the reason in the ministry's own words, because whether a relationship finished well or broke down is a question the ministry asks in counts. Its history is preserved untouched, and its participants return to the roster as Ready to Pair unless they have opted out or hold another open participant membership.
+The terminal state of a relationship that has finished. It records an outcome - completed or discontinued - alongside the reason in the ministry's own words, because whether a relationship finished well or broke down is a question the ministry asks in counts. Its history is preserved untouched, and its participants return to the roster as Ready to Pair unless they have opted out or hold another open participant membership.
 
 **Departure**:
 One person leaving a discipleship relationship that continues without them: a participant where another remains, or a leader where another leader who has accepted goes on leading it. Their membership receives an end date rather than being deleted, so the weeks they were present for stay attached to the relationship, and a readmission later is a second membership rather than the first one reopened. A relationship losing its last leader who has accepted, or its last participant, is not a departure but an ending, because it records an outcome.
@@ -305,7 +305,7 @@ An Admin taking a Person off the Roster from their person page. It is a dated fa
 _Avoid_: Removal for one person leaving a relationship (that is a Departure), deleting, and archiving
 
 **Keyword Exchange**:
-The short SMS conversation Discipler opens when an inbound keyword needs something resolved before it can act — which relationship it applies to, or how long a pause should run. At most one is open per person at a time, and it expires after twenty-four hours without a reminder.
+The short SMS conversation Discipler opens when an inbound keyword needs something resolved before it can act - which relationship it applies to, or how long a pause should run. At most one is open per person at a time, and it expires after twenty-four hours without a reminder.
 _Avoid_: Menu, prompt (as model terms). "Prompt" is doubly unhelpful here: it is a model term, and where it does appear in the schema it names an Outstanding Reply, which is a different thing.
 
 **Silence Gap**:
@@ -315,7 +315,7 @@ The rolling window since Discipler last sent a person a message, measured per pe
 The single conversation in which a leader answers for every relationship they lead, one after another, in one thread on one day. Relationships are asked about earliest-started first, and the shape of the conversation is fixed when it opens. It advances on a reply, or when a question it asked has been reminded once and still gone unanswered; at most one runs against a leader at a time. A relationship awaiting leader acceptance or paused is not covered by it and accrues no silence.
 
 **Clarification**:
-What Discipler sends when it cannot read a reply: the valid replies to the question that is open, said again. At most two per question, after which Discipler stops re-prompting but keeps listening — the question stays open and a valid reply is still accepted until the sequence advances past it. The cap is on what Discipler says, never on what a leader may send.
+What Discipler sends when it cannot read a reply: the valid replies to the question that is open, said again. At most two per question, after which Discipler stops re-prompting but keeps listening - the question stays open and a valid reply is still accepted until the sequence advances past it. The cap is on what Discipler says, never on what a leader may send.
 _Avoid_: Retry, error message
 
 **Participation Status**:
@@ -325,7 +325,7 @@ A person-level status describing whether someone is being discipled, independent
 The timestamped, versioned record of what a person agreed to at intake. Discipler shares a phone number only where the consent record permits it. One other kind exists: an Admin's own consent at Sign-Up, with the source `ministry_setup`, which lets Discipler text that Admin the codes and Test Check-Ins it names and is never an Intake.
 
 **Swap**:
-A request to be released from a specific discipleship relationship and matched with somebody different. Either side may make one: a leader asking for a different participant, or a participant asking for a different leader — the recorded request says which side asked, because an admin acts differently on each. From a relationship the leader has not yet accepted, it reads as a decline. A swap is a recorded request awaiting admin action. It is never itself a change of relationship state, and the relationship remains intact until an admin resolves it.
+A request to be released from a specific discipleship relationship and matched with somebody different. Either side may make one: a leader asking for a different participant, or a participant asking for a different leader - the recorded request says which side asked, because an admin acts differently on each. From a relationship the leader has not yet accepted, it reads as a decline. A swap is a recorded request awaiting admin action. It is never itself a change of relationship state, and the relationship remains intact until an admin resolves it.
 
 **Care Needed**:
 The pastor-facing view of people or relationships that currently require pastoral attention. It gathers three things: open Follow-Up Items, relationships whose derived state asks for attention, and unresolved concerns.
@@ -360,7 +360,7 @@ _Avoid_: Schedule, cron time
 The ISO week in the Ministry Timezone. Defined independently of the Check-In Cadence, so that moving the cadence cannot produce one week carrying two check-ins and another carrying none.
 
 **Ministry Language**:
-The nouns a Ministry uses for the two roles in a relationship, carried into every message that names a role. Wording a Ministry owns, in the same way it owns its Discipleship Goal options; the structure of a message is not. ADR-0015 records the two rules the wording has to obey — the word sits in noun position and names the reader's own role — and why a word a Ministry typed can be neither conjugated nor pluralised on its behalf.
+The nouns a Ministry uses for the two roles in a relationship, carried into every message that names a role. Wording a Ministry owns, in the same way it owns its Discipleship Goal options; the structure of a message is not. ADR-0015 records the two rules the wording has to obey - the word sits in noun position and names the reader's own role - and why a word a Ministry typed can be neither conjugated nor pluralised on its behalf.
 
 **Sending Name**:
 The name a Ministry's messages read as, distinct from both the display name an Admin sees on their own screens and the Shared Number the messages are sent from. Unset means *speak as the display name*. Settings calls it *Messages read as*, and every text starts with it followed by "via Discipler", so a church run by one person can text as that person.

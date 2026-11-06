@@ -38,7 +38,7 @@ export default async function ReopenIntakePage({
     return (
       <Centred ministryName={page.ministryName}>
         <p className="empty">
-          This link has expired. Ask whoever sent it to you for a new one — your
+          This link has expired. Ask whoever sent it to you for a new one - your
           answers are still on file and nothing has been lost.
         </p>
       </Centred>
@@ -50,7 +50,7 @@ export default async function ReopenIntakePage({
   return (
     <Centred ministryName={page.ministryName} subtitle="Your details">
       <p className="card-lead">
-        Change whatever has moved on — your times, your number — and submit it again.
+        Change whatever has moved on - your times, your number - and submit it again.
         There is still no account to create.
       </p>
 

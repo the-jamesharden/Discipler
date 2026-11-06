@@ -24,7 +24,7 @@ export default async function ReopenIntakeDonePage({
       <div className="tick" aria-hidden="true">
         ✓
       </div>
-      <h1 style={{ textAlign: 'center' }}>Thanks — that’s updated</h1>
+      <h1 style={{ textAlign: 'center' }}>Thanks - that’s updated</h1>
       <p className="muted" style={{ textAlign: 'center' }}>
         {page.ministryName} has your new details. Nothing else changes: if you are
         already meeting with someone, you still are.

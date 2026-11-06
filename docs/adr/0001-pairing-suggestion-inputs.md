@@ -16,17 +16,17 @@ Suggestions draw on exactly four inputs, in two categories that never mix.
 
 **Constraints** filter the eligible pool before any ranking happens. They never rank, never score, and never appear as a reason for a suggestion.
 
-- **Gender** — leader and participant must match. This is a safeguarding policy, so it is absolute: manual pairing cannot override it. A ministry that wants mixed-gender relationships disables the rule once, deliberately, in settings.
-- **Age** — a leader is not suggested for a participant more than one age band above them. Intake collects a range (18–24, 25–34, 35–44, 45–54, 55–64, 65+), not an exact age, so the constraint is expressed in bands rather than years. Unlike gender, this governs suggestion only: an admin may pair across it manually.
+- **Gender** - leader and participant must match. This is a safeguarding policy, so it is absolute: manual pairing cannot override it. A ministry that wants mixed-gender relationships disables the rule once, deliberately, in settings.
+- **Age** - a leader is not suggested for a participant more than one age band above them. Intake collects a range (18–24, 25–34, 35–44, 45–54, 55–64, 65+), not an exact age, so the constraint is expressed in bands rather than years. Unlike gender, this governs suggestion only: an admin may pair across it manually.
 
 **Ranking inputs** order whoever survives the constraints.
 
-- **Availability overlap** — the count of shared availability slots. Always dominant.
-- **Discipleship Goal** — the single option a person selects at intake. It separates candidates who already have comparable overlap, and it never outranks availability.
+- **Availability overlap** - the count of shared availability slots. Always dominant.
+- **Discipleship Goal** - the single option a person selects at intake. It separates candidates who already have comparable overlap, and it never outranks availability.
 
-The output is three labels and no number. **Excellent fit** is meaningful overlap plus a matching goal; **Good fit** is meaningful overlap with differing goals; **Recommended** is everyone else who passes the constraints. A fourth section, **No Schedule Overlap**, lists people who share no availability with any eligible leader — for visibility only, never presented as a fit.
+The output is three labels and no number. **Excellent fit** is meaningful overlap plus a matching goal; **Good fit** is meaningful overlap with differing goals; **Recommended** is everyone else who passes the constraints. A fourth section, **No Schedule Overlap**, lists people who share no availability with any eligible leader - for visibility only, never presented as a fit.
 
-Candidates that tie on both overlap and goal are ordered by who has waited longest since completing intake — a stable ordering that favors the person who has been overlooked.
+Candidates that tie on both overlap and goal are ordered by who has waited longest since completing intake - a stable ordering that favors the person who has been overlooked.
 
 Every suggestion states its reason in plain language on its card: "Four shared time slots. You both selected Career and calling."
 
@@ -50,7 +50,7 @@ The reason card is a hard constraint on future changes: any new input must be ex
 
 Because gender is absolute and age is not, the two constraints need visibly different treatment in the admin UI. Presenting them as a uniform list of toggles would misrepresent one of them.
 
-## Amended — the Goal is a tiebreaker, and the age constraint has a direction
+## Amended - the Goal is a tiebreaker, and the age constraint has a direction
 
 Two parts of the Decision above are corrected. The four inputs and the two categories
 are unchanged; what changes is how one of them reaches the tier, and which way the
@@ -60,16 +60,16 @@ other one points.
 
 The Decision defines **Excellent fit** as meaningful overlap *plus a matching goal*
 and **Good fit** as meaningful overlap *with differing goals*. That is withdrawn.
-Tiers are counts of shared availability cells and nothing else — 4+ across 2 or more
-distinct days, 2–3, exactly 1, zero — as recorded in `docs/product-rules.md` under
+Tiers are counts of shared availability cells and nothing else - 4+ across 2 or more
+distinct days, 2–3, exactly 1, zero - as recorded in `docs/product-rules.md` under
 *Settled: Suggestion Tiers Are Counts of Shared Cells*. The Goal orders candidates
 **within** a tier and never determines which tier they land in.
 
 The gating reading was the one that contradicted this ADR, not the one that departed
 from it. Under gating, a pair with six shared cells across four days but a differing
-goal is capped at Good fit and sits beside a pair with two cells and a matching goal —
+goal is capped at Good fit and sits beside a pair with two cells and a matching goal -
 which is the Goal outranking availability at the tier boundary, forbidden three
-paragraphs above by *Availability overlap — always dominant*.
+paragraphs above by *Availability overlap - always dominant*.
 
 The reason sentence follows. Where goals match it is unchanged: *"Four shared time
 slots. You both selected Career and calling."* Where they differ it is the first
@@ -85,7 +85,7 @@ and it is not. It is a limit in one direction only:
 
 - A Participant may be at most N age bands **above** their Leader.
 - There is **no limit below**. A 65+ Leader with an 18–24 Participant is five bands
-  down, permitted, and entirely ordinary — an older person discipling a younger one is
+  down, permitted, and entirely ordinary - an older person discipling a younger one is
   the common case, not an edge one.
 
 N is `suggest_max_age_band_gap`, a Ministry setting built by ticket 22, and its unit is

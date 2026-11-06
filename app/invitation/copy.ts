@@ -40,7 +40,7 @@ const PROBLEMS: Record<Problem, string> = {
   'invitation.not_found':
     'This link isn’t one we recognise. Check you copied the whole of it, or ask whoever invited you to send it again.',
   'invitation.expired':
-    'This link has expired. Ask whoever invited you to send you a new one — nothing is lost.',
+    'This link has expired. Ask whoever invited you to send you a new one - nothing is lost.',
   'invitation.already_used':
     'You’ve already set up your account with this link. Sign in with your phone number and password.',
   'invitation.not_a_leader': 'This link isn’t yours to accept.',

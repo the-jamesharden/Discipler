@@ -91,7 +91,7 @@ const REFUSALS: Record<IntakeRefusal, string> = {
     'We can only take part by text, so we need your agreement to text you. If you no '
     + 'longer want text messages, reply STOP to any message from us.',
   'intake.contact_sharing_undecided':
-    'Please tell us whether we may share your number — either answer is fine.',
+    'Please tell us whether we may share your number - either answer is fine.',
   'intake.source_unknown': 'This link is incomplete. Please ask for a new one.',
   'intake.side_unknown':
     'Please tell us whether you are joining as a mentor or as someone to be '
@@ -200,7 +200,7 @@ export const sideDescription: Record<DeclaredSide, string> = {
 export const DONE_BEFORE_ANSWER = 'Yes, I’ve done this before'
 export const FIRST_TIME_ANSWER = 'No, this is my first time'
 export const DONE_BEFORE_DESCRIPTION = 'I have experience in this role.'
-export const FIRST_TIME_DESCRIPTION = 'I am new to this — and that is perfectly fine.'
+export const FIRST_TIME_DESCRIPTION = 'I am new to this - and that is perfectly fine.'
 
 /**
  * The one-to-two question's two answers (Suggestions beyond the one-to-one,

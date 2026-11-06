@@ -1,4 +1,4 @@
-# Discipler — The Pastor Dashboard
+# Discipler - The Pastor Dashboard
 
 This is the working product description of the pastor-facing dashboard. It is a product model, not an implementation specification. Items marked **OPEN** are unresolved and must not be implemented by inference.
 
@@ -82,32 +82,32 @@ Pressing any relationship in any column opens the same pair card the Overview op
 On Check-Ins the card opens with this week's answer and when it came in its first band, in the Ministry's timezone (*This week · Met · B good · answered 9:07am*), coloured as its letter's column; the Last check-in fact, which would say the same answer again, is left out.
 Where this week's answer raised a concern that is still unresolved, that band is the concern's, its words under the week's line, with **Resolve**; a concern from an earlier week that is still unresolved keeps its own band beneath it.
 Resolving from the card clears the concern on Check-Ins and on Follow-Up alike, and the card says so where the pastor is; ending the relationship from the card says so at the top of Check-Ins.
-Concerns are never presented as a browsable list, never exported, and never quoted in a report — an admin reading "four concerns this week" opens each relationship's card to see what was said.
+Concerns are never presented as a browsable list, never exported, and never quoted in a report - an admin reading "four concerns this week" opens each relationship's card to see what was said.
 Raw concern text is the most sensitive data in the product, so its words show in one place only: the pair card of the relationship it is about, which shows them as it opens.
 Opening the card is the read, and it is recorded exactly as the retired `Read the concern` button recorded it, one viewing per concern; a line under the concern on the card says who read it and when.
 This reverses an earlier rule, that reading a concern took a deliberate extra click past the list as friction (James, 2026-10-12, Pastor feedback ticket 07).
 The friction that stays is everything else above: no list of the words, no export, no report, and the words never on the Overview grid, the Check-Ins columns or the Follow-Up list.
 
-Resolving a concern clears its text, and nothing offers to keep it. A ministry should not accumulate a permanent file of people's worst weeks — not by never deciding to, and not by deciding to either.
+Resolving a concern clears its text, and nothing offers to keep it. A ministry should not accumulate a permanent file of people's worst weeks - not by never deciding to, and not by deciding to either.
 
 ## Suggested Pairs
 
-The Suggested Pairs tab lists candidate one-to-one relationships ranked strongest first, each rated on a four-star scale and each accompanied by a card stating its reason in plain language — for example, "four shared time slots; you both selected Career and calling." Suggestions are produced only for one-to-one relationships; groups are always formed manually by the pastor. Ministry-configured pairing constraints remove ineligible combinations before ranking rather than penalizing them within it.
+The Suggested Pairs tab lists candidate one-to-one relationships ranked strongest first, each rated on a four-star scale and each accompanied by a card stating its reason in plain language - for example, "four shared time slots; you both selected Career and calling." Suggestions are produced only for one-to-one relationships; groups are always formed manually by the pastor. Ministry-configured pairing constraints remove ineligible combinations before ranking rather than penalizing them within it.
 
 At the bottom of the tab, below every ranked suggestion, a **No Schedule Overlap** section names each person who shares no availability with any eligible leader. They are listed for visibility, never presented as a fit, and can be paired manually from the same row.
 
-A leader is not suggested for a participant if the leader is more than ten years younger. That constraint governs suggestion only — an admin may pair any two eligible people manually regardless of age difference.
+A leader is not suggested for a participant if the leader is more than ten years younger. That constraint governs suggestion only - an admin may pair any two eligible people manually regardless of age difference.
 
-Suggestions carry visible tier labels — Excellent fit, Good fit, Recommended — and no numeric score. See `docs/adr/0001-pairing-suggestion-inputs.md`.
+Suggestions carry visible tier labels - Excellent fit, Good fit, Recommended - and no numeric score. See `docs/adr/0001-pairing-suggestion-inputs.md`.
 
 ## Follow-Up
 
 The Follow-Up tab is the Care Needed view. It gathers every relationship and person currently needing admin attention in one place, so nothing depends on an admin noticing it elsewhere. Four conditions put an item here:
 
-1. **Stalled** — gone silent for two weeks, or reporting three weeks of not meeting. The item names which condition fired and reports how long it has held, in the unit that matches the reason: gone silent reports days since last contact, responding-not-meeting reports weeks reported as no meeting. The two cannot share a counter — days since last contact is already fourteen or more when silence fires and roughly seven when not-meeting fires, so one number would make a relationship going nowhere for three weeks read as more recent than one silent for a fortnight.
-2. **Unresolved concern** — a concern raised and not yet resolved.
-3. **Expired pause** — the selected pause period has elapsed. The item shows that the relationship was paused, which period was selected, that it has expired, and that the relationship has not resumed. The relationship is still `Paused`; expiry changes no state and resumes nothing.
-4. **Open swap request** — the leader has asked to be matched with a different participant. The item shows which leader asked, which relationship the request concerns, and that the leader wants a different participant. The relationship remains intact and holds its existing state while it waits.
+1. **Stalled** - gone silent for two weeks, or reporting three weeks of not meeting. The item names which condition fired and reports how long it has held, in the unit that matches the reason: gone silent reports days since last contact, responding-not-meeting reports weeks reported as no meeting. The two cannot share a counter - days since last contact is already fourteen or more when silence fires and roughly seven when not-meeting fires, so one number would make a relationship going nowhere for three weeks read as more recent than one silent for a fortnight.
+2. **Unresolved concern** - a concern raised and not yet resolved.
+3. **Expired pause** - the selected pause period has elapsed. The item shows that the relationship was paused, which period was selected, that it has expired, and that the relationship has not resumed. The relationship is still `Paused`; expiry changes no state and resumes nothing.
+4. **Open swap request** - the leader has asked to be matched with a different participant. The item shows which leader asked, which relationship the request concerns, and that the leader wants a different participant. The relationship remains intact and holds its existing state while it waits.
 
 The last two are review conditions, not care flags. A pause and a swap request are ordinary things a leader may need, and `docs/non-goals.md` is explicit that neither is wrongdoing.
 
