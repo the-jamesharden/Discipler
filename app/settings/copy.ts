@@ -22,7 +22,7 @@ export const hourLabel = (hour: number): string =>
 const REFUSALS: Record<MinistrySettingsRefusal, string> = {
   'settings.name_missing': 'A ministry needs a name.',
   'settings.timezone_unknown':
-    'That is not a timezone we recognise. Pick one from the list — it is the clock every check-in, availability block and week is read against.',
+    'That is not a timezone we recognise. Pick one from the list - it is the clock every check-in, availability block and week is read against.',
   'settings.leader_noun_missing': 'A ministry needs a word for the person leading.',
   'settings.participant_noun_missing':
     'A ministry needs a word for the person being discipled.',
@@ -69,11 +69,17 @@ export const gapLabel = (bands: number): string =>
   bands === 0
     ? 'Never older than their leader'
     : bands === 1
-      ? // The worked example is read off the ladder rather than written out, for the
-        // reason the refusal sentence above is: a band added or reworded would
-        // otherwise leave this illustrating a ladder the product no longer has.
-        `Up to 1 band older (a ${AGE_BANDS[1]} leader may be suggested a ${AGE_BANDS[2]} participant)`
+      ? 'Up to 1 band older'
       : `Up to ${bands} bands older`
+
+/**
+ * What one band older means, worked through once, in the sentence above the choice
+ * rather than inside it: in the choice it ran past a phone's width and was cut off
+ * mid-word (James, 2026-11-06). Read off the ladder rather than written out, for the
+ * reason the refusal sentence above is: a band added or reworded would otherwise
+ * leave this illustrating a ladder the product no longer has.
+ */
+export const GAP_EXAMPLE = `At 1 band older, a ${AGE_BANDS[1]} leader may be suggested a ${AGE_BANDS[2]} participant.`
 
 /**
  * A real message, with the two places a Ministry's own words go marked out: the

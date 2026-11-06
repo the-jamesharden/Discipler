@@ -15,6 +15,7 @@ import { LivePreview } from './live-preview'
 import {
   AGE_NOT_ASKED,
   DAYS,
+  GAP_EXAMPLE,
   gapLabel,
   genderNotAsked,
   hourLabel,
@@ -206,7 +207,7 @@ export default async function MinistrySettingsPage({
           <p className="subtle">
             One-to-ones are matched by gender: men with men, women with women. This
             is enforced everywhere, including when you pair two people by hand.
-            Groups are unaffected — a group is what it was declared as.
+            Groups are unaffected - a group is what it was declared as.
           </p>
           <label className="check" htmlFor="suggestGenderMatch">
             <input
@@ -237,9 +238,9 @@ export default async function MinistrySettingsPage({
             leader
           </label>
           <p className="subtle">
-            Suggestions only — you can always pair across it by hand. There is no
+            Suggestions only - you can always pair across it by hand. There is no
             limit the other way: an older leader with a much younger participant is
-            the common case. The bands are {AGE_BANDS.join(', ')}.
+            the common case. The bands are {AGE_BANDS.join(', ')}. {GAP_EXAMPLE}
           </p>
           <select
             id="suggestMaxAgeBandGap"
