@@ -10,7 +10,7 @@ export const WholeWords = ({ text }: { readonly text: string }) => (
       .split(/(\S*-\S*)/)
       .filter((part) => part !== '')
       .map((part, at) =>
-        part.includes('-') && !/\s/.test(part) ? (
+        part.includes('-') ? (
           <span key={at} className="nowrap">
             {part}
           </span>

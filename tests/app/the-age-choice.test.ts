@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { AGE_BANDS } from '~/domain/intake'
 import { GAP_EXAMPLE, gapLabel } from '../../app/settings/copy'
 
 /**
@@ -18,9 +17,9 @@ describe('the age choice', () => {
     ])
   })
 
-  it('works one band through in the sentence above, read off the ladder', () => {
+  it('works one band through in the sentence above', () => {
     expect(GAP_EXAMPLE).toBe(
-      `At 1 band older, a ${AGE_BANDS[1]} leader may be suggested a ${AGE_BANDS[2]} participant.`,
+      'At 1 band older, a 25-34 leader may be suggested a 35-44 participant.',
     )
   })
 })
