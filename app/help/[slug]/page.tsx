@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, ArrowRight } from '../../icons'
 import { PageShell } from '../../shell'
 import { ALL_HELP_PAGES, HELP_CENTER, NEXT_PAGE, PREVIOUS_PAGE, helpPageTitle } from '../copy'
-import { HELP_PAGES, helpPage } from '../library'
+import { helpPagesHere } from '../library'
 import { renderMarkdown } from '../markdown'
 import { StillStuck } from '../still-stuck'
 
@@ -17,20 +17,24 @@ import { StillStuck } from '../still-stuck'
  */
 export const dynamicParams = false
 
-export const generateStaticParams = () => HELP_PAGES.map((page) => ({ slug: page.slug }))
+export const generateStaticParams = () => helpPagesHere().map((page) => ({ slug: page.slug }))
+
+/** A page shown on this deployment, so one that is switched off is a 404 like any other address. */
+const shownPage = (slug: string) => helpPagesHere().find((page) => page.slug === slug) ?? null
 
 export const generateMetadata = async ({ params }: { params: Promise<{ slug: string }> }) => {
-  const page = helpPage((await params).slug)
+  const page = shownPage((await params).slug)
   return { title: helpPageTitle(page?.title ?? HELP_CENTER), description: page?.summary }
 }
 
 export default async function HelpPage({ params }: { params: Promise<{ slug: string }> }) {
-  const page = helpPage((await params).slug)
+  const page = shownPage((await params).slug)
   if (!page) notFound()
 
-  const index = HELP_PAGES.indexOf(page)
-  const previous = HELP_PAGES[index - 1]
-  const next = HELP_PAGES[index + 1]
+  const pages = helpPagesHere()
+  const index = pages.indexOf(page)
+  const previous = pages[index - 1]
+  const next = pages[index + 1]
 
   return (
     <PageShell title={page.title} subtitle={HELP_CENTER} back={{ href: '/help', label: ALL_HELP_PAGES }}>

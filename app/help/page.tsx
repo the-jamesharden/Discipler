@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { PageShell } from '../shell'
 import { BACK_TO_DISCIPLER, HELP_CENTER, HELP_CENTER_LEAD, helpPageTitle } from './copy'
-import { HELP_PAGES, HELP_SECTIONS } from './library'
+import { HELP_SECTIONS, helpPagesHere } from './library'
 import { StillStuck } from './still-stuck'
 
 /**
@@ -16,6 +16,7 @@ import { StillStuck } from './still-stuck'
 export const metadata = { title: helpPageTitle(HELP_CENTER) }
 
 export default function HelpCenterPage() {
+  const pages = helpPagesHere()
   return (
     <PageShell
       title={HELP_CENTER}
@@ -28,7 +29,7 @@ export default function HelpCenterPage() {
             {section.title}
           </h2>
           <ul className="help-list">
-            {HELP_PAGES.filter((page) => page.section === section.key).map((page) => (
+            {pages.filter((page) => page.section === section.key).map((page) => (
               <li key={page.slug}>
                 <Link href={page.href}>
                   <span className="help-list-title">{page.title}</span>

@@ -16,6 +16,7 @@ import signingIn from './content/signing-in.md?raw'
 import testCheckIn from './content/test-check-in.md?raw'
 import texting from './content/texting.md?raw'
 import whatsNew from './content/whats-new.md?raw'
+import { askDisciplerIsOn } from '~/platform/ask-discipler-switch'
 import { HELP_FACTS } from './facts'
 import { headingAnchor } from './markdown'
 
@@ -143,6 +144,32 @@ export const HELP_PAGES: readonly HelpPage[] = HELP_SOURCES.map((source) => read
 
 export const helpPage = (slug: string): HelpPage | null =>
   HELP_PAGES.find((page) => page.slug === slug) ?? null
+
+/** A list line that links to one of `addresses`, with or without a part of the page. */
+const linksToAny = (line: string, addresses: readonly string[]): boolean =>
+  /^\s*[-*] /.test(line) && addresses.some((href) => line.includes(`](${href})`) || line.includes(`](${href}#`))
+
+/**
+ * The pages a church is shown: every page, except Ask Discipler's while it is switched
+ * off, with any list line that links to a page not shown taken out of the others, so no
+ * page describes a button that is not there (James, 2026-11-06: no AI for the launch).
+ * The Help center, each page's address and its neighbours, and search read this; the
+ * guide reads `HELP_PAGES`, as it only answers while it is on.
+ */
+export const helpPagesShown = (askDisciplerOn: boolean): readonly HelpPage[] => {
+  if (askDisciplerOn) return HELP_PAGES
+  const hidden = HELP_PAGES.filter((page) => page.slug === 'ask-discipler').map((page) => page.href)
+  return HELP_PAGES.filter((page) => !hidden.includes(page.href)).map((page) => {
+    const markdown = page.markdown
+      .split('\n')
+      .filter((line) => !linksToAny(line, hidden))
+      .join('\n')
+    return markdown === page.markdown ? page : { ...page, markdown }
+  })
+}
+
+/** The pages shown on this deployment, by its switch. */
+export const helpPagesHere = (): readonly HelpPage[] => helpPagesShown(askDisciplerIsOn(process.env))
 
 /**
  * The whole Help center as one text, page after page, each headed by its title

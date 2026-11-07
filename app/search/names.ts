@@ -1,7 +1,7 @@
 import type { PersonId } from '~/domain/ids'
 import { asList } from '~/domain/outbound-copy'
 import type { SearchPage, SearchPerson, SearchRelationship } from '~/service/ports'
-import { HELP_PAGES } from '../help/library'
+import { helpPagesHere } from '../help/library'
 import { initialsOf } from '../initials'
 import { inPairingOrder, whyNotPairable } from '../roster/lists'
 import { CANNOT_BE_PAIRED, PAIR_POPUP, pairingWithItsDirection } from '../roster/copy'
@@ -107,7 +107,7 @@ export const searchNames = (page: SearchPage, you: PersonId | null, now: Date): 
     where: WHERE.materials,
     icon: 'material',
   })),
-  help: HELP_PAGES.map((page) => ({
+  help: helpPagesHere().map((page) => ({
     label: page.title,
     sub: page.lead,
     href: page.href,
