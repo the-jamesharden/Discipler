@@ -11,7 +11,7 @@ import { StillStuck } from '../still-stuck'
  * One help page, rendered from its Markdown (Exponential launch, ticket 34).
  *
  * Public and built at build time, like the list: every slug is known from
- * `HELP_PAGES`, and any other address is a 404 rather than a page rendered on
+ * `helpPagesHere()`, and any other address is a 404 rather than a page rendered on
  * demand. The Markdown is rendered with raw HTML off (`../markdown.ts`), which is
  * what makes setting it as the article's HTML safe.
  */
