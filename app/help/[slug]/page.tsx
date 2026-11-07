@@ -32,7 +32,7 @@ export default async function HelpPage({ params }: { params: Promise<{ slug: str
   if (!page) notFound()
 
   const pages = helpPagesHere()
-  const index = pages.indexOf(page)
+  const index = pages.findIndex((shown) => shown.slug === page.slug)
   const previous = pages[index - 1]
   const next = pages[index + 1]
 
